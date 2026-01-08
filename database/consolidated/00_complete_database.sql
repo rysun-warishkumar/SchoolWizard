@@ -1,4 +1,4 @@
-﻿-- ============================================================================
+-- ============================================================================
 -- SchoolWizard Database - Complete Database Schema
 -- ============================================================================
 -- This is a SINGLE consolidated file containing the entire database schema
@@ -632,28 +632,33 @@ USE u524544702_schoolwizard;
 -- Note: MySQL doesn't support IF NOT EXISTS in ALTER TABLE directly
 -- So we'll use a stored procedure approach or just run them individually
 
+-- NOTE: These ALTER statements are commented out because the students table
+-- is created below (line 777) with ALL columns already included.
+-- These ALTER statements are only needed when migrating an existing database.
+-- For fresh installs, the CREATE TABLE statement includes all columns.
+
 -- Since father_photo already exists (you got the duplicate error), skip it
 -- Just run the ones that don't exist yet
 
--- Add mother_photo (if missing)
-ALTER TABLE students ADD COLUMN mother_photo VARCHAR(255) AFTER mother_email;
+-- Add mother_photo (if missing) - SKIPPED: Already in CREATE TABLE at line 813
+-- ALTER TABLE students ADD COLUMN mother_photo VARCHAR(255) AFTER mother_email;
 
--- Add guardian_photo (if missing)
-ALTER TABLE students ADD COLUMN guardian_photo VARCHAR(255) AFTER guardian_email;
+-- Add guardian_photo (if missing) - SKIPPED: Already in CREATE TABLE at line 820
+-- ALTER TABLE students ADD COLUMN guardian_photo VARCHAR(255) AFTER guardian_email;
 
--- Add transport_route_id (if missing)
-ALTER TABLE students ADD COLUMN transport_route_id INT AFTER permanent_address;
+-- Add transport_route_id (if missing) - SKIPPED: Already in CREATE TABLE at line 825
+-- ALTER TABLE students ADD COLUMN transport_route_id INT AFTER permanent_address;
 
--- Add hostel_id (if missing)
-ALTER TABLE students ADD COLUMN hostel_id INT AFTER transport_route_id;
+-- Add hostel_id (if missing) - SKIPPED: Already in CREATE TABLE at line 827
+-- ALTER TABLE students ADD COLUMN hostel_id INT AFTER transport_route_id;
 
--- Add hostel_room_id (if missing)
-ALTER TABLE students ADD COLUMN hostel_room_id INT AFTER hostel_id;
+-- Add hostel_room_id (if missing) - SKIPPED: Already in CREATE TABLE at line 828
+-- ALTER TABLE students ADD COLUMN hostel_room_id INT AFTER hostel_id;
 
 -- After running, verify the count
 -- Should have 49 columns total (including id, created_at, updated_at)
-SELECT COUNT(*) as total_columns FROM INFORMATION_SCHEMA.COLUMNS
-WHERE TABLE_SCHEMA = 'schoolwizard' AND TABLE_NAME = 'students';
+-- SELECT COUNT(*) as total_columns FROM INFORMATION_SCHEMA.COLUMNS
+-- WHERE TABLE_SCHEMA = 'u524544702_schoolwizard' AND TABLE_NAME = 'students';
 
 
 
@@ -670,34 +675,38 @@ USE u524544702_schoolwizard;
 -- Check current columns
 SELECT COLUMN_NAME 
 FROM INFORMATION_SCHEMA.COLUMNS
-WHERE TABLE_SCHEMA = 'schoolwizard'
+WHERE TABLE_SCHEMA = 'u524544702_schoolwizard'
 AND TABLE_NAME = 'students'
 ORDER BY ORDINAL_POSITION;
+
+-- NOTE: These ALTER statements are commented out because the students table
+-- is created above (line 777) with ALL columns already included.
+-- These are only needed when migrating an existing database that's missing columns.
 
 -- Now add only the missing columns
 -- Run these one by one and skip any that give "Duplicate column name" errors
 
--- Try to add father_photo (skip if error)
-ALTER TABLE students ADD COLUMN father_photo VARCHAR(255) AFTER father_email;
+-- Try to add father_photo (skip if error) - SKIPPED: Already in CREATE TABLE at line 807
+-- ALTER TABLE students ADD COLUMN father_photo VARCHAR(255) AFTER father_email;
 
--- Try to add mother_photo (skip if error)
-ALTER TABLE students ADD COLUMN mother_photo VARCHAR(255) AFTER mother_email;
+-- Try to add mother_photo (skip if error) - SKIPPED: Already in CREATE TABLE at line 813
+-- ALTER TABLE students ADD COLUMN mother_photo VARCHAR(255) AFTER mother_email;
 
--- Try to add guardian_photo (skip if error)
-ALTER TABLE students ADD COLUMN guardian_photo VARCHAR(255) AFTER guardian_email;
+-- Try to add guardian_photo (skip if error) - SKIPPED: Already in CREATE TABLE at line 820
+-- ALTER TABLE students ADD COLUMN guardian_photo VARCHAR(255) AFTER guardian_email;
 
--- Try to add transport_route_id (skip if error)
-ALTER TABLE students ADD COLUMN transport_route_id INT AFTER permanent_address;
+-- Try to add transport_route_id (skip if error) - SKIPPED: Already in CREATE TABLE at line 825
+-- ALTER TABLE students ADD COLUMN transport_route_id INT AFTER permanent_address;
 
--- Try to add hostel_id (skip if error)
-ALTER TABLE students ADD COLUMN hostel_id INT AFTER transport_route_id;
+-- Try to add hostel_id (skip if error) - SKIPPED: Already in CREATE TABLE at line 827
+-- ALTER TABLE students ADD COLUMN hostel_id INT AFTER transport_route_id;
 
--- Try to add hostel_room_id (skip if error)
-ALTER TABLE students ADD COLUMN hostel_room_id INT AFTER hostel_id;
+-- Try to add hostel_room_id (skip if error) - SKIPPED: Already in CREATE TABLE at line 828
+-- ALTER TABLE students ADD COLUMN hostel_room_id INT AFTER hostel_id;
 
 -- Verify final structure
-SELECT COUNT(*) as total_columns FROM INFORMATION_SCHEMA.COLUMNS
-WHERE TABLE_SCHEMA = 'schoolwizard' AND TABLE_NAME = 'students';
+-- SELECT COUNT(*) as total_columns FROM INFORMATION_SCHEMA.COLUMNS
+-- WHERE TABLE_SCHEMA = 'u524544702_schoolwizard' AND TABLE_NAME = 'students';
 
 
 
@@ -718,20 +727,20 @@ SELECT
     DATA_TYPE as data_type,
     IS_NULLABLE as nullable
 FROM INFORMATION_SCHEMA.COLUMNS
-WHERE TABLE_SCHEMA = 'schoolwizard'
+WHERE TABLE_SCHEMA = 'u524544702_schoolwizard'
 AND TABLE_NAME = 'students'
 ORDER BY ORDINAL_POSITION;
 
 -- Count total columns (should be 49 including id, created_at, updated_at)
 SELECT COUNT(*) as total_columns 
 FROM INFORMATION_SCHEMA.COLUMNS
-WHERE TABLE_SCHEMA = 'schoolwizard' 
+WHERE TABLE_SCHEMA = 'u524544702_schoolwizard' 
 AND TABLE_NAME = 'students';
 
 -- List columns that should be in INSERT (excluding id, created_at, updated_at, disable_reason_id, disable_date)
 SELECT COLUMN_NAME
 FROM INFORMATION_SCHEMA.COLUMNS
-WHERE TABLE_SCHEMA = 'schoolwizard'
+WHERE TABLE_SCHEMA = 'u524544702_schoolwizard'
 AND TABLE_NAME = 'students'
 AND COLUMN_NAME NOT IN ('id', 'created_at', 'updated_at', 'disable_reason_id', 'disable_date')
 ORDER BY ORDINAL_POSITION;
@@ -902,14 +911,18 @@ CREATE TABLE IF NOT EXISTS online_admissions (
 
 USE u524544702_schoolwizard;
 
--- Add missing columns if they don't exist
-ALTER TABLE students 
-ADD COLUMN IF NOT EXISTS father_photo VARCHAR(255) AFTER father_email,
-ADD COLUMN IF NOT EXISTS mother_photo VARCHAR(255) AFTER mother_email,
-ADD COLUMN IF NOT EXISTS guardian_photo VARCHAR(255) AFTER guardian_email,
-ADD COLUMN IF NOT EXISTS transport_route_id INT AFTER permanent_address,
-ADD COLUMN IF NOT EXISTS hostel_id INT AFTER transport_route_id,
-ADD COLUMN IF NOT EXISTS hostel_room_id INT AFTER hostel_id;
+-- NOTE: MySQL doesn't support "IF NOT EXISTS" in ALTER TABLE statements.
+-- These are commented out because the students table is created above (line 777)
+-- with ALL columns already included. These are only for migration purposes.
+
+-- Add missing columns if they don't exist - SKIPPED: Already in CREATE TABLE
+-- ALTER TABLE students 
+-- ADD COLUMN IF NOT EXISTS father_photo VARCHAR(255) AFTER father_email,
+-- ADD COLUMN IF NOT EXISTS mother_photo VARCHAR(255) AFTER mother_email,
+-- ADD COLUMN IF NOT EXISTS guardian_photo VARCHAR(255) AFTER guardian_email,
+-- ADD COLUMN IF NOT EXISTS transport_route_id INT AFTER permanent_address,
+-- ADD COLUMN IF NOT EXISTS hostel_id INT AFTER transport_route_id,
+-- ADD COLUMN IF NOT EXISTS hostel_room_id INT AFTER hostel_id;
 
 -- Note: If the above doesn't work (MySQL version < 8.0.19), use this instead:
 -- Check each column and add if missing manually in phpMyAdmin or MySQL client
@@ -935,7 +948,7 @@ SET FOREIGN_KEY_CHECKS = 0;
 
 -- Check and add father_photo
 SET @col_exists = (SELECT COUNT(*) FROM INFORMATION_SCHEMA.COLUMNS 
-  WHERE TABLE_SCHEMA = 'schoolwizard' 
+  WHERE TABLE_SCHEMA = 'u524544702_schoolwizard' 
   AND TABLE_NAME = 'students' 
   AND COLUMN_NAME = 'father_photo');
 SET @sql = IF(@col_exists = 0, 
@@ -947,7 +960,7 @@ DEALLOCATE PREPARE stmt;
 
 -- Check and add mother_photo
 SET @col_exists = (SELECT COUNT(*) FROM INFORMATION_SCHEMA.COLUMNS 
-  WHERE TABLE_SCHEMA = 'schoolwizard' 
+  WHERE TABLE_SCHEMA = 'u524544702_schoolwizard' 
   AND TABLE_NAME = 'students' 
   AND COLUMN_NAME = 'mother_photo');
 SET @sql = IF(@col_exists = 0, 
@@ -959,7 +972,7 @@ DEALLOCATE PREPARE stmt;
 
 -- Check and add guardian_photo
 SET @col_exists = (SELECT COUNT(*) FROM INFORMATION_SCHEMA.COLUMNS 
-  WHERE TABLE_SCHEMA = 'schoolwizard' 
+  WHERE TABLE_SCHEMA = 'u524544702_schoolwizard' 
   AND TABLE_NAME = 'students' 
   AND COLUMN_NAME = 'guardian_photo');
 SET @sql = IF(@col_exists = 0, 
@@ -971,7 +984,7 @@ DEALLOCATE PREPARE stmt;
 
 -- Check and add transport_route_id
 SET @col_exists = (SELECT COUNT(*) FROM INFORMATION_SCHEMA.COLUMNS 
-  WHERE TABLE_SCHEMA = 'schoolwizard' 
+  WHERE TABLE_SCHEMA = 'u524544702_schoolwizard' 
   AND TABLE_NAME = 'students' 
   AND COLUMN_NAME = 'transport_route_id');
 SET @sql = IF(@col_exists = 0, 
@@ -983,7 +996,7 @@ DEALLOCATE PREPARE stmt;
 
 -- Check and add hostel_id
 SET @col_exists = (SELECT COUNT(*) FROM INFORMATION_SCHEMA.COLUMNS 
-  WHERE TABLE_SCHEMA = 'schoolwizard' 
+  WHERE TABLE_SCHEMA = 'u524544702_schoolwizard' 
   AND TABLE_NAME = 'students' 
   AND COLUMN_NAME = 'hostel_id');
 SET @sql = IF(@col_exists = 0, 
@@ -995,7 +1008,7 @@ DEALLOCATE PREPARE stmt;
 
 -- Check and add hostel_room_id
 SET @col_exists = (SELECT COUNT(*) FROM INFORMATION_SCHEMA.COLUMNS 
-  WHERE TABLE_SCHEMA = 'schoolwizard' 
+  WHERE TABLE_SCHEMA = 'u524544702_schoolwizard' 
   AND TABLE_NAME = 'students' 
   AND COLUMN_NAME = 'hostel_room_id');
 SET @sql = IF(@col_exists = 0, 
@@ -1011,7 +1024,7 @@ SET FOREIGN_KEY_CHECKS = 1;
 -- Verify the table structure
 SELECT COLUMN_NAME, DATA_TYPE, IS_NULLABLE
 FROM INFORMATION_SCHEMA.COLUMNS
-WHERE TABLE_SCHEMA = 'schoolwizard'
+WHERE TABLE_SCHEMA = 'u524544702_schoolwizard'
 AND TABLE_NAME = 'students'
 ORDER BY ORDINAL_POSITION;
 
@@ -1028,17 +1041,21 @@ ORDER BY ORDINAL_POSITION;
 
 USE u524544702_schoolwizard;
 
--- Add missing columns (ignore errors if they already exist)
-ALTER TABLE students ADD COLUMN father_photo VARCHAR(255) AFTER father_email;
-ALTER TABLE students ADD COLUMN mother_photo VARCHAR(255) AFTER mother_email;
-ALTER TABLE students ADD COLUMN guardian_photo VARCHAR(255) AFTER guardian_email;
-ALTER TABLE students ADD COLUMN transport_route_id INT AFTER permanent_address;
-ALTER TABLE students ADD COLUMN hostel_id INT AFTER transport_route_id;
-ALTER TABLE students ADD COLUMN hostel_room_id INT AFTER hostel_id;
+-- NOTE: These ALTER statements are commented out because the students table
+-- is created above (line 777) with ALL columns already included.
+-- These are only needed when migrating an existing database.
+
+-- Add missing columns (ignore errors if they already exist) - SKIPPED: Already in CREATE TABLE
+-- ALTER TABLE students ADD COLUMN father_photo VARCHAR(255) AFTER father_email;
+-- ALTER TABLE students ADD COLUMN mother_photo VARCHAR(255) AFTER mother_email;
+-- ALTER TABLE students ADD COLUMN guardian_photo VARCHAR(255) AFTER guardian_email;
+-- ALTER TABLE students ADD COLUMN transport_route_id INT AFTER permanent_address;
+-- ALTER TABLE students ADD COLUMN hostel_id INT AFTER transport_route_id;
+-- ALTER TABLE students ADD COLUMN hostel_room_id INT AFTER hostel_id;
 
 -- Verify: This should show 49 columns total (including id, created_at, updated_at)
 SELECT COUNT(*) as total_columns FROM INFORMATION_SCHEMA.COLUMNS
-WHERE TABLE_SCHEMA = 'schoolwizard' AND TABLE_NAME = 'students';
+WHERE TABLE_SCHEMA = 'u524544702_schoolwizard' AND TABLE_NAME = 'students';
 
 
 
@@ -1060,51 +1077,51 @@ SELECT
     IS_NULLABLE as nullable,
     COLUMN_DEFAULT as default_value
 FROM INFORMATION_SCHEMA.COLUMNS
-WHERE TABLE_SCHEMA = 'schoolwizard'
+WHERE TABLE_SCHEMA = 'u524544702_schoolwizard'
 AND TABLE_NAME = 'students'
 ORDER BY ORDINAL_POSITION;
 
 -- Count total columns
 SELECT COUNT(*) as total_columns 
 FROM INFORMATION_SCHEMA.COLUMNS
-WHERE TABLE_SCHEMA = 'schoolwizard' 
+WHERE TABLE_SCHEMA = 'u524544702_schoolwizard' 
 AND TABLE_NAME = 'students';
 
 -- Check for specific missing columns
 SELECT 
     CASE WHEN EXISTS (
         SELECT 1 FROM INFORMATION_SCHEMA.COLUMNS 
-        WHERE TABLE_SCHEMA = 'schoolwizard' 
+        WHERE TABLE_SCHEMA = 'u524544702_schoolwizard' 
         AND TABLE_NAME = 'students' 
         AND COLUMN_NAME = 'father_photo'
     ) THEN 'EXISTS' ELSE 'MISSING' END as father_photo,
     CASE WHEN EXISTS (
         SELECT 1 FROM INFORMATION_SCHEMA.COLUMNS 
-        WHERE TABLE_SCHEMA = 'schoolwizard' 
+        WHERE TABLE_SCHEMA = 'u524544702_schoolwizard' 
         AND TABLE_NAME = 'students' 
         AND COLUMN_NAME = 'mother_photo'
     ) THEN 'EXISTS' ELSE 'MISSING' END as mother_photo,
     CASE WHEN EXISTS (
         SELECT 1 FROM INFORMATION_SCHEMA.COLUMNS 
-        WHERE TABLE_SCHEMA = 'schoolwizard' 
+        WHERE TABLE_SCHEMA = 'u524544702_schoolwizard' 
         AND TABLE_NAME = 'students' 
         AND COLUMN_NAME = 'guardian_photo'
     ) THEN 'EXISTS' ELSE 'MISSING' END as guardian_photo,
     CASE WHEN EXISTS (
         SELECT 1 FROM INFORMATION_SCHEMA.COLUMNS 
-        WHERE TABLE_SCHEMA = 'schoolwizard' 
+        WHERE TABLE_SCHEMA = 'u524544702_schoolwizard' 
         AND TABLE_NAME = 'students' 
         AND COLUMN_NAME = 'transport_route_id'
     ) THEN 'EXISTS' ELSE 'MISSING' END as transport_route_id,
     CASE WHEN EXISTS (
         SELECT 1 FROM INFORMATION_SCHEMA.COLUMNS 
-        WHERE TABLE_SCHEMA = 'schoolwizard' 
+        WHERE TABLE_SCHEMA = 'u524544702_schoolwizard' 
         AND TABLE_NAME = 'students' 
         AND COLUMN_NAME = 'hostel_id'
     ) THEN 'EXISTS' ELSE 'MISSING' END as hostel_id,
     CASE WHEN EXISTS (
         SELECT 1 FROM INFORMATION_SCHEMA.COLUMNS 
-        WHERE TABLE_SCHEMA = 'schoolwizard' 
+        WHERE TABLE_SCHEMA = 'u524544702_schoolwizard' 
         AND TABLE_NAME = 'students' 
         AND COLUMN_NAME = 'hostel_room_id'
     ) THEN 'EXISTS' ELSE 'MISSING' END as hostel_room_id;
@@ -1116,13 +1133,17 @@ SELECT
 -- Source: 010_add_admit_card_fields.sql
 -- ============================================================================
 
--- Add missing columns to admit_card_templates table
-USE u524544702_schoolwizard;
+-- NOTE: These ALTER statements are commented out because the admit_card_templates table
+-- is created below (line 2081) with ALL columns already included (heading, title, exam_name).
+-- These are only needed when migrating an existing database.
 
-ALTER TABLE admit_card_templates
-ADD COLUMN IF NOT EXISTS heading VARCHAR(255) AFTER name,
-ADD COLUMN IF NOT EXISTS title VARCHAR(255) AFTER heading,
-ADD COLUMN IF NOT EXISTS exam_name VARCHAR(255) AFTER title;
+-- Add missing columns to admit_card_templates table - SKIPPED: Already in CREATE TABLE
+-- USE u524544702_schoolwizard;
+--
+-- ALTER TABLE admit_card_templates
+-- ADD COLUMN IF NOT EXISTS heading VARCHAR(255) AFTER name,
+-- ADD COLUMN IF NOT EXISTS title VARCHAR(255) AFTER heading,
+-- ADD COLUMN IF NOT EXISTS exam_name VARCHAR(255) AFTER title;
 
 
 
@@ -1148,7 +1169,7 @@ ALTER TABLE students MODIFY COLUMN guardian_photo LONGTEXT;
 -- Verify the change
 SELECT COLUMN_NAME, DATA_TYPE, CHARACTER_MAXIMUM_LENGTH 
 FROM INFORMATION_SCHEMA.COLUMNS 
-WHERE TABLE_SCHEMA = 'schoolwizard' 
+WHERE TABLE_SCHEMA = 'u524544702_schoolwizard' 
 AND TABLE_NAME = 'students' 
 AND COLUMN_NAME LIKE '%photo%';
 
@@ -2861,7 +2882,7 @@ SELECT
     REFERENCED_TABLE_NAME,
     REFERENCED_COLUMN_NAME
 FROM INFORMATION_SCHEMA.KEY_COLUMN_USAGE
-WHERE TABLE_SCHEMA = 'schoolwizard'
+WHERE TABLE_SCHEMA = 'u524544702_schoolwizard'
 AND TABLE_NAME = 'chat_conversations'
 AND CONSTRAINT_NAME = 'fk_last_message';
 

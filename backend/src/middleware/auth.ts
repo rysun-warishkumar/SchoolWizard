@@ -3,6 +3,7 @@ import jwt from 'jsonwebtoken';
 import { createError, AuthenticationError } from './errorHandler';
 import { env } from '../config/env';
 
+// AuthRequest extends Request, so it inherits all Request properties (params, body, headers, etc.)
 export interface AuthRequest extends Request {
   user?: {
     id: string;

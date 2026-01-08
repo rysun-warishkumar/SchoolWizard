@@ -1,11 +1,14 @@
 import { Request, Response, NextFunction } from 'express';
 import { getDatabase } from '../config/database';
 import { createError } from '../middleware/errorHandler';
-import multer from 'multer';
+import multer, { FileFilterCallback } from 'multer';
 import path from 'path';
 import fs from 'fs';
 import { fileURLToPath } from 'url';
 import { dirname } from 'path';
+
+// Type for multer file - using any to avoid Express namespace dependency issues
+type MulterFile = any;
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -2032,8 +2035,7 @@ export const updateSystemFieldStatus = async (
 // ========== Backup & Restore ==========
 import { AuthRequest } from '../middleware/auth';
 import * as backupService from '../utils/backupService';
-import path from 'path';
-import fs from 'fs';
+// path and fs already imported at top of file
 
 export const getBackupRecords = async (
   req: Request,
@@ -2057,7 +2059,7 @@ export const createBackup = async (
   next: NextFunction
 ): Promise<void> => {
   try {
-    const userId = req.user?.id;
+    const userId = req.user?.id ? Number(req.user.id) : undefined;
     const backup = await backupService.createBackup({
       userId,
       backupType: 'manual',

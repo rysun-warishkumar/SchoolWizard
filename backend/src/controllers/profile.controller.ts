@@ -32,7 +32,7 @@ export const getProfile = async (
     delete user.password;
 
     // Get user permissions
-    const permissions = await getUserPermissions(req.user.id);
+    const permissions = await getUserPermissions(Number(req.user.id));
     user.permissions = permissions;
 
     res.json({
@@ -55,7 +55,7 @@ export const getUserPermissionsEndpoint = async (
       throw createError('Not authenticated', 401);
     }
 
-    const permissions = await getUserPermissions(req.user.id);
+    const permissions = await getUserPermissions(Number(req.user.id));
 
     res.json({
       success: true,
