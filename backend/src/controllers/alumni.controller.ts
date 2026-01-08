@@ -40,7 +40,7 @@ const eventImageStorage = multer.diskStorage({
   },
 });
 
-const imageFilter = (req: any, file: Express.Multer.File, cb: multer.FileFilterCallback) => {
+const imageFilter = (req: any, file: any, cb: multer.FileFilterCallback) => {
   const allowedTypes = /jpeg|jpg|png|gif|webp/;
   const extname = allowedTypes.test(path.extname(file.originalname).toLowerCase());
   const mimetype = allowedTypes.test(file.mimetype);

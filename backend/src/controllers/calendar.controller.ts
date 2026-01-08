@@ -224,7 +224,10 @@ export const getTodoTasks = async (req: Request, res: Response, next: NextFuncti
 
     if (is_completed !== undefined) {
       query += ' AND is_completed = ?';
-      params.push(is_completed === 'true' || is_completed === true);
+      const isCompleted = typeof is_completed === 'string' 
+        ? (is_completed === 'true' || is_completed === '1')
+        : Boolean(is_completed);
+      params.push(isCompleted);
     }
 
     query += ' ORDER BY task_date ASC, created_at ASC';

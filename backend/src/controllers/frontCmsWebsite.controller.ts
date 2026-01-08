@@ -108,7 +108,7 @@ export const getWebsiteSettings = async (req: Request, res: Response, next: Next
     const setting = Array.isArray(settings) ? settings[0] : settings;
     res.json({ success: true, data: setting });
   } catch (error: any) {
-    next(createError(500, error.message));
+    next(createError(error.message, 500));
   }
 };
 
@@ -156,9 +156,9 @@ export const updateWebsiteSettings = async (req: Request, res: Response, next: N
     }
 
     // Check if settings exist
-    const [existing] = await db.execute('SELECT id FROM front_cms_website_settings LIMIT 1');
+    const [existing] = await db.execute('SELECT id FROM front_cms_website_settings LIMIT 1') as any[];
     const exists = Array.isArray(existing) && existing.length > 0;
-    const existingId = exists ? (Array.isArray(existing) ? existing[0].id : (existing as any).id) : null;
+    const existingId = exists ? (existing[0] as any)?.id : null;
 
     if (exists && existingId) {
       // Update existing settings - build dynamic update query
@@ -239,7 +239,7 @@ export const updateWebsiteSettings = async (req: Request, res: Response, next: N
       }
 
       if (updateFields.length > 0) {
-        values.push(existingId);
+        values.push(String(existingId));
         await db.execute(
           `UPDATE front_cms_website_settings SET ${updateFields.join(', ')}, updated_at = CURRENT_TIMESTAMP WHERE id = ?`,
           values
@@ -288,7 +288,7 @@ export const updateWebsiteSettings = async (req: Request, res: Response, next: N
     });
   } catch (error: any) {
     console.error('Error updating website settings:', error);
-    next(createError(500, error.message));
+    next(createError(error.message, 500));
   }
 };
 
@@ -305,7 +305,7 @@ export const getBanners = async (req: Request, res: Response, next: NextFunction
       data: Array.isArray(banners) ? banners : [],
     });
   } catch (error: any) {
-    next(createError(500, error.message));
+    next(createError(error.message, 500));
   }
 };
 
@@ -315,15 +315,15 @@ export const getBanner = async (req: Request, res: Response, next: NextFunction)
     const db = getDatabase();
     const { id } = req.params;
 
-    const [banners] = await db.execute('SELECT * FROM front_cms_banners WHERE id = ?', [id]);
+    const [banners] = await db.execute('SELECT * FROM front_cms_banners WHERE id = ?', [String(id)]);
 
     if (!Array.isArray(banners) || banners.length === 0) {
-      return next(createError(404, 'Banner not found'));
+      return next(createError('Banner not found', 404));
     }
 
     res.json({ success: true, data: banners[0] });
   } catch (error: any) {
-    next(createError(500, error.message));
+    next(createError(error.message, 500));
   }
 };
 
@@ -341,7 +341,7 @@ export const createBanner = async (req: Request, res: Response, next: NextFuncti
     const is_active = req.body.is_active !== undefined ? parseBoolean(req.body.is_active) : true;
 
     if (!title || !req.file) {
-      return next(createError(400, 'Title and image are required'));
+      return next(createError('Title and image are required', 400));
     }
 
     const image_path = `/uploads/front-cms/banners/${req.file.filename}`;
@@ -362,7 +362,7 @@ export const createBanner = async (req: Request, res: Response, next: NextFuncti
 
     const insertResult = result as any;
     const [banners] = await db.execute('SELECT * FROM front_cms_banners WHERE id = ?', [
-      insertResult.insertId,
+      String(insertResult.insertId),
     ]);
 
     res.status(201).json({
@@ -371,7 +371,7 @@ export const createBanner = async (req: Request, res: Response, next: NextFuncti
       data: Array.isArray(banners) ? banners[0] : banners,
     });
   } catch (error: any) {
-    next(createError(500, error.message));
+    next(createError(error.message, 500));
   }
 };
 
@@ -390,9 +390,9 @@ export const updateBanner = async (req: Request, res: Response, next: NextFuncti
     const is_active = req.body.is_active !== undefined ? parseBoolean(req.body.is_active) : undefined;
 
     // Check if banner exists
-    const [existing] = await db.execute('SELECT * FROM front_cms_banners WHERE id = ?', [id]);
+    const [existing] = await db.execute('SELECT * FROM front_cms_banners WHERE id = ?', [String(id)]);
     if (!Array.isArray(existing) || existing.length === 0) {
-      return next(createError(404, 'Banner not found'));
+      return next(createError('Banner not found', 404));
     }
 
     const existingBanner = existing[0] as any;
@@ -423,11 +423,11 @@ export const updateBanner = async (req: Request, res: Response, next: NextFuncti
         button_url !== undefined ? button_url : existingBanner.button_url,
         sort_order !== undefined ? sort_order : existingBanner.sort_order,
         is_active !== undefined ? is_active : existingBanner.is_active,
-        id,
+        String(id),
       ]
     );
 
-    const [updated] = await db.execute('SELECT * FROM front_cms_banners WHERE id = ?', [id]);
+    const [updated] = await db.execute('SELECT * FROM front_cms_banners WHERE id = ?', [String(id)]);
 
     res.json({
       success: true,
@@ -436,7 +436,7 @@ export const updateBanner = async (req: Request, res: Response, next: NextFuncti
     });
   } catch (error: any) {
     console.error('Error updating banner:', error);
-    next(createError(500, error.message));
+    next(createError(error.message, 500));
   }
 };
 
@@ -448,17 +448,17 @@ export const deleteBanner = async (req: Request, res: Response, next: NextFuncti
 
     // Get banner to delete image
     const [banners] = await db.execute('SELECT image_path FROM front_cms_banners WHERE id = ?', [
-      id,
+      String(id),
     ]);
 
     if (!Array.isArray(banners) || banners.length === 0) {
-      return next(createError(404, 'Banner not found'));
+      return next(createError('Banner not found', 404));
     }
 
     const banner = banners[0] as any;
 
     // Delete banner from database
-    await db.execute('DELETE FROM front_cms_banners WHERE id = ?', [id]);
+    await db.execute('DELETE FROM front_cms_banners WHERE id = ?', [String(id)]);
 
     // Delete image file
     if (banner.image_path) {
@@ -470,7 +470,7 @@ export const deleteBanner = async (req: Request, res: Response, next: NextFuncti
 
     res.json({ success: true, message: 'Banner deleted successfully' });
   } catch (error: any) {
-    next(createError(500, error.message));
+    next(createError(error.message, 500));
   }
 };
 

@@ -13,7 +13,7 @@ router.get('/categories', async (req, res, next) => {
     );
     res.json({ success: true, data: Array.isArray(categories) ? categories : [] });
   } catch (error: any) {
-    next(createError(500, error.message));
+    next(createError(error.message, 500));
   }
 });
 
@@ -41,7 +41,7 @@ router.get('/images', async (req, res, next) => {
     const [images] = await db.execute(query, params);
     res.json({ success: true, data: Array.isArray(images) ? images : [] });
   } catch (error: any) {
-    next(createError(500, error.message));
+    next(createError(error.message, 500));
   }
 });
 

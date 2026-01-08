@@ -61,7 +61,7 @@ const generalSettingsStorage = multer.diskStorage({
   },
 });
 
-const imageFilter = (req: any, file: Express.Multer.File, cb: multer.FileFilterCallback) => {
+const imageFilter = (req: any, file: any, cb: FileFilterCallback) => {
   const allowedTypes = /jpeg|jpg|png|gif|webp|ico|svg/;
   const extname = allowedTypes.test(path.extname(file.originalname).toLowerCase());
   const mimetype = allowedTypes.test(file.mimetype) || file.mimetype === 'image/x-icon' || file.mimetype === 'image/vnd.microsoft.icon';
@@ -199,7 +199,7 @@ export const updateGeneralSettings = async (
     });
 
     // Handle file uploads
-    const files = req.files as { [fieldname: string]: Express.Multer.File[] } | undefined;
+    const files = req.files as { [fieldname: string]: MulterFile[] } | undefined;
     if (files) {
       if (files.adminLogo && files.adminLogo[0]) {
         settings.adminLogo = `/uploads/logos/${files.adminLogo[0].filename}`;
@@ -1478,7 +1478,7 @@ export const updateFrontCMSSettings = async (
     const db = getDatabase();
 
     // Handle file uploads
-    const files = req.files as { [fieldname: string]: Express.Multer.File[] } | undefined;
+    const files = req.files as { [fieldname: string]: MulterFile[] } | undefined;
     let logoPath = logo || null;
     let faviconPath = favicon || null;
 

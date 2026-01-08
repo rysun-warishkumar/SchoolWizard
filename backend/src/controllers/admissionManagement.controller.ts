@@ -29,7 +29,7 @@ export const getInquiries = async (req: Request, res: Response, next: NextFuncti
     const [inquiries] = await db.execute(query, params);
     res.json({ success: true, data: Array.isArray(inquiries) ? inquiries : [] });
   } catch (error: any) {
-    next(createError(500, error.message));
+    next(createError(error.message, 500));
   }
 };
 
@@ -38,15 +38,15 @@ export const getInquiry = async (req: Request, res: Response, next: NextFunction
     const db = getDatabase();
     const { id } = req.params;
     
-    const [inquiries] = await db.execute('SELECT * FROM admission_inquiries WHERE id = ?', [id]);
+    const [inquiries] = await db.execute('SELECT * FROM admission_inquiries WHERE id = ?', [String(id)]);
     
     if (!inquiries || (Array.isArray(inquiries) && inquiries.length === 0)) {
-      return next(createError(404, 'Inquiry not found'));
+      return next(createError('Inquiry not found', 404));
     }
     
     res.json({ success: true, data: Array.isArray(inquiries) ? inquiries[0] : inquiries });
   } catch (error: any) {
-    next(createError(500, error.message));
+    next(createError(error.message, 500));
   }
 };
 
@@ -56,7 +56,7 @@ export const createInquiry = async (req: Request, res: Response, next: NextFunct
     const { student_name, parent_name, email, phone, grade, previous_school, address, message } = req.body;
     
     if (!student_name || !parent_name || !email || !phone || !grade || !address) {
-      return next(createError(400, 'Required fields are missing'));
+      return next(createError('Required fields are missing', 400));
     }
     
     const [result] = await db.execute(
@@ -65,11 +65,11 @@ export const createInquiry = async (req: Request, res: Response, next: NextFunct
     );
     
     const insertResult = result as any;
-    const [inquiry] = await db.execute('SELECT * FROM admission_inquiries WHERE id = ?', [insertResult.insertId]);
+    const [inquiry] = await db.execute('SELECT * FROM admission_inquiries WHERE id = ?', [String(insertResult.insertId)]);
     
     res.status(201).json({ success: true, message: 'Inquiry submitted successfully', data: Array.isArray(inquiry) ? inquiry[0] : inquiry });
   } catch (error: any) {
-    next(createError(500, error.message));
+    next(createError(error.message, 500));
   }
 };
 
@@ -80,7 +80,7 @@ export const updateInquiryStatus = async (req: Request, res: Response, next: Nex
     const { status, notes } = req.body;
     
     if (!status || !['pending', 'contacted', 'approved', 'rejected'].includes(status)) {
-      return next(createError(400, 'Invalid status'));
+      return next(createError('Invalid status', 400));
     }
     
     await db.execute(
@@ -91,7 +91,7 @@ export const updateInquiryStatus = async (req: Request, res: Response, next: Nex
     const [updated] = await db.execute('SELECT * FROM admission_inquiries WHERE id = ?', [id]);
     res.json({ success: true, message: 'Inquiry status updated successfully', data: Array.isArray(updated) ? updated[0] : updated });
   } catch (error: any) {
-    next(createError(500, error.message));
+    next(createError(error.message, 500));
   }
 };
 
@@ -100,11 +100,11 @@ export const deleteInquiry = async (req: Request, res: Response, next: NextFunct
     const db = getDatabase();
     const { id } = req.params;
     
-    await db.execute('DELETE FROM admission_inquiries WHERE id = ?', [id]);
+    await db.execute('DELETE FROM admission_inquiries WHERE id = ?', [String(id)]);
     
     res.json({ success: true, message: 'Inquiry deleted successfully' });
   } catch (error: any) {
-    next(createError(500, error.message));
+    next(createError(error.message, 500));
   }
 };
 
@@ -119,7 +119,7 @@ export const getImportantDates = async (req: Request, res: Response, next: NextF
     
     res.json({ success: true, data: Array.isArray(dates) ? dates : [] });
   } catch (error: any) {
-    next(createError(500, error.message));
+    next(createError(error.message, 500));
   }
 };
 
@@ -129,7 +129,7 @@ export const createImportantDate = async (req: Request, res: Response, next: Nex
     const { title, date_value, description, sort_order, is_active } = req.body;
     
     if (!title || !date_value) {
-      return next(createError(400, 'Title and date are required'));
+      return next(createError('Title and date are required', 400));
     }
     
     const [result] = await db.execute(
@@ -142,7 +142,7 @@ export const createImportantDate = async (req: Request, res: Response, next: Nex
     
     res.status(201).json({ success: true, message: 'Important date created successfully', data: Array.isArray(date) ? date[0] : date });
   } catch (error: any) {
-    next(createError(500, error.message));
+    next(createError(error.message, 500));
   }
 };
 
@@ -154,13 +154,13 @@ export const updateImportantDate = async (req: Request, res: Response, next: Nex
     
     await db.execute(
       'UPDATE admission_important_dates SET title = ?, date_value = ?, description = ?, sort_order = ?, is_active = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?',
-      [title, date_value, description || null, sort_order || 0, parseBoolean(is_active) !== undefined ? parseBoolean(is_active) : true, id]
+      [title, date_value, description || null, sort_order || 0, parseBoolean(is_active) !== undefined ? parseBoolean(is_active) : true, String(id)]
     );
     
-    const [updated] = await db.execute('SELECT * FROM admission_important_dates WHERE id = ?', [id]);
+    const [updated] = await db.execute('SELECT * FROM admission_important_dates WHERE id = ?', [String(id)]);
     res.json({ success: true, message: 'Important date updated successfully', data: Array.isArray(updated) ? updated[0] : updated });
   } catch (error: any) {
-    next(createError(500, error.message));
+    next(createError(error.message, 500));
   }
 };
 
@@ -173,7 +173,7 @@ export const deleteImportantDate = async (req: Request, res: Response, next: Nex
     
     res.json({ success: true, message: 'Important date deleted successfully' });
   } catch (error: any) {
-    next(createError(500, error.message));
+    next(createError(error.message, 500));
   }
 };
 
@@ -201,7 +201,7 @@ export const getContactDetails = async (req: Request, res: Response, next: NextF
     const detail = Array.isArray(details) ? details[0] : details;
     res.json({ success: true, data: detail });
   } catch (error: any) {
-    next(createError(500, error.message));
+    next(createError(error.message, 500));
   }
 };
 
@@ -247,7 +247,7 @@ export const updateContactDetails = async (req: Request, res: Response, next: Ne
     const [updated] = await db.execute('SELECT * FROM admission_contact_details LIMIT 1');
     res.json({ success: true, message: 'Contact details updated successfully', data: Array.isArray(updated) ? updated[0] : updated });
   } catch (error: any) {
-    next(createError(500, error.message));
+    next(createError(error.message, 500));
   }
 };
 

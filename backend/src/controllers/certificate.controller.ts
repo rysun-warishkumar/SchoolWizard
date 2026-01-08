@@ -112,7 +112,7 @@ export const createCertificateTemplate = async (req: Request, res: Response, nex
     // Handle background image upload
     let backgroundImage = null;
     if (req.files && Array.isArray(req.files) && req.files.length > 0) {
-      const file = req.files[0] as Express.Multer.File;
+      const file = req.files[0] as any;
       backgroundImage = `/uploads/certificates/${file.filename}`;
     }
 
@@ -186,7 +186,7 @@ export const updateCertificateTemplate = async (req: Request, res: Response, nex
     // Handle background image upload
     let backgroundImage = existing[0].background_image;
     if (req.files && Array.isArray(req.files) && req.files.length > 0) {
-      const file = req.files[0] as Express.Multer.File;
+      const file = req.files[0] as any;
       
       // Delete old background image if exists
       if (backgroundImage) {
@@ -344,7 +344,7 @@ export const createIdCardTemplate = async (req: Request, res: Response, next: Ne
     let signature = null;
 
     if (req.files && Array.isArray(req.files)) {
-      const files = req.files as Express.Multer.File[];
+      const files = req.files as any[];
       // Assuming files are uploaded in order: background_image, logo, signature
       // Or use field names to identify them
       files.forEach((file, index) => {
@@ -439,7 +439,7 @@ export const updateIdCardTemplate = async (req: Request, res: Response, next: Ne
     let signature = existing[0].signature;
 
     if (req.files && Array.isArray(req.files)) {
-      const files = req.files as Express.Multer.File[];
+      const files = req.files as any[];
       files.forEach((file) => {
         const filePath = `/uploads/certificates/${file.filename}`;
         if (file.fieldname === 'background_image') {

@@ -60,7 +60,7 @@ export const getCategories = async (req: Request, res: Response, next: NextFunct
     );
     res.json({ success: true, data: Array.isArray(categories) ? categories : [] });
   } catch (error: any) {
-    next(createError(500, error.message));
+    next(createError(error.message, 500));
   }
 };
 
@@ -70,7 +70,7 @@ export const createCategory = async (req: Request, res: Response, next: NextFunc
     const { name, description, sort_order, is_active } = req.body;
     
     if (!name || !name.trim()) {
-      return next(createError(400, 'Category name is required'));
+      return next(createError('Category name is required', 400));
     }
     
     const [result] = await db.execute(
@@ -87,9 +87,9 @@ export const createCategory = async (req: Request, res: Response, next: NextFunc
     });
   } catch (error: any) {
     if (error.code === 'ER_DUP_ENTRY') {
-      return next(createError(400, 'Category name already exists'));
+      return next(createError('Category name already exists', 400));
     }
-    next(createError(500, error.message));
+    next(createError(error.message, 500));
   }
 };
 
@@ -100,15 +100,15 @@ export const updateCategory = async (req: Request, res: Response, next: NextFunc
     const { name, description, sort_order, is_active } = req.body;
     
     if (!name || !name.trim()) {
-      return next(createError(400, 'Category name is required'));
+      return next(createError('Category name is required', 400));
     }
     
     await db.execute(
       'UPDATE gallery_categories SET name = ?, description = ?, sort_order = ?, is_active = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?',
-      [name.trim(), description?.trim() || null, sort_order || 0, parseBoolean(is_active) !== undefined ? parseBoolean(is_active) : true, id]
+      [name.trim(), description?.trim() || null, sort_order || 0, parseBoolean(is_active) !== undefined ? parseBoolean(is_active) : true, String(id)]
     );
     
-    const [updatedCategory] = await db.execute('SELECT * FROM gallery_categories WHERE id = ?', [id]);
+    const [updatedCategory] = await db.execute('SELECT * FROM gallery_categories WHERE id = ?', [String(id)]);
     
     res.json({
       success: true,
@@ -117,9 +117,9 @@ export const updateCategory = async (req: Request, res: Response, next: NextFunc
     });
   } catch (error: any) {
     if (error.code === 'ER_DUP_ENTRY') {
-      return next(createError(400, 'Category name already exists'));
+      return next(createError('Category name already exists', 400));
     }
-    next(createError(500, error.message));
+    next(createError(error.message, 500));
   }
 };
 
@@ -129,16 +129,16 @@ export const deleteCategory = async (req: Request, res: Response, next: NextFunc
     const { id } = req.params;
     
     // Check if category has images
-    const [images] = await db.execute('SELECT COUNT(*) as count FROM gallery_images WHERE category_id = ?', [id]) as any;
+    const [images] = await db.execute('SELECT COUNT(*) as count FROM gallery_images WHERE category_id = ?', [String(id)]) as any;
     if (images && images[0] && images[0].count > 0) {
-      return next(createError(400, 'Cannot delete category with existing images. Please delete or move images first.'));
+      return next(createError('Cannot delete category with existing images. Please delete or move images first.', 400));
     }
     
     await db.execute('DELETE FROM gallery_categories WHERE id = ?', [id]);
     
     res.json({ success: true, message: 'Category deleted successfully' });
   } catch (error: any) {
-    next(createError(500, error.message));
+    next(createError(error.message, 500));
   }
 };
 
@@ -167,7 +167,7 @@ export const getImages = async (req: Request, res: Response, next: NextFunction)
     const [images] = await db.execute(query, params);
     res.json({ success: true, data: Array.isArray(images) ? images : [] });
   } catch (error: any) {
-    next(createError(500, error.message));
+    next(createError(error.message, 500));
   }
 };
 
@@ -178,17 +178,17 @@ export const createImage = async (req: Request, res: Response, next: NextFunctio
     const { category_id, title, description, sort_order, is_active } = req.body;
     
     if (!file) {
-      return next(createError(400, 'Image file is required'));
+      return next(createError('Image file is required', 400));
     }
     
     if (!category_id || !title || !title.trim()) {
-      return next(createError(400, 'Category and title are required'));
+      return next(createError('Category and title are required', 400));
     }
     
     // Verify category exists
-    const [categories] = await db.execute('SELECT id FROM gallery_categories WHERE id = ?', [category_id]) as any;
+    const [categories] = await db.execute('SELECT id FROM gallery_categories WHERE id = ?', [String(category_id)]) as any;
     if (!categories || categories.length === 0) {
-      return next(createError(404, 'Category not found'));
+      return next(createError('Category not found', 404));
     }
     
     const imagePath = `/uploads/front-cms/gallery/${file.filename}`;
@@ -216,7 +216,7 @@ export const createImage = async (req: Request, res: Response, next: NextFunctio
         fs.unlinkSync(filePath);
       }
     }
-    next(createError(500, error.message));
+    next(createError(error.message, 500));
   }
 };
 
@@ -228,13 +228,13 @@ export const updateImage = async (req: Request, res: Response, next: NextFunctio
     const { category_id, title, description, sort_order, is_active } = req.body;
     
     if (!title || !title.trim()) {
-      return next(createError(400, 'Title is required'));
+      return next(createError('Title is required', 400));
     }
     
     // Get existing image
-    const [existingImages] = await db.execute('SELECT * FROM gallery_images WHERE id = ?', [id]) as any;
+    const [existingImages] = await db.execute('SELECT * FROM gallery_images WHERE id = ?', [String(id)]) as any;
     if (!existingImages || existingImages.length === 0) {
-      return next(createError(404, 'Image not found'));
+      return next(createError('Image not found', 404));
     }
     const existingImage = existingImages[0];
     
@@ -256,7 +256,7 @@ export const updateImage = async (req: Request, res: Response, next: NextFunctio
     
     await db.execute(
       'UPDATE gallery_images SET category_id = ?, title = ?, description = ?, image_path = ?, sort_order = ?, is_active = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?',
-      [updateCategoryId, title.trim(), description?.trim() || null, imagePath, sort_order || 0, parseBoolean(is_active) !== undefined ? parseBoolean(is_active) : true, id]
+      [String(updateCategoryId), title.trim(), description?.trim() || null, imagePath, sort_order || 0, parseBoolean(is_active) !== undefined ? parseBoolean(is_active) : true, String(id)]
     );
     
     const [updatedImage] = await db.execute(
@@ -277,7 +277,7 @@ export const updateImage = async (req: Request, res: Response, next: NextFunctio
         fs.unlinkSync(filePath);
       }
     }
-    next(createError(500, error.message));
+    next(createError(error.message, 500));
   }
 };
 
@@ -289,7 +289,7 @@ export const deleteImage = async (req: Request, res: Response, next: NextFunctio
     // Get image to delete file
     const [images] = await db.execute('SELECT * FROM gallery_images WHERE id = ?', [id]) as any;
     if (!images || images.length === 0) {
-      return next(createError(404, 'Image not found'));
+      return next(createError('Image not found', 404));
     }
     const image = images[0];
     
@@ -301,11 +301,11 @@ export const deleteImage = async (req: Request, res: Response, next: NextFunctio
       }
     }
     
-    await db.execute('DELETE FROM gallery_images WHERE id = ?', [id]);
+    await db.execute('DELETE FROM gallery_images WHERE id = ?', [String(id)]);
     
     res.json({ success: true, message: 'Image deleted successfully' });
   } catch (error: any) {
-    next(createError(500, error.message));
+    next(createError(error.message, 500));
   }
 };
 

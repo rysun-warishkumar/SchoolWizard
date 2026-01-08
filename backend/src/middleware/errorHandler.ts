@@ -169,7 +169,8 @@ export const errorHandler = (
       response.name = err.name;
     }
 
-    return res.status(statusCode).json(response);
+    res.status(statusCode).json(response);
+    return;
   }
 
   // Handle Joi validation errors
@@ -179,7 +180,7 @@ export const errorHandler = (
       return `${field}: ${detail.message}`;
     }).join(', ');
 
-    return res.status(400).json({
+    res.status(400).json({
       success: false,
       message: `Validation error: ${errorMessages}`,
       ...(isDevelopment() && { details: err.details }),

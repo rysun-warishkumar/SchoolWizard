@@ -69,7 +69,7 @@ export const getMissionVision = async (req: Request, res: Response, next: NextFu
 
     res.json({ success: true, data: Array.isArray(data) ? data[0] : data });
   } catch (error: any) {
-    next(createError(500, error.message));
+    next(createError(error.message, 500));
   }
 };
 
@@ -96,7 +96,7 @@ export const updateMissionVision = async (req: Request, res: Response, next: Nex
     const [updated] = await db.execute('SELECT * FROM front_cms_about_us_mission_vision LIMIT 1');
     res.json({ success: true, message: 'Mission & Vision updated successfully', data: Array.isArray(updated) ? updated[0] : updated });
   } catch (error: any) {
-    next(createError(500, error.message));
+    next(createError(error.message, 500));
   }
 };
 
@@ -111,7 +111,7 @@ export const getCounters = async (req: Request, res: Response, next: NextFunctio
 
     res.json({ success: true, data: Array.isArray(counters) ? counters : [] });
   } catch (error: any) {
-    next(createError(500, error.message));
+    next(createError(error.message, 500));
   }
 };
 
@@ -126,11 +126,11 @@ export const createCounter = async (req: Request, res: Response, next: NextFunct
     );
 
     const insertResult = result as any;
-    const [counter] = await db.execute('SELECT * FROM front_cms_about_us_counters WHERE id = ?', [insertResult.insertId]);
+    const [counter] = await db.execute('SELECT * FROM front_cms_about_us_counters WHERE id = ?', [String(insertResult.insertId)]);
 
     res.status(201).json({ success: true, message: 'Counter created successfully', data: Array.isArray(counter) ? counter[0] : counter });
   } catch (error: any) {
-    next(createError(500, error.message));
+    next(createError(error.message, 500));
   }
 };
 
@@ -142,13 +142,13 @@ export const updateCounter = async (req: Request, res: Response, next: NextFunct
 
     await db.execute(
       'UPDATE front_cms_about_us_counters SET counter_number = ?, counter_label = ?, sort_order = ?, is_active = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?',
-      [counter_number, counter_label, sort_order || 0, parseBoolean(is_active) !== undefined ? parseBoolean(is_active) : true, id]
+      [counter_number, counter_label, sort_order || 0, parseBoolean(is_active) !== undefined ? parseBoolean(is_active) : true, String(id)]
     );
 
-    const [updated] = await db.execute('SELECT * FROM front_cms_about_us_counters WHERE id = ?', [id]);
+    const [updated] = await db.execute('SELECT * FROM front_cms_about_us_counters WHERE id = ?', [String(id)]);
     res.json({ success: true, message: 'Counter updated successfully', data: Array.isArray(updated) ? updated[0] : updated });
   } catch (error: any) {
-    next(createError(500, error.message));
+    next(createError(error.message, 500));
   }
 };
 
@@ -157,11 +157,11 @@ export const deleteCounter = async (req: Request, res: Response, next: NextFunct
     const db = getDatabase();
     const { id } = req.params;
 
-    await db.execute('DELETE FROM front_cms_about_us_counters WHERE id = ?', [id]);
+    await db.execute('DELETE FROM front_cms_about_us_counters WHERE id = ?', [String(id)]);
 
     res.json({ success: true, message: 'Counter deleted successfully' });
   } catch (error: any) {
-    next(createError(500, error.message));
+    next(createError(error.message, 500));
   }
 };
 
@@ -184,7 +184,7 @@ export const getHistory = async (req: Request, res: Response, next: NextFunction
 
     res.json({ success: true, data: Array.isArray(data) ? data[0] : data });
   } catch (error: any) {
-    next(createError(500, error.message));
+    next(createError(error.message, 500));
   }
 };
 
@@ -200,9 +200,9 @@ export const updateHistory = async (req: Request, res: Response, next: NextFunct
       history_image = req.body.history_image;
     }
 
-    const [existing] = await db.execute('SELECT id, history_image FROM front_cms_about_us_history LIMIT 1');
+    const [existing] = await db.execute('SELECT id, history_image FROM front_cms_about_us_history LIMIT 1') as any[];
     const exists = Array.isArray(existing) && existing.length > 0;
-    const existingImage = exists ? (Array.isArray(existing) ? existing[0].history_image : (existing as any).history_image) : null;
+    const existingImage = exists ? (existing[0] as any)?.history_image : null;
 
     if (req.file && existingImage && existingImage !== history_image) {
       const oldImagePath = path.join(__dirname, '../../', existingImage);
@@ -226,7 +226,7 @@ export const updateHistory = async (req: Request, res: Response, next: NextFunct
     const [updated] = await db.execute('SELECT * FROM front_cms_about_us_history LIMIT 1');
     res.json({ success: true, message: 'History updated successfully', data: Array.isArray(updated) ? updated[0] : updated });
   } catch (error: any) {
-    next(createError(500, error.message));
+    next(createError(error.message, 500));
   }
 };
 
@@ -241,7 +241,7 @@ export const getValues = async (req: Request, res: Response, next: NextFunction)
 
     res.json({ success: true, data: Array.isArray(values) ? values : [] });
   } catch (error: any) {
-    next(createError(500, error.message));
+    next(createError(error.message, 500));
   }
 };
 
@@ -260,7 +260,7 @@ export const createValue = async (req: Request, res: Response, next: NextFunctio
 
     res.status(201).json({ success: true, message: 'Value created successfully', data: Array.isArray(value) ? value[0] : value });
   } catch (error: any) {
-    next(createError(500, error.message));
+    next(createError(error.message, 500));
   }
 };
 
@@ -275,10 +275,10 @@ export const updateValue = async (req: Request, res: Response, next: NextFunctio
       [icon_class, title, description, sort_order || 0, parseBoolean(is_active) !== undefined ? parseBoolean(is_active) : true, id]
     );
 
-    const [updated] = await db.execute('SELECT * FROM front_cms_about_us_values WHERE id = ?', [id]);
+    const [updated] = await db.execute('SELECT * FROM front_cms_about_us_values WHERE id = ?', [String(id)]);
     res.json({ success: true, message: 'Value updated successfully', data: Array.isArray(updated) ? updated[0] : updated });
   } catch (error: any) {
-    next(createError(500, error.message));
+    next(createError(error.message, 500));
   }
 };
 
@@ -287,11 +287,11 @@ export const deleteValue = async (req: Request, res: Response, next: NextFunctio
     const db = getDatabase();
     const { id } = req.params;
 
-    await db.execute('DELETE FROM front_cms_about_us_values WHERE id = ?', [id]);
+    await db.execute('DELETE FROM front_cms_about_us_values WHERE id = ?', [String(id)]);
 
     res.json({ success: true, message: 'Value deleted successfully' });
   } catch (error: any) {
-    next(createError(500, error.message));
+    next(createError(error.message, 500));
   }
 };
 
@@ -306,7 +306,7 @@ export const getAchievements = async (req: Request, res: Response, next: NextFun
 
     res.json({ success: true, data: Array.isArray(achievements) ? achievements : [] });
   } catch (error: any) {
-    next(createError(500, error.message));
+    next(createError(error.message, 500));
   }
 };
 
@@ -321,11 +321,11 @@ export const createAchievement = async (req: Request, res: Response, next: NextF
     );
 
     const insertResult = result as any;
-    const [achievement] = await db.execute('SELECT * FROM front_cms_about_us_achievements WHERE id = ?', [insertResult.insertId]);
+    const [achievement] = await db.execute('SELECT * FROM front_cms_about_us_achievements WHERE id = ?', [String(insertResult.insertId)]);
 
     res.status(201).json({ success: true, message: 'Achievement created successfully', data: Array.isArray(achievement) ? achievement[0] : achievement });
   } catch (error: any) {
-    next(createError(500, error.message));
+    next(createError(error.message, 500));
   }
 };
 
@@ -340,10 +340,10 @@ export const updateAchievement = async (req: Request, res: Response, next: NextF
       [achievement_year, achievement_title, achievement_description, sort_order || 0, parseBoolean(is_active) !== undefined ? parseBoolean(is_active) : true, id]
     );
 
-    const [updated] = await db.execute('SELECT * FROM front_cms_about_us_achievements WHERE id = ?', [id]);
+    const [updated] = await db.execute('SELECT * FROM front_cms_about_us_achievements WHERE id = ?', [String(id)]);
     res.json({ success: true, message: 'Achievement updated successfully', data: Array.isArray(updated) ? updated[0] : updated });
   } catch (error: any) {
-    next(createError(500, error.message));
+    next(createError(error.message, 500));
   }
 };
 
@@ -352,11 +352,11 @@ export const deleteAchievement = async (req: Request, res: Response, next: NextF
     const db = getDatabase();
     const { id } = req.params;
 
-    await db.execute('DELETE FROM front_cms_about_us_achievements WHERE id = ?', [id]);
+    await db.execute('DELETE FROM front_cms_about_us_achievements WHERE id = ?', [String(id)]);
 
     res.json({ success: true, message: 'Achievement deleted successfully' });
   } catch (error: any) {
-    next(createError(500, error.message));
+    next(createError(error.message, 500));
   }
 };
 
@@ -371,7 +371,7 @@ export const getLeadership = async (req: Request, res: Response, next: NextFunct
 
     res.json({ success: true, data: Array.isArray(leadership) ? leadership : [] });
   } catch (error: any) {
-    next(createError(500, error.message));
+    next(createError(error.message, 500));
   }
 };
 
@@ -395,7 +395,7 @@ export const createLeader = async (req: Request, res: Response, next: NextFuncti
 
     res.status(201).json({ success: true, message: 'Leader created successfully', data: Array.isArray(leader) ? leader[0] : leader });
   } catch (error: any) {
-    next(createError(500, error.message));
+    next(createError(error.message, 500));
   }
 };
 
@@ -405,8 +405,8 @@ export const updateLeader = async (req: Request, res: Response, next: NextFuncti
     const { id } = req.params;
     const { leader_name, leader_role, leader_bio, sort_order, is_active } = req.body;
 
-    const [existing] = await db.execute('SELECT leader_image FROM front_cms_about_us_leadership WHERE id = ?', [id]);
-    const existingImage = Array.isArray(existing) ? existing[0]?.leader_image : (existing as any)?.leader_image;
+    const [existing] = await db.execute('SELECT leader_image FROM front_cms_about_us_leadership WHERE id = ?', [String(id)]) as any[];
+    const existingImage = existing[0]?.leader_image;
 
     let leader_image = existingImage;
     if (req.file) {
@@ -429,13 +429,13 @@ export const updateLeader = async (req: Request, res: Response, next: NextFuncti
 
     await db.execute(
       'UPDATE front_cms_about_us_leadership SET leader_name = ?, leader_role = ?, leader_bio = ?, leader_image = ?, sort_order = ?, is_active = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?',
-      [leader_name, leader_role, leader_bio, leader_image, sort_order || 0, parseBoolean(is_active) !== undefined ? parseBoolean(is_active) : true, id]
+      [leader_name, leader_role, leader_bio, leader_image, sort_order || 0, parseBoolean(is_active) !== undefined ? parseBoolean(is_active) : true, String(id)]
     );
 
-    const [updated] = await db.execute('SELECT * FROM front_cms_about_us_leadership WHERE id = ?', [id]);
+    const [updated] = await db.execute('SELECT * FROM front_cms_about_us_leadership WHERE id = ?', [String(id)]);
     res.json({ success: true, message: 'Leader updated successfully', data: Array.isArray(updated) ? updated[0] : updated });
   } catch (error: any) {
-    next(createError(500, error.message));
+    next(createError(error.message, 500));
   }
 };
 
@@ -444,8 +444,8 @@ export const deleteLeader = async (req: Request, res: Response, next: NextFuncti
     const db = getDatabase();
     const { id } = req.params;
 
-    const [leader] = await db.execute('SELECT leader_image FROM front_cms_about_us_leadership WHERE id = ?', [id]);
-    const leaderImage = Array.isArray(leader) ? leader[0]?.leader_image : (leader as any)?.leader_image;
+    const [leader] = await db.execute('SELECT leader_image FROM front_cms_about_us_leadership WHERE id = ?', [String(id)]) as any[];
+    const leaderImage = leader[0]?.leader_image;
 
     if (leaderImage) {
       const imagePath = path.join(__dirname, '../../', leaderImage);
@@ -454,11 +454,11 @@ export const deleteLeader = async (req: Request, res: Response, next: NextFuncti
       }
     }
 
-    await db.execute('DELETE FROM front_cms_about_us_leadership WHERE id = ?', [id]);
+    await db.execute('DELETE FROM front_cms_about_us_leadership WHERE id = ?', [String(id)]);
 
     res.json({ success: true, message: 'Leader deleted successfully' });
   } catch (error: any) {
-    next(createError(500, error.message));
+    next(createError(error.message, 500));
   }
 };
 

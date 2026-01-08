@@ -94,7 +94,7 @@ export const getNewsArticles = async (req: Request, res: Response, next: NextFun
     if (error.code && error.code.startsWith('ER_')) {
       return next(error);
     }
-    next(createError(500, error.message));
+    next(createError(error.message, 500));
   }
 };
 
@@ -103,16 +103,16 @@ export const getNewsArticle = async (req: Request, res: Response, next: NextFunc
     const db = getDatabase();
     const { id } = req.params;
     
-    const [articles] = await db.execute('SELECT * FROM news_articles WHERE id = ?', [id]);
+    const [articles] = await db.execute('SELECT * FROM news_articles WHERE id = ?', [String(id)]);
     
     if (!articles || (Array.isArray(articles) && articles.length === 0)) {
-      return next(createError(404, 'News article not found'));
+      return next(createError('News article not found', 404));
     }
     
     const article = Array.isArray(articles) ? articles[0] : articles;
     
     // Increment views count
-    await db.execute('UPDATE news_articles SET views_count = views_count + 1 WHERE id = ?', [id]);
+    await db.execute('UPDATE news_articles SET views_count = views_count + 1 WHERE id = ?', [String(id)]);
     
     res.json({ success: true, data: article });
   } catch (error: any) {
@@ -120,7 +120,7 @@ export const getNewsArticle = async (req: Request, res: Response, next: NextFunc
     if (error.code && error.code.startsWith('ER_')) {
       return next(error);
     }
-    next(createError(500, error.message));
+    next(createError(error.message, 500));
   }
 };
 
@@ -131,7 +131,7 @@ export const createNewsArticle = async (req: Request, res: Response, next: NextF
     const { title, excerpt, content, category, author, published_date, is_featured, is_active } = req.body;
     
     if (!title || !content || !published_date) {
-      return next(createError(400, 'Title, content, and published date are required'));
+      return next(createError('Title, content, and published date are required', 400));
     }
     
     const slug = generateSlug(title);
@@ -139,7 +139,7 @@ export const createNewsArticle = async (req: Request, res: Response, next: NextF
     // Check if slug already exists
     const [existing] = await db.execute('SELECT id FROM news_articles WHERE slug = ?', [slug]) as any;
     if (existing && existing.length > 0) {
-      return next(createError(400, 'A news article with a similar title already exists'));
+      return next(createError('A news article with a similar title already exists', 400));
     }
     
     const featuredImage = file ? `/uploads/front-cms/news-events/${file.filename}` : null;
@@ -175,9 +175,9 @@ export const createNewsArticle = async (req: Request, res: Response, next: NextF
       }
     }
     if (error.code === 'ER_DUP_ENTRY') {
-      return next(createError(400, 'A news article with this title already exists'));
+      return next(createError('A news article with this title already exists', 400));
     }
-    next(createError(500, error.message));
+    next(createError(error.message, 500));
   }
 };
 
@@ -189,13 +189,13 @@ export const updateNewsArticle = async (req: Request, res: Response, next: NextF
     const { title, excerpt, content, category, author, published_date, is_featured, is_active } = req.body;
     
     if (!title || !content || !published_date) {
-      return next(createError(400, 'Title, content, and published date are required'));
+      return next(createError('Title, content, and published date are required', 400));
     }
     
     // Get existing article
-    const [existingArticles] = await db.execute('SELECT * FROM news_articles WHERE id = ?', [id]) as any;
+    const [existingArticles] = await db.execute('SELECT * FROM news_articles WHERE id = ?', [String(id)]) as any;
     if (!existingArticles || existingArticles.length === 0) {
-      return next(createError(404, 'News article not found'));
+      return next(createError('News article not found', 404));
     }
     const existingArticle = existingArticles[0];
     
@@ -204,9 +204,9 @@ export const updateNewsArticle = async (req: Request, res: Response, next: NextF
     if (title !== existingArticle.title) {
       slug = generateSlug(title);
       // Check if new slug already exists
-      const [slugCheck] = await db.execute('SELECT id FROM news_articles WHERE slug = ? AND id != ?', [slug, id]) as any;
+      const [slugCheck] = await db.execute('SELECT id FROM news_articles WHERE slug = ? AND id != ?', [slug, String(id)]) as any;
       if (slugCheck && slugCheck.length > 0) {
-        return next(createError(400, 'A news article with a similar title already exists'));
+        return next(createError('A news article with a similar title already exists', 400));
       }
     }
     
@@ -236,11 +236,11 @@ export const updateNewsArticle = async (req: Request, res: Response, next: NextF
         published_date,
         parseBoolean(is_featured) !== undefined ? parseBoolean(is_featured) : false,
         parseBoolean(is_active) !== undefined ? parseBoolean(is_active) : true,
-        id,
+        String(id),
       ]
     );
     
-    const [updatedArticle] = await db.execute('SELECT * FROM news_articles WHERE id = ?', [id]);
+    const [updatedArticle] = await db.execute('SELECT * FROM news_articles WHERE id = ?', [String(id)]);
     
     res.json({
       success: true,
@@ -254,7 +254,7 @@ export const updateNewsArticle = async (req: Request, res: Response, next: NextF
         fs.unlinkSync(filePath);
       }
     }
-    next(createError(500, error.message));
+    next(createError(error.message, 500));
   }
 };
 
@@ -264,9 +264,9 @@ export const deleteNewsArticle = async (req: Request, res: Response, next: NextF
     const { id } = req.params;
     
     // Get article to delete file
-    const [articles] = await db.execute('SELECT * FROM news_articles WHERE id = ?', [id]) as any;
+    const [articles] = await db.execute('SELECT * FROM news_articles WHERE id = ?', [String(id)]) as any;
     if (!articles || articles.length === 0) {
-      return next(createError(404, 'News article not found'));
+      return next(createError('News article not found', 404));
     }
     const article = articles[0];
     
@@ -278,11 +278,11 @@ export const deleteNewsArticle = async (req: Request, res: Response, next: NextF
       }
     }
     
-    await db.execute('DELETE FROM news_articles WHERE id = ?', [id]);
+    await db.execute('DELETE FROM news_articles WHERE id = ?', [String(id)]);
     
     res.json({ success: true, message: 'News article deleted successfully' });
   } catch (error: any) {
-    next(createError(500, error.message));
+    next(createError(error.message, 500));
   }
 };
 
@@ -326,7 +326,7 @@ export const getEvents = async (req: Request, res: Response, next: NextFunction)
     if (error.code && error.code.startsWith('ER_')) {
       return next(error);
     }
-    next(createError(500, error.message));
+    next(createError(error.message, 500));
   }
 };
 
@@ -335,10 +335,10 @@ export const getEvent = async (req: Request, res: Response, next: NextFunction) 
     const db = getDatabase();
     const { id } = req.params;
     
-    const [events] = await db.execute('SELECT * FROM events WHERE id = ?', [id]);
+    const [events] = await db.execute('SELECT * FROM events WHERE id = ?', [String(id)]);
     
     if (!events || (Array.isArray(events) && events.length === 0)) {
-      return next(createError(404, 'Event not found'));
+      return next(createError('Event not found', 404));
     }
     
     res.json({ success: true, data: Array.isArray(events) ? events[0] : events });
@@ -347,7 +347,7 @@ export const getEvent = async (req: Request, res: Response, next: NextFunction) 
     if (error.code && error.code.startsWith('ER_')) {
       return next(error);
     }
-    next(createError(500, error.message));
+    next(createError(error.message, 500));
   }
 };
 
@@ -358,7 +358,7 @@ export const createEvent = async (req: Request, res: Response, next: NextFunctio
     const { title, description, category, event_date, event_time, end_date, end_time, venue, is_featured, is_active } = req.body;
     
     if (!title || !description || !event_date) {
-      return next(createError(400, 'Title, description, and event date are required'));
+      return next(createError('Title, description, and event date are required', 400));
     }
     
     const slug = generateSlug(title);
@@ -366,7 +366,7 @@ export const createEvent = async (req: Request, res: Response, next: NextFunctio
     // Check if slug already exists
     const [existing] = await db.execute('SELECT id FROM events WHERE slug = ?', [slug]) as any;
     if (existing && existing.length > 0) {
-      return next(createError(400, 'An event with a similar title already exists'));
+      return next(createError('An event with a similar title already exists', 400));
     }
     
     const featuredImage = file ? `/uploads/front-cms/news-events/${file.filename}` : null;
@@ -389,7 +389,7 @@ export const createEvent = async (req: Request, res: Response, next: NextFunctio
       ]
     ) as any;
     
-    const [newEvent] = await db.execute('SELECT * FROM events WHERE id = ?', [result.insertId]);
+    const [newEvent] = await db.execute('SELECT * FROM events WHERE id = ?', [String(result.insertId)]);
     
     res.status(201).json({
       success: true,
@@ -404,9 +404,9 @@ export const createEvent = async (req: Request, res: Response, next: NextFunctio
       }
     }
     if (error.code === 'ER_DUP_ENTRY') {
-      return next(createError(400, 'An event with this title already exists'));
+      return next(createError('An event with this title already exists', 400));
     }
-    next(createError(500, error.message));
+    next(createError(error.message, 500));
   }
 };
 
@@ -418,13 +418,13 @@ export const updateEvent = async (req: Request, res: Response, next: NextFunctio
     const { title, description, category, event_date, event_time, end_date, end_time, venue, is_featured, is_active } = req.body;
     
     if (!title || !description || !event_date) {
-      return next(createError(400, 'Title, description, and event date are required'));
+      return next(createError('Title, description, and event date are required', 400));
     }
     
     // Get existing event
-    const [existingEvents] = await db.execute('SELECT * FROM events WHERE id = ?', [id]) as any;
+    const [existingEvents] = await db.execute('SELECT * FROM events WHERE id = ?', [String(id)]) as any;
     if (!existingEvents || existingEvents.length === 0) {
-      return next(createError(404, 'Event not found'));
+      return next(createError('Event not found', 404));
     }
     const existingEvent = existingEvents[0];
     
@@ -433,9 +433,9 @@ export const updateEvent = async (req: Request, res: Response, next: NextFunctio
     if (title !== existingEvent.title) {
       slug = generateSlug(title);
       // Check if new slug already exists
-      const [slugCheck] = await db.execute('SELECT id FROM events WHERE slug = ? AND id != ?', [slug, id]) as any;
+      const [slugCheck] = await db.execute('SELECT id FROM events WHERE slug = ? AND id != ?', [slug, String(id)]) as any;
       if (slugCheck && slugCheck.length > 0) {
-        return next(createError(400, 'An event with a similar title already exists'));
+        return next(createError('An event with a similar title already exists', 400));
       }
     }
     
@@ -467,11 +467,11 @@ export const updateEvent = async (req: Request, res: Response, next: NextFunctio
         featuredImage,
         parseBoolean(is_featured) !== undefined ? parseBoolean(is_featured) : false,
         parseBoolean(is_active) !== undefined ? parseBoolean(is_active) : true,
-        id,
+        String(id),
       ]
     );
     
-    const [updatedEvent] = await db.execute('SELECT * FROM events WHERE id = ?', [id]);
+    const [updatedEvent] = await db.execute('SELECT * FROM events WHERE id = ?', [String(id)]);
     
     res.json({
       success: true,
@@ -485,7 +485,7 @@ export const updateEvent = async (req: Request, res: Response, next: NextFunctio
         fs.unlinkSync(filePath);
       }
     }
-    next(createError(500, error.message));
+    next(createError(error.message, 500));
   }
 };
 
@@ -495,9 +495,9 @@ export const deleteEvent = async (req: Request, res: Response, next: NextFunctio
     const { id } = req.params;
     
     // Get event to delete file
-    const [events] = await db.execute('SELECT * FROM events WHERE id = ?', [id]) as any;
+    const [events] = await db.execute('SELECT * FROM events WHERE id = ?', [String(id)]) as any;
     if (!events || events.length === 0) {
-      return next(createError(404, 'Event not found'));
+      return next(createError('Event not found', 404));
     }
     const event = events[0];
     
@@ -509,7 +509,7 @@ export const deleteEvent = async (req: Request, res: Response, next: NextFunctio
       }
     }
     
-    await db.execute('DELETE FROM events WHERE id = ?', [id]);
+    await db.execute('DELETE FROM events WHERE id = ?', [String(id)]);
     
     res.json({ success: true, message: 'Event deleted successfully' });
   } catch (error: any) {
@@ -517,7 +517,7 @@ export const deleteEvent = async (req: Request, res: Response, next: NextFunctio
     if (error.code && error.code.startsWith('ER_')) {
       return next(error);
     }
-    next(createError(500, error.message));
+    next(createError(error.message, 500));
   }
 };
 

@@ -33,7 +33,7 @@ router.get('/news', async (req, res, next) => {
     const [articles] = await db.execute(query, params);
     res.json({ success: true, data: Array.isArray(articles) ? articles : [] });
   } catch (error: any) {
-    next(createError(500, error.message));
+    next(createError(error.message, 500));
   }
 });
 
@@ -49,20 +49,23 @@ router.get('/news/:identifier', async (req, res, next) => {
       ? 'SELECT * FROM news_articles WHERE id = ? AND is_active = TRUE'
       : 'SELECT * FROM news_articles WHERE slug = ? AND is_active = TRUE';
     
-    const [articles] = await db.execute(query, [identifier]);
+    const [articles] = await db.execute(query, [isId ? String(identifier) : identifier]) as any[];
     
     if (!articles || (Array.isArray(articles) && articles.length === 0)) {
-      return next(createError(404, 'News article not found'));
+      return next(createError('News article not found', 404));
     }
     
-    const article = Array.isArray(articles) ? articles[0] : articles;
+    const article = articles[0] as any;
     
     // Increment views count
-    await db.execute('UPDATE news_articles SET views_count = views_count + 1 WHERE id = ?', [article.id]);
+    const articleId = article?.id;
+    if (articleId) {
+      await db.execute('UPDATE news_articles SET views_count = views_count + 1 WHERE id = ?', [String(articleId)]);
+    }
     
     res.json({ success: true, data: article });
   } catch (error: any) {
-    next(createError(500, error.message));
+    next(createError(error.message, 500));
   }
 });
 
@@ -101,7 +104,7 @@ router.get('/events', async (req, res, next) => {
     const [events] = await db.execute(query, params);
     res.json({ success: true, data: Array.isArray(events) ? events : [] });
   } catch (error: any) {
-    next(createError(500, error.message));
+    next(createError(error.message, 500));
   }
 });
 
@@ -117,15 +120,15 @@ router.get('/events/:identifier', async (req, res, next) => {
       ? 'SELECT * FROM events WHERE id = ? AND is_active = TRUE'
       : 'SELECT * FROM events WHERE slug = ? AND is_active = TRUE';
     
-    const [events] = await db.execute(query, [identifier]);
+    const [events] = await db.execute(query, [isId ? String(identifier) : identifier]);
     
     if (!events || (Array.isArray(events) && events.length === 0)) {
-      return next(createError(404, 'Event not found'));
+      return next(createError('Event not found', 404));
     }
     
     res.json({ success: true, data: Array.isArray(events) ? events[0] : events });
   } catch (error: any) {
-    next(createError(500, error.message));
+    next(createError(error.message, 500));
   }
 });
 

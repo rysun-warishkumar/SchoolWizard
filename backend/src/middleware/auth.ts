@@ -3,15 +3,23 @@ import jwt from 'jsonwebtoken';
 import { createError, AuthenticationError } from './errorHandler';
 import { env } from '../config/env';
 
-// AuthRequest extends Request, so it inherits all Request properties (params, body, headers, etc.)
-export interface AuthRequest extends Request {
+// AuthRequest extends Request with user property
+// Using type intersection to ensure all Request properties are available
+export type AuthRequest = Request & {
   user?: {
     id: string;
     email: string;
     role: string;
     roleId: string;
   };
-}
+  // Explicitly include Request properties to avoid TypeScript errors
+  params: any;
+  body: any;
+  query: any;
+  headers: any;
+  file?: any;
+  files?: any;
+};
 
 export const authenticate = (
   req: AuthRequest,
