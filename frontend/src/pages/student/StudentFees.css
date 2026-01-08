@@ -1,0 +1,291 @@
+.student-fees-page {
+  max-width: 1200px;
+  margin: 0 auto;
+}
+
+.fees-header {
+  margin-bottom: var(--spacing-xl);
+}
+
+.fees-header h1 {
+  font-size: var(--font-size-2xl);
+  color: var(--gray-900);
+  margin: 0 0 var(--spacing-lg) 0;
+}
+
+.fees-summary {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: var(--spacing-lg);
+  margin-bottom: var(--spacing-lg);
+}
+
+.summary-card {
+  background: white;
+  border-radius: var(--radius-lg);
+  padding: var(--spacing-lg);
+  box-shadow: var(--shadow-sm);
+  text-align: center;
+}
+
+.summary-card h3 {
+  margin: 0 0 var(--spacing-sm) 0;
+  font-size: var(--font-size-sm);
+  color: var(--gray-600);
+  font-weight: 500;
+}
+
+.summary-card .amount {
+  margin: 0;
+  font-size: var(--font-size-2xl);
+  font-weight: 700;
+  color: var(--gray-900);
+}
+
+.summary-card.paid .amount {
+  color: #065f46;
+}
+
+.summary-card.pending .amount {
+  color: #92400e;
+}
+
+.fees-content {
+  background: white;
+  border-radius: var(--radius-lg);
+  padding: var(--spacing-lg);
+  box-shadow: var(--shadow-sm);
+}
+
+/* Tabs Wrapper - Outer container for overflow control */
+.fees-tabs-wrapper {
+  width: 100%;
+  max-width: 100%;
+  overflow: hidden;
+  box-sizing: border-box;
+  margin-bottom: var(--spacing-lg);
+}
+
+/* Tabs Container - Contains border and flex layout for arrows + tabs */
+.fees-tabs-container {
+  position: relative;
+  border-bottom: 2px solid var(--gray-200);
+  width: 100%;
+  max-width: 100%;
+  overflow: hidden;
+  box-sizing: border-box;
+  display: flex;
+  align-items: stretch;
+  gap: var(--spacing-xs);
+  padding-bottom: var(--spacing-xs);
+}
+
+/* Tabs - Scrollable area for tab buttons */
+.fees-tabs {
+  display: flex;
+  gap: var(--spacing-sm);
+  overflow-x: auto;
+  overflow-y: hidden;
+  scroll-behavior: smooth;
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+  flex: 1 1 0;
+  min-width: 0;
+  padding: 0;
+  box-sizing: border-box;
+  -webkit-overflow-scrolling: touch;
+  margin-bottom: var(--spacing-xs);
+}
+
+.fees-tabs::-webkit-scrollbar {
+  display: none;
+}
+
+/* Arrow Buttons */
+.fees-tabs-arrow {
+  position: relative;
+  z-index: 10;
+  background: var(--white);
+  border: 1px solid var(--gray-300);
+  border-radius: 50%;
+  width: 36px;
+  height: 36px;
+  min-width: 36px;
+  min-height: 36px;
+  max-width: 36px;
+  max-height: 36px;
+  padding: 0;
+  margin: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  font-size: 20px;
+  font-weight: bold;
+  color: var(--gray-700);
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  transition: all var(--transition-base);
+  flex-shrink: 0;
+  align-self: center;
+  box-sizing: border-box;
+  line-height: 1;
+}
+
+.fees-tabs-arrow:hover:not(:disabled) {
+  background: var(--primary-color);
+  color: var(--white);
+  border-color: var(--primary-color);
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.15);
+}
+
+.fees-tabs-arrow:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.fees-tabs-arrow:disabled:hover {
+  background: var(--white);
+  color: var(--gray-700);
+  border-color: var(--gray-300);
+}
+
+.fees-tabs-arrow-left {
+  margin-right: var(--spacing-xs);
+}
+
+.fees-tabs-arrow-right {
+  margin-left: var(--spacing-xs);
+}
+
+/* Tab Buttons */
+.fees-tabs button {
+  padding: var(--spacing-sm) var(--spacing-lg);
+  background: none;
+  border: none;
+  border-bottom: 2px solid transparent;
+  cursor: pointer;
+  font-size: var(--font-size-sm);
+  color: var(--gray-600);
+  transition: all var(--transition-base);
+  margin-bottom: 0;
+  white-space: nowrap;
+  flex-shrink: 0;
+  box-sizing: border-box;
+  display: inline-flex;
+  align-items: center;
+}
+
+.fees-tabs button:hover {
+  color: var(--primary-color);
+}
+
+.fees-tabs button.active {
+  color: var(--primary-color);
+  border-bottom-color: var(--primary-color);
+  font-weight: 500;
+}
+
+.fees-filters {
+  margin-bottom: var(--spacing-lg);
+}
+
+.fees-filters select {
+  padding: var(--spacing-sm) var(--spacing-md);
+  border: 1px solid var(--gray-300);
+  border-radius: var(--radius-md);
+  font-size: var(--font-size-sm);
+}
+
+.fees-table-container {
+  overflow-x: auto;
+}
+
+.fees-table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.fees-table thead {
+  background: var(--gray-50);
+}
+
+.fees-table th {
+  padding: var(--spacing-md);
+  text-align: left;
+  font-weight: 600;
+  color: var(--gray-700);
+  border-bottom: 2px solid var(--gray-200);
+}
+
+.fees-table td {
+  padding: var(--spacing-md);
+  border-bottom: 1px solid var(--gray-200);
+}
+
+.fees-table tbody tr:hover {
+  background: var(--gray-50);
+}
+
+.fee-status {
+  display: inline-block;
+  padding: var(--spacing-xs) var(--spacing-sm);
+  border-radius: var(--radius-sm);
+  font-size: var(--font-size-xs);
+  font-weight: 600;
+  text-transform: capitalize;
+}
+
+.fee-status.paid {
+  background: #d1fae5;
+  color: #065f46;
+}
+
+.fee-status.pending {
+  background: #fef3c7;
+  color: #92400e;
+}
+
+.fee-status.partial {
+  background: #dbeafe;
+  color: #1e40af;
+}
+
+.fee-status.overdue {
+  background: #fee2e2;
+  color: #991b1b;
+}
+
+.invoice-link {
+  background: none;
+  border: none;
+  color: var(--primary-color);
+  cursor: pointer;
+  text-decoration: underline;
+  font-size: inherit;
+  padding: 0;
+  font-family: inherit;
+  transition: color var(--transition-base);
+}
+
+.invoice-link:hover {
+  color: var(--primary-color-dark, #1e40af);
+  text-decoration: none;
+}
+
+.invoice-link:active {
+  color: var(--primary-color-dark, #1e40af);
+}
+
+.loading,
+.empty-state {
+  text-align: center;
+  padding: var(--spacing-xl);
+  color: var(--gray-500);
+}
+
+@media (max-width: 768px) {
+  .fees-summary {
+    grid-template-columns: 1fr;
+  }
+}
+

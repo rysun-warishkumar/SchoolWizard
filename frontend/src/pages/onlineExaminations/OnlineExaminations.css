@@ -1,0 +1,528 @@
+.online-examinations-page {
+  padding: var(--spacing-xl);
+  width: 100%;
+  max-width: 100%;
+  overflow-x: hidden;
+  overflow-y: visible;
+  box-sizing: border-box;
+  position: relative;
+}
+
+.online-examinations-tabs-wrapper {
+  width: 100%;
+  max-width: 100%;
+  overflow: hidden;
+  box-sizing: border-box;
+  margin-bottom: var(--spacing-xl);
+}
+
+.online-examinations-tabs-container {
+  position: relative;
+  border-bottom: 2px solid var(--gray-200);
+  width: 100%;
+  max-width: 100%;
+  overflow: hidden;
+  box-sizing: border-box;
+  display: flex;
+  align-items: stretch;
+  gap: var(--spacing-xs);
+  padding-bottom: var(--spacing-xs);
+}
+
+.online-examinations-tabs {
+  display: flex;
+  gap: var(--spacing-sm);
+  overflow-x: auto;
+  overflow-y: hidden;
+  scroll-behavior: smooth;
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+  flex: 1 1 0;
+  min-width: 0;
+  padding: 0;
+  box-sizing: border-box;
+  -webkit-overflow-scrolling: touch;
+  margin-bottom: var(--spacing-xs);
+}
+
+.online-examinations-tabs::-webkit-scrollbar {
+  display: none;
+}
+
+.online-examinations-tabs-arrow {
+  position: relative;
+  z-index: 10;
+  background: var(--white);
+  border: 1px solid var(--gray-300);
+  border-radius: 50%;
+  width: 36px;
+  height: 36px;
+  min-width: 36px;
+  min-height: 36px;
+  max-width: 36px;
+  max-height: 36px;
+  padding: 0;
+  margin: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  font-size: 20px;
+  font-weight: bold;
+  color: var(--gray-700);
+  box-sizing: border-box;
+  line-height: 1;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  transition: all var(--transition-base);
+  flex-shrink: 0;
+  align-self: center;
+}
+
+.online-examinations-tabs-arrow:hover:not(:disabled) {
+  background: var(--primary-color);
+  color: var(--white);
+  border-color: var(--primary-color);
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.15);
+}
+
+.online-examinations-tabs-arrow:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.online-examinations-tabs-arrow:disabled:hover {
+  background: var(--white);
+  color: var(--gray-700);
+  border-color: var(--gray-300);
+}
+
+.online-examinations-tabs-arrow-left {
+  margin-right: var(--spacing-xs);
+}
+
+.online-examinations-tabs-arrow-right {
+  margin-left: var(--spacing-xs);
+}
+
+.online-examinations-tabs button {
+  padding: var(--spacing-md) var(--spacing-lg);
+  border: none;
+  background: transparent;
+  cursor: pointer;
+  font-size: var(--font-size-base);
+  color: var(--gray-600);
+  border-bottom: 2px solid transparent;
+  margin-bottom: 0;
+  transition: all var(--transition-base);
+  white-space: nowrap;
+  flex-shrink: 0;
+  box-sizing: border-box;
+  display: inline-flex;
+  align-items: center;
+}
+
+.online-examinations-tabs button:hover {
+  color: var(--primary-color);
+}
+
+.online-examinations-tabs button.active {
+  color: var(--primary-color);
+  border-bottom: 2px solid var(--primary-color);
+  font-weight: 500;
+}
+
+.online-examinations-content {
+  width: 100%;
+  max-width: 100%;
+  overflow-x: hidden;
+  box-sizing: border-box;
+}
+
+.online-examinations-tab-content {
+  width: 100%;
+}
+
+.tab-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: var(--spacing-lg);
+}
+
+.tab-header h2 {
+  margin: 0;
+  color: var(--gray-800);
+  font-size: var(--font-size-2xl);
+}
+
+.action-buttons {
+  display: flex;
+  gap: var(--spacing-xs);
+}
+
+.action-buttons button {
+  padding: var(--spacing-xs) var(--spacing-sm);
+  border: none;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-medium);
+  transition: all var(--transition-base);
+  min-height: 28px;
+}
+
+/* Button styles now use global styles from index.css */
+
+/* Online Exam Details Modal */
+.online-exam-details {
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-xl);
+}
+
+/* Specific width override for Online Exam Details Modal - 1000px */
+/* Target modal-content when it contains online-exam-details (inside modal-body) */
+.modal-overlay:has(.online-exam-details) .modal-content.modal-xlarge,
+.modal-content.modal-xlarge:has(.modal-body > .online-exam-details) {
+  max-width: 1000px !important;
+}
+
+/* Exam Information Section */
+.online-exam-info-section {
+  background: var(--white);
+  border-radius: var(--radius-lg);
+  padding: var(--spacing-xl);
+  box-shadow: var(--shadow-sm);
+}
+
+.section-title {
+  font-size: var(--font-size-xl);
+  font-weight: 600;
+  color: var(--gray-900);
+  margin: 0 0 var(--spacing-lg) 0;
+  padding-bottom: var(--spacing-md);
+  border-bottom: 2px solid var(--gray-200);
+}
+
+.online-exam-info-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+  gap: var(--spacing-lg);
+  margin-bottom: var(--spacing-lg);
+}
+
+.info-item {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-xs);
+}
+
+.info-label {
+  font-size: var(--font-size-sm);
+  font-weight: 600;
+  color: var(--gray-600);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.info-value {
+  font-size: var(--font-size-base);
+  color: var(--gray-900);
+  font-weight: 500;
+}
+
+.instructions-section {
+  margin-top: var(--spacing-lg);
+  padding-top: var(--spacing-lg);
+  border-top: 1px solid var(--gray-200);
+}
+
+.instructions-content {
+  margin-top: var(--spacing-sm);
+  padding: var(--spacing-md);
+  background: var(--gray-50);
+  border-radius: var(--radius-md);
+  white-space: pre-wrap;
+  line-height: 1.6;
+  color: var(--gray-700);
+  font-size: var(--font-size-base);
+}
+
+/* Action Buttons Section - Moved to Top */
+.online-exam-actions-section {
+  display: flex;
+  flex-direction: row;
+  gap: var(--spacing-md);
+  margin-bottom: var(--spacing-lg);
+}
+
+.online-exam-action-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--spacing-sm);
+  padding: var(--spacing-md) var(--spacing-lg);
+  background: var(--primary-color);
+  color: var(--white);
+  border: none;
+  border-radius: var(--radius-md);
+  font-size: var(--font-size-base);
+  font-weight: 500;
+  cursor: pointer;
+  transition: all var(--transition-base);
+  box-shadow: 0 2px 4px rgba(37, 99, 235, 0.2);
+  flex: 1;
+  text-align: center;
+}
+
+.online-exam-action-btn i {
+  font-size: var(--font-size-base);
+  width: 20px;
+  text-align: center;
+}
+
+.online-exam-action-btn:hover {
+  background: var(--primary-dark);
+  box-shadow: 0 4px 8px rgba(37, 99, 235, 0.3);
+  transform: translateY(-2px);
+}
+
+.online-exam-action-btn:active {
+  transform: translateY(0);
+  box-shadow: 0 2px 4px rgba(37, 99, 235, 0.2);
+}
+
+/* Summary Cards Section - Smaller and Independent */
+.online-exam-summary-section {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--spacing-lg);
+  align-items: start;
+}
+
+.summary-card {
+  background: var(--white);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-sm);
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  max-height: 400px;
+}
+
+.summary-card-questions {
+  /* Independent sizing for Questions card */
+  max-height: 400px;
+}
+
+.summary-card-students {
+  /* Independent sizing for Assigned Students card */
+  max-height: 400px;
+}
+
+.summary-card-header {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-sm);
+  padding: var(--spacing-md) var(--spacing-lg);
+  background: linear-gradient(to right, var(--primary-color), var(--primary-light));
+  color: var(--white);
+  flex-shrink: 0;
+}
+
+.summary-card-header i {
+  font-size: var(--font-size-base);
+}
+
+.summary-card-header h4 {
+  margin: 0;
+  font-size: var(--font-size-base);
+  font-weight: 600;
+  color: var(--white);
+}
+
+.summary-card-content {
+  padding: var(--spacing-md);
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  overflow-y: auto;
+  min-height: 0;
+}
+
+.summary-list {
+  flex: 1;
+  overflow-y: auto;
+  min-height: 0;
+}
+
+.summary-list .data-table {
+  margin-top: 0;
+  font-size: var(--font-size-sm);
+}
+
+.summary-list .data-table th,
+.summary-list .data-table td {
+  padding: var(--spacing-xs) var(--spacing-sm);
+  font-size: var(--font-size-sm);
+}
+
+.summary-empty {
+  text-align: center;
+  padding: var(--spacing-lg);
+  color: var(--gray-500);
+  font-style: italic;
+  background: var(--gray-50);
+  border-radius: var(--radius-md);
+  font-size: var(--font-size-sm);
+}
+
+/* Badge Styles */
+.badge {
+  display: inline-block;
+  padding: var(--spacing-xs) var(--spacing-sm);
+  border-radius: var(--radius-md);
+  font-size: var(--font-size-xs);
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.badge-success {
+  background: #10b981;
+  color: var(--white);
+}
+
+.badge-warning {
+  background: #f59e0b;
+  color: var(--white);
+}
+
+/* Exam Details Modal (Legacy - keeping for backward compatibility) */
+.exam-details {
+  padding: var(--spacing-md);
+}
+
+.exam-info-section h3,
+.exam-questions-section h3,
+.exam-students-section h3 {
+  margin-bottom: var(--spacing-md);
+  color: var(--gray-800);
+  font-size: var(--font-size-lg);
+}
+
+.info-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: var(--spacing-md);
+}
+
+.exam-actions-section {
+  display: flex;
+  gap: var(--spacing-md);
+  padding: var(--spacing-md);
+  background: var(--gray-50);
+  border-radius: var(--border-radius);
+}
+
+.assign-students-modal,
+.add-questions-modal {
+  padding: var(--spacing-md);
+}
+
+.students-checkbox-list,
+.questions-checkbox-list {
+  border: 1px solid var(--gray-300);
+  border-radius: var(--border-radius);
+  padding: var(--spacing-md);
+  margin-top: var(--spacing-md);
+}
+
+.checkbox-item {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--spacing-sm);
+  padding: var(--spacing-sm);
+  cursor: pointer;
+  border-radius: var(--border-radius);
+  transition: background-color var(--transition-base);
+}
+
+.checkbox-item:hover {
+  background: var(--gray-50);
+}
+
+.checkbox-item input[type="checkbox"] {
+  margin-top: 4px;
+  cursor: pointer;
+  width: 18px;
+  height: 18px;
+}
+
+.filters-section {
+  background: var(--gray-50);
+  padding: var(--spacing-md);
+  border-radius: var(--border-radius);
+}
+
+.form-row {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: var(--spacing-md);
+}
+
+.form-group {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-xs);
+}
+
+.form-group label {
+  font-weight: 500;
+  color: var(--gray-700);
+}
+
+.form-group input,
+.form-group select,
+.form-group textarea {
+  padding: var(--spacing-sm);
+  border: 1px solid var(--gray-300);
+  border-radius: var(--border-radius-sm);
+  font-size: var(--font-size-base);
+}
+
+.form-group input:focus,
+.form-group select:focus,
+.form-group textarea:focus {
+  outline: none;
+  border-color: var(--primary-color);
+  box-shadow: 0 0 0 2px rgba(var(--primary-color-rgb), 0.1);
+}
+
+.form-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: var(--spacing-md);
+  margin-top: var(--spacing-lg);
+  padding-top: var(--spacing-md);
+  border-top: 1px solid var(--gray-200);
+}
+
+.required {
+  color: var(--danger-color);
+}
+
+.empty-state {
+  text-align: center;
+  padding: var(--spacing-xl);
+  color: var(--gray-500);
+  font-style: italic;
+}
+
+.loading {
+  text-align: center;
+  padding: var(--spacing-xl);
+  color: var(--gray-600);
+}
+

@@ -1,0 +1,103 @@
+.student-library-issued-page {
+  max-width: 1200px;
+  margin: 0 auto;
+}
+
+.issued-header {
+  margin-bottom: var(--spacing-xl);
+}
+
+.issued-header h1 {
+  font-size: var(--font-size-2xl);
+  color: var(--gray-900);
+  margin: 0;
+}
+
+.issued-content {
+  background: white;
+  border-radius: var(--radius-lg);
+  padding: var(--spacing-lg);
+  box-shadow: var(--shadow-sm);
+}
+
+.issues-table-container {
+  overflow-x: auto;
+}
+
+.issues-table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.issues-table thead {
+  background: var(--gray-50);
+}
+
+.issues-table th {
+  padding: var(--spacing-md);
+  text-align: left;
+  font-weight: 600;
+  color: var(--gray-700);
+  border-bottom: 2px solid var(--gray-200);
+}
+
+.issues-table td {
+  padding: var(--spacing-md);
+  border-bottom: 1px solid var(--gray-200);
+}
+
+.issues-table tbody tr:hover {
+  background: var(--gray-50);
+}
+
+.issues-table tbody tr.overdue {
+  background: #fef2f2;
+}
+
+.overdue-date {
+  color: var(--error-color);
+  font-weight: 600;
+}
+
+.status-badge {
+  display: inline-block;
+  padding: var(--spacing-xs) var(--spacing-sm);
+  border-radius: var(--radius-sm);
+  font-size: var(--font-size-xs);
+  font-weight: 600;
+  text-transform: capitalize;
+}
+
+.status-badge.issued {
+  background: #fef3c7;
+  color: #92400e;
+}
+
+.status-badge.returned {
+  background: #d1fae5;
+  color: #065f46;
+}
+
+.status-badge.lost {
+  background: #fee2e2;
+  color: #991b1b;
+}
+
+.status-badge.damaged {
+  background: #fef3c7;
+  color: #92400e;
+}
+
+.loading,
+.empty-state {
+  text-align: center;
+  padding: var(--spacing-xl);
+  color: var(--gray-500);
+}
+
+@media (max-width: 768px) {
+  .issues-table {
+    font-size: var(--font-size-xs);
+  }
+}
+

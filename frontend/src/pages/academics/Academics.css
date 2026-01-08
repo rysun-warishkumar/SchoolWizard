@@ -1,0 +1,614 @@
+.academics-page {
+  padding: var(--spacing-xl);
+}
+
+/* Tabs Wrapper - Outer container for overflow control */
+.academics-tabs-wrapper {
+  width: 100%;
+  max-width: 100%;
+  overflow: hidden;
+  box-sizing: border-box;
+  margin-bottom: var(--spacing-xl);
+}
+
+/* Tabs Container - Contains border and flex layout for arrows + tabs */
+.academics-tabs-container {
+  position: relative;
+  border-bottom: 2px solid var(--gray-200);
+  width: 100%;
+  max-width: 100%;
+  overflow: hidden;
+  box-sizing: border-box;
+  display: flex;
+  align-items: stretch;
+  gap: var(--spacing-xs);
+  padding-bottom: var(--spacing-xs);
+}
+
+/* Tabs - Scrollable area for tab buttons */
+.academics-tabs {
+  display: flex;
+  gap: var(--spacing-sm);
+  overflow-x: auto;
+  overflow-y: hidden;
+  scroll-behavior: smooth;
+  scrollbar-width: none; /* Firefox */
+  -ms-overflow-style: none; /* IE and Edge */
+  flex: 1 1 0;
+  min-width: 0;
+  padding: 0;
+  box-sizing: border-box;
+  -webkit-overflow-scrolling: touch;
+  margin-bottom: var(--spacing-xs);
+}
+
+.academics-tabs::-webkit-scrollbar {
+  display: none; /* Chrome, Safari, Opera */
+}
+
+/* Arrow Buttons */
+.academics-tabs-arrow {
+  position: relative;
+  z-index: 10;
+  background: var(--white);
+  border: 1px solid var(--gray-300);
+  border-radius: 50%;
+  width: 36px;
+  height: 36px;
+  min-width: 36px;
+  min-height: 36px;
+  max-width: 36px;
+  max-height: 36px;
+  padding: 0;
+  margin: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  font-size: var(--font-size-xl);
+  font-weight: var(--font-weight-bold);
+  color: var(--gray-700);
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  transition: all var(--transition-base);
+  flex-shrink: 0;
+  align-self: center;
+  box-sizing: border-box;
+  line-height: 1;
+}
+
+.academics-tabs-arrow:hover:not(:disabled) {
+  background: var(--primary-color);
+  color: var(--white);
+  border-color: var(--primary-color);
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.15);
+}
+
+.academics-tabs-arrow:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.academics-tabs-arrow:disabled:hover {
+  background: var(--white);
+  color: var(--gray-700);
+  border-color: var(--gray-300);
+}
+
+.academics-tabs-arrow-left {
+  margin-right: var(--spacing-xs);
+}
+
+.academics-tabs-arrow-right {
+  margin-left: var(--spacing-xs);
+}
+
+/* Tab Buttons */
+.academics-tabs button {
+  padding: var(--spacing-md) var(--spacing-lg);
+  border: none;
+  background: transparent;
+  cursor: pointer;
+  font-size: var(--font-size-base);
+  color: var(--gray-600);
+  border-bottom: 2px solid transparent;
+  margin-bottom: 0;
+  transition: all var(--transition-base);
+  white-space: nowrap;
+  flex-shrink: 0;
+  box-sizing: border-box;
+  display: inline-flex;
+  align-items: center;
+}
+
+.academics-tabs button:hover {
+  color: var(--primary-color);
+}
+
+.academics-tabs button.active {
+  color: var(--primary-color);
+  border-bottom-color: var(--primary-color);
+  font-weight: 500;
+}
+
+.academics-content {
+  background: var(--white);
+  padding: var(--spacing-xl);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-md);
+}
+
+.tab-content {
+  width: 100%;
+}
+
+.table-container {
+  overflow-x: auto;
+}
+
+.table-container table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.table-container th,
+.table-container td {
+  padding: var(--spacing-md);
+  text-align: left;
+  border-bottom: 1px solid var(--gray-200);
+}
+
+.table-container th {
+  font-weight: var(--font-weight-semibold);
+  color: var(--gray-700);
+  background: var(--gray-50);
+}
+
+.type-badge {
+  padding: var(--spacing-xs) var(--spacing-sm);
+  border-radius: var(--radius-sm);
+  font-size: var(--font-size-xs);
+  font-weight: 500;
+  text-transform: capitalize;
+  background: var(--gray-100);
+  color: var(--gray-700);
+}
+
+.checkbox-group {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-sm);
+  max-height: 200px;
+  overflow-y: auto;
+  padding: var(--spacing-md);
+  border: 1px solid var(--gray-300);
+  border-radius: var(--radius-md);
+}
+
+.checkbox-group label {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-sm);
+  cursor: pointer;
+}
+
+.checkbox-group input[type="checkbox"] {
+  width: auto;
+}
+
+.placeholder-content {
+  text-align: center;
+  padding: var(--spacing-2xl);
+  color: var(--gray-500);
+}
+
+/* Class Teachers Tab */
+.class-teachers-tab .form-section {
+  margin-bottom: var(--spacing-xl);
+}
+
+.class-teachers-tab select[multiple] {
+  min-height: 150px;
+  padding: var(--spacing-sm);
+}
+
+/* Timetable Tab */
+.timetable-mode-selector {
+  display: flex;
+  gap: var(--spacing-md);
+  margin-bottom: var(--spacing-xl);
+  padding: var(--spacing-sm);
+  background: var(--gray-50);
+  border-radius: var(--radius-lg);
+  border: 1px solid var(--gray-200);
+}
+
+.mode-button {
+  flex: 1;
+  padding: var(--spacing-md) var(--spacing-lg);
+  border: 2px solid transparent;
+  background: var(--white);
+  border-radius: var(--radius-md);
+  cursor: pointer;
+  transition: all var(--transition-base);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--spacing-sm);
+  font-size: var(--font-size-base);
+  font-weight: 500;
+  color: var(--gray-700);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+}
+
+.mode-button:hover {
+  background: var(--gray-50);
+  border-color: var(--gray-300);
+  transform: translateY(-1px);
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.15);
+}
+
+.mode-button.active {
+  background: var(--primary-color);
+  color: var(--white);
+  border-color: var(--primary-color);
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.2);
+}
+
+.mode-button.active:hover {
+  background: var(--primary-color-dark);
+  border-color: var(--primary-color-dark);
+  color: var(--black);
+}
+
+.mode-icon {
+  font-size: var(--font-size-lg);
+}
+
+.timetable-selection-form {
+  background: var(--white);
+  border: 1px solid var(--gray-200);
+  border-radius: var(--radius-lg);
+  padding: var(--spacing-xl);
+  margin-bottom: var(--spacing-xl);
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+}
+
+.timetable-selection-form h3 {
+  margin-top: 0;
+  margin-bottom: var(--spacing-lg);
+  color: var(--gray-800);
+  font-size: var(--font-size-lg);
+  font-weight: var(--font-weight-semibold);
+}
+
+.timetable-selection-form .form-row {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: var(--spacing-md);
+}
+
+.timetable-selection-form .form-actions {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-md);
+  padding-top: var(--spacing-md);
+  border-top: 1px solid var(--gray-200);
+}
+
+.timetable-view {
+  margin-top: var(--spacing-xl);
+  background: var(--white);
+  border: 1px solid var(--gray-200);
+  border-radius: var(--radius-lg);
+  padding: var(--spacing-xl);
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+}
+
+.timetable-view-header {
+  margin-bottom: var(--spacing-lg);
+  padding-bottom: var(--spacing-md);
+  border-bottom: 2px solid var(--gray-200);
+}
+
+.timetable-view-header h2 {
+  margin-top: 0;
+  margin-bottom: var(--spacing-sm);
+  color: var(--gray-800);
+  font-size: var(--font-size-xl);
+}
+
+.timetable-empty-message {
+  color: var(--gray-600);
+  font-size: var(--font-size-sm);
+  margin: 0;
+  padding: var(--spacing-md);
+  background: var(--gray-50);
+  border-radius: var(--radius-md);
+  border-left: 3px solid var(--info-color);
+}
+
+.timetable-empty-state {
+  margin-top: var(--spacing-xl);
+  padding: var(--spacing-xl);
+  text-align: center;
+  background: var(--gray-50);
+  border: 1px dashed var(--gray-300);
+  border-radius: var(--radius-lg);
+  color: var(--gray-600);
+}
+
+.timetable-grid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--spacing-lg);
+  margin-top: var(--spacing-lg);
+}
+
+.timetable-day {
+  background: var(--white);
+  border: 1px solid var(--gray-200);
+  border-radius: var(--radius-md);
+  padding: var(--spacing-md);
+}
+
+.timetable-day h3 {
+  color: var(--primary-color);
+  margin-bottom: var(--spacing-md);
+  padding-bottom: var(--spacing-sm);
+  border-bottom: 2px solid var(--gray-200);
+}
+
+.timetable-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: var(--font-size-sm);
+  table-layout: fixed;
+}
+
+.timetable-table th,
+.timetable-table td {
+  padding: var(--spacing-sm);
+  text-align: left;
+  border-bottom: 1px solid var(--gray-200);
+  word-wrap: break-word;
+  overflow-wrap: break-word;
+}
+
+.timetable-table th {
+  background: var(--gray-50);
+  font-weight: var(--font-weight-semibold);
+  color: var(--gray-700);
+}
+
+/* Column widths for timetable table */
+.timetable-table th:nth-child(1),
+.timetable-table td:nth-child(1) {
+  width: 25%;
+  min-width: 120px;
+}
+
+.timetable-table th:nth-child(2),
+.timetable-table td:nth-child(2) {
+  width: 25%;
+  min-width: 150px;
+}
+
+.timetable-table th:nth-child(3),
+.timetable-table td:nth-child(3) {
+  width: 20%;
+  min-width: 100px;
+}
+
+.timetable-table th:nth-child(4),
+.timetable-table td:nth-child(4) {
+  width: 10%;
+  min-width: 80px;
+}
+
+.timetable-table th:nth-child(5),
+.timetable-table td:nth-child(5) {
+  width: 20%;
+  min-width: 140px;
+  text-align: center;
+}
+
+/* Actions column styling */
+.timetable-table td:nth-child(5) {
+  display: flex;
+  gap: var(--spacing-xs);
+  align-items: center;
+  justify-content: center;
+  flex-wrap: wrap;
+  padding: var(--spacing-sm);
+}
+
+.timetable-table .btn-edit,
+.timetable-table .btn-delete {
+  padding: 6px 12px;
+  font-size: var(--font-size-xs);
+  white-space: nowrap;
+  min-width: 60px;
+  flex-shrink: 0;
+  border-radius: var(--radius-sm);
+  border: 1px solid transparent;
+  cursor: pointer;
+  transition: all var(--transition-base);
+  font-weight: 500;
+}
+
+.timetable-table .btn-edit {
+  background: var(--primary-color);
+  color: var(--white);
+}
+
+.timetable-table .btn-edit:hover {
+  background: var(--primary-color-dark);
+}
+
+.timetable-table .btn-delete {
+  background: var(--error-color, #dc3545);
+  color: var(--white);
+}
+
+.timetable-table .btn-delete:hover {
+  background: var(--error-color-dark, #c82333);
+}
+
+/* Responsive adjustments for timetable table */
+@media (max-width: 768px) {
+  .timetable-table {
+    font-size: var(--font-size-xs);
+  }
+  
+  .timetable-table th,
+  .timetable-table td {
+    padding: 6px 4px;
+  }
+  
+  .timetable-table th:nth-child(1),
+  .timetable-table td:nth-child(1) {
+    width: 20%;
+    min-width: 100px;
+  }
+  
+  .timetable-table th:nth-child(2),
+  .timetable-table td:nth-child(2) {
+    width: 25%;
+    min-width: 120px;
+  }
+  
+  .timetable-table th:nth-child(3),
+  .timetable-table td:nth-child(3) {
+    width: 15%;
+    min-width: 80px;
+  }
+  
+  .timetable-table th:nth-child(4),
+  .timetable-table td:nth-child(4) {
+    width: 10%;
+    min-width: 60px;
+  }
+  
+  .timetable-table th:nth-child(5),
+  .timetable-table td:nth-child(5) {
+    width: 30%;
+    min-width: 120px;
+  }
+  
+  .timetable-table .btn-edit,
+  .timetable-table .btn-delete {
+    padding: 4px 8px;
+    font-size: 11px;
+    min-width: 50px;
+  }
+}
+
+.timetable-add {
+  margin-top: var(--spacing-xl);
+  background: var(--white);
+  border: 1px solid var(--gray-200);
+  border-radius: var(--radius-lg);
+  padding: var(--spacing-xl);
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+}
+
+.timetable-add-header {
+  margin-bottom: var(--spacing-lg);
+}
+
+.timetable-add-header h2 {
+  margin-top: 0;
+  margin-bottom: var(--spacing-sm);
+  color: var(--gray-800);
+  font-size: var(--font-size-xl);
+}
+
+.timetable-add-subtitle {
+  color: var(--gray-600);
+  font-size: var(--font-size-sm);
+  margin: 0;
+}
+
+.timetable-days-tabs {
+  display: flex;
+  gap: var(--spacing-sm);
+  margin-top: var(--spacing-lg);
+  flex-wrap: wrap;
+  justify-content: center;
+}
+
+.day-tab {
+  padding: var(--spacing-md) var(--spacing-lg);
+  border: 2px solid var(--gray-300);
+  background: var(--white);
+  border-radius: var(--radius-md);
+  cursor: pointer;
+  transition: all var(--transition-base);
+  text-transform: capitalize;
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-xs);
+  font-weight: 500;
+  min-width: 120px;
+  justify-content: center;
+  position: relative;
+}
+
+.day-tab:hover {
+  background: var(--gray-50);
+  border-color: var(--primary-color);
+  transform: translateY(-2px);
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.day-tab.has-entry {
+  background: var(--primary-color);
+  color: var(--white);
+  border-color: var(--primary-color);
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.15);
+}
+
+.day-tab.has-entry:hover {
+  background: var(--primary-color-dark);
+  border-color: var(--primary-color-dark);
+}
+
+.day-name {
+  flex: 1;
+  text-align: center;
+}
+
+.day-entry-indicator {
+  font-size: var(--font-size-lg);
+  font-weight: bold;
+}
+
+.timetable-add-actions {
+  margin-top: var(--spacing-xl);
+  padding-top: var(--spacing-lg);
+  border-top: 1px solid var(--gray-200);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--spacing-md);
+}
+
+.timetable-add-info {
+  flex: 1;
+}
+
+.info-text {
+  color: var(--gray-600);
+  font-size: var(--font-size-sm);
+  font-style: italic;
+}
+
+.timetable-add-actions .form-actions {
+  display: flex;
+  gap: var(--spacing-md);
+  margin: 0;
+  padding: 0;
+  border: none;
+}
+

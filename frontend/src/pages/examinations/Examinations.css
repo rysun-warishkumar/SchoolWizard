@@ -1,0 +1,806 @@
+.examinations-page {
+  padding: var(--spacing-xl);
+  width: 100%;
+  max-width: 100%;
+  overflow-x: hidden;
+  overflow-y: visible;
+  box-sizing: border-box;
+  position: relative;
+}
+
+.tab-description {
+  font-size: var(--font-size-sm);
+  color: var(--gray-600);
+  margin-top: var(--spacing-xs);
+  font-weight: normal;
+}
+
+/* No print class for hiding elements during print */
+@media print {
+  .no-print {
+    display: none !important;
+  }
+}
+
+.examinations-tabs-wrapper {
+  width: 100%;
+  max-width: 100%;
+  overflow: hidden;
+  box-sizing: border-box;
+  margin-bottom: var(--spacing-xl);
+}
+
+.examinations-tabs-container {
+  position: relative;
+  border-bottom: 2px solid var(--gray-200);
+  width: 100%;
+  max-width: 100%;
+  overflow: hidden;
+  box-sizing: border-box;
+  display: flex;
+  align-items: stretch;
+  gap: var(--spacing-xs);
+  padding-bottom: var(--spacing-xs);
+}
+
+.examinations-tabs {
+  display: flex;
+  gap: var(--spacing-sm);
+  overflow-x: auto;
+  overflow-y: hidden;
+  scroll-behavior: smooth;
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+  flex: 1 1 0;
+  min-width: 0;
+  padding: 0;
+  box-sizing: border-box;
+  -webkit-overflow-scrolling: touch;
+  margin-bottom: var(--spacing-xs);
+}
+
+.examinations-tabs::-webkit-scrollbar {
+  display: none;
+}
+
+.examinations-tabs-arrow {
+  position: relative;
+  z-index: 10;
+  background: var(--white);
+  border: 1px solid var(--gray-300);
+  border-radius: 50%;
+  width: 36px;
+  height: 36px;
+  min-width: 36px;
+  min-height: 36px;
+  max-width: 36px;
+  max-height: 36px;
+  padding: 0;
+  margin: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  font-size: 20px;
+  font-weight: bold;
+  color: var(--gray-700);
+  box-sizing: border-box;
+  line-height: 1;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  transition: all var(--transition-base);
+  flex-shrink: 0;
+  align-self: center;
+}
+
+.examinations-tabs-arrow:hover:not(:disabled) {
+  background: var(--primary-color);
+  color: var(--white);
+  border-color: var(--primary-color);
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.15);
+}
+
+.examinations-tabs-arrow:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.examinations-tabs-arrow:disabled:hover {
+  background: var(--white);
+  color: var(--gray-700);
+  border-color: var(--gray-300);
+}
+
+.examinations-tabs-arrow-left {
+  margin-right: var(--spacing-xs);
+}
+
+.examinations-tabs-arrow-right {
+  margin-left: var(--spacing-xs);
+}
+
+.examinations-tabs button {
+  padding: var(--spacing-md) var(--spacing-lg);
+  border: none;
+  background: transparent;
+  cursor: pointer;
+  font-size: var(--font-size-base);
+  color: var(--gray-600);
+  border-bottom: 2px solid transparent;
+  margin-bottom: 0;
+  transition: all var(--transition-base);
+  white-space: nowrap;
+  flex-shrink: 0;
+  box-sizing: border-box;
+  display: inline-flex;
+  align-items: center;
+}
+
+.examinations-tabs button:hover {
+  color: var(--primary-color);
+}
+
+.examinations-tabs button.active {
+  color: var(--primary-color);
+  border-bottom: 2px solid var(--primary-color);
+  font-weight: 500;
+}
+
+.examinations-content {
+  width: 100%;
+  max-width: 100%;
+  overflow-x: hidden;
+  box-sizing: border-box;
+}
+
+.examinations-tab-content {
+  width: 100%;
+}
+
+/* Exam Details Modal */
+.exam-details {
+  padding: var(--spacing-md);
+  display: flex !important;
+  flex-direction: column;
+  gap: var(--spacing-lg);
+}
+
+/* Exam Information Section */
+.exam-info-section {
+  padding: var(--spacing-md);
+  background: var(--white);
+  border: 1px solid var(--gray-200);
+  border-radius: var(--border-radius);
+}
+
+.exam-info-section h3 {
+  margin-bottom: var(--spacing-md);
+  color: var(--gray-800);
+  font-size: var(--font-size-lg);
+  font-weight: 600;
+  border-bottom: 2px solid var(--primary-color);
+  padding-bottom: var(--spacing-xs);
+}
+
+.info-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: var(--spacing-md);
+}
+
+.info-grid > div {
+  padding: var(--spacing-sm);
+  background: var(--gray-50);
+  border-radius: var(--border-radius-sm);
+}
+
+.info-grid strong {
+  color: var(--gray-700);
+  display: inline-block;
+  min-width: 100px;
+}
+
+/* Header Action Buttons in Modal */
+.modal-header-actions .btn-sm {
+  padding: var(--spacing-sm) var(--spacing-md);
+  font-size: var(--font-size-sm);
+  white-space: nowrap;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--spacing-xs);
+  font-weight: 500;
+  min-height: 36px;
+  line-height: 1.4;
+}
+
+.modal-header-actions .btn-sm .icon {
+  font-size: 1em;
+  font-weight: bold;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  line-height: 1;
+  margin: 0;
+  padding: 0;
+}
+
+/* Main Content Grid - Subjects and Students Side by Side */
+.exam-content-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--spacing-lg);
+  align-items: start;
+}
+
+.modal-content{
+  max-width: 1500px !important;
+}
+
+/* Section Styling (for both Subjects and Students) */
+.exam-subjects-section,
+.exam-students-section {
+  display: flex;
+  flex-direction: column;
+  background: var(--white);
+  border: 1px solid var(--gray-200);
+  border-radius: var(--border-radius);
+  overflow: hidden;
+  min-height: 300px;
+}
+
+.section-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: var(--spacing-md);
+  background: linear-gradient(135deg, var(--primary-color) 0%, var(--primary-color-dark) 100%);
+  color: var(--white);
+  border-bottom: 2px solid var(--primary-color-dark);
+}
+
+.section-header h3 {
+  margin: 0;
+  color: var(--white);
+  font-size: var(--font-size-lg);
+  font-weight: var(--font-weight-semibold);
+  line-height: 1.4;
+}
+
+.section-count {
+  background: rgba(255, 255, 255, 0.2);
+  padding: 4px 12px;
+  border-radius: 12px;
+  font-size: var(--font-size-sm);
+  font-weight: 600;
+}
+
+.section-content {
+  padding: var(--spacing-md);
+  flex: 1;
+  overflow-y: auto;
+  max-height: 500px;
+}
+
+.section-content .data-table {
+  margin: 0;
+}
+
+.section-content .data-table th {
+  background: var(--gray-100);
+  font-weight: 600;
+  font-size: var(--font-size-sm);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.section-content .data-table td {
+  font-size: var(--font-size-sm);
+  padding: var(--spacing-sm) var(--spacing-md);
+}
+
+.subject-code {
+  color: var(--gray-600);
+  font-size: 0.9em;
+  font-weight: normal;
+}
+
+.section-footer {
+  padding: var(--spacing-md);
+  border-top: 1px solid var(--gray-200);
+  background: var(--gray-50);
+  display: flex;
+  justify-content: center;
+}
+
+/* Students List */
+.students-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-xs);
+}
+
+.student-item {
+  padding: var(--spacing-sm) var(--spacing-md);
+  background: var(--gray-50);
+  border: 1px solid var(--gray-200);
+  border-radius: var(--border-radius-sm);
+  transition: all var(--transition-base);
+}
+
+.student-item:hover {
+  background: var(--gray-100);
+  border-color: var(--primary-color);
+  transform: translateX(4px);
+}
+
+.student-info {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-md);
+}
+
+.student-admission {
+  font-weight: 600;
+  color: var(--primary-color);
+  min-width: 80px;
+  font-size: var(--font-size-sm);
+}
+
+.student-name {
+  color: var(--gray-800);
+  font-size: var(--font-size-sm);
+}
+
+.students-more {
+  text-align: center;
+  padding: var(--spacing-sm);
+  color: var(--gray-600);
+  font-style: italic;
+  font-size: var(--font-size-sm);
+}
+
+/* Empty State */
+.empty-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: var(--spacing-xl);
+  text-align: center;
+  min-height: 250px;
+  color: var(--gray-600);
+}
+
+.empty-state-icon {
+  font-size: 3em;
+  margin-bottom: var(--spacing-md);
+  opacity: 0.5;
+}
+
+.empty-state p {
+  margin: var(--spacing-sm) 0 var(--spacing-md) 0;
+  font-size: var(--font-size-base);
+  color: var(--gray-600);
+}
+
+.empty-state .btn-sm {
+  margin-top: var(--spacing-sm);
+}
+
+/* Responsive Design */
+@media (max-width: 1024px) {
+  .exam-content-grid {
+    grid-template-columns: 1fr;
+  }
+  
+  .exam-actions-section {
+    flex-direction: column;
+  }
+  
+  .exam-actions-section  {
+    width: 100%;
+    min-width: auto;
+  }
+}
+
+@media (max-width: 768px) {
+  .info-grid {
+    grid-template-columns: 1fr;
+  }
+  
+  .section-content {
+    max-height: 400px;
+  }
+}
+
+/* Assign Students Modal */
+.assign-students-modal {
+  padding: var(--spacing-md);
+}
+
+.students-checkbox-list {
+  border: 1px solid var(--gray-300);
+  border-radius: var(--border-radius);
+  padding: var(--spacing-md);
+  margin-top: var(--spacing-md);
+}
+
+.checkbox-item {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-sm);
+  padding: var(--spacing-sm);
+  cursor: pointer;
+  border-radius: var(--border-radius);
+  transition: background-color var(--transition-base);
+}
+
+.checkbox-item:hover {
+  background: var(--gray-50);
+}
+
+.checkbox-item input[type="checkbox"] {
+  cursor: pointer;
+  width: 18px;
+  height: 18px;
+}
+
+/* Enter Marks Modal */
+.enter-marks-modal {
+  padding: var(--spacing-md);
+}
+
+.marks-entry-table {
+  border: 1px solid var(--gray-300);
+  border-radius: var(--border-radius);
+  overflow: hidden;
+}
+
+.marks-entry-table table {
+  margin: 0;
+}
+
+.marks-entry-table input[type="number"],
+.marks-entry-table input[type="text"] {
+  padding: var(--spacing-xs);
+  border: 1px solid var(--gray-300);
+  border-radius: var(--border-radius-sm);
+  font-size: var(--font-size-sm);
+}
+
+.marks-entry-table input[type="number"]:focus,
+.marks-entry-table input[type="text"]:focus {
+  outline: none;
+  border-color: var(--primary-color);
+  box-shadow: 0 0 0 2px rgba(var(--primary-color-rgb), 0.1);
+}
+
+/* Badge styles */
+.badge {
+  display: inline-block;
+  padding: 4px 12px;
+  border-radius: 4px;
+  font-size: var(--font-size-xs);
+  font-weight: 500;
+  text-transform: uppercase;
+  background: var(--gray-200);
+  color: var(--gray-700);
+  letter-spacing: 0.5px;
+}
+
+.badge-success {
+  background: #10b981;
+  color: var(--white);
+}
+
+.badge-warning {
+  background: var(--warning-color);
+  color: var(--white);
+}
+
+/* Data Table Styles */
+.data-table {
+  width: 100%;
+  border-collapse: collapse;
+  background: var(--white);
+  border-radius: var(--radius-md);
+  overflow: hidden;
+  box-shadow: var(--shadow-sm);
+}
+
+.data-table thead {
+  background: var(--gray-50);
+}
+
+.data-table th {
+  padding: var(--spacing-md);
+  text-align: left;
+  font-weight: 600;
+  color: var(--gray-700);
+  font-size: var(--font-size-sm);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  border-bottom: 2px solid var(--gray-200);
+}
+
+.data-table td {
+  padding: var(--spacing-md);
+  border-bottom: 1px solid var(--gray-200);
+  color: var(--gray-800);
+  font-size: var(--font-size-base);
+}
+
+.data-table tbody tr:hover {
+  background: var(--gray-50);
+}
+
+.data-table tbody tr:last-child td {
+  border-bottom: none;
+}
+
+/* Action buttons */
+.action-buttons {
+  display: flex;
+  gap: var(--spacing-sm);
+}
+
+.btn-sm {
+  padding: var(--spacing-xs) var(--spacing-sm);
+  font-size: var(--font-size-sm);
+  border-radius: var(--border-radius-sm);
+}
+
+/* Filters section */
+.filters-section {
+  background: var(--gray-50);
+  padding: var(--spacing-md);
+  border-radius: var(--border-radius);
+}
+
+/* Exam Results */
+.exam-results-container {
+  width: 100%;
+}
+
+.exam-results-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: var(--spacing-lg);
+  padding: var(--spacing-md);
+  background: var(--gray-50);
+  border-radius: var(--border-radius);
+}
+
+.exam-results-header h3 {
+  margin: 0;
+  color: var(--gray-800);
+}
+
+.exam-results-summary {
+  display: flex;
+  gap: var(--spacing-lg);
+  font-size: var(--font-size-sm);
+  color: var(--gray-600);
+}
+
+.exam-results-summary span {
+  font-weight: 600;
+}
+
+.exam-results-table-wrapper {
+  border: 1px solid var(--gray-300);
+  border-radius: var(--border-radius);
+  overflow: auto;
+}
+
+.exam-results-table {
+  width: 100%;
+  min-width: 800px;
+  margin: 0;
+}
+
+.exam-results-table thead th {
+  background: var(--gray-100);
+  font-weight: 600;
+  text-align: center;
+  padding: var(--spacing-sm) var(--spacing-md);
+  border: 1px solid var(--gray-300);
+  vertical-align: middle;
+}
+
+.exam-results-table tbody td {
+  text-align: center;
+  padding: var(--spacing-sm) var(--spacing-md);
+  border: 1px solid var(--gray-300);
+}
+
+.exam-results-table tbody tr:hover {
+  background: var(--gray-50);
+}
+
+.failed-row {
+  background: rgba(239, 68, 68, 0.05);
+}
+
+.failed-marks {
+  color: var(--error-color);
+  font-weight: 600;
+}
+
+.badge-danger {
+  background: var(--error-color);
+  color: var(--white);
+}
+
+/* Admit Card Layout */
+.admit-card-layout {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--spacing-xl);
+  margin-top: var(--spacing-lg);
+}
+
+.admit-card-edit-section,
+.admit-card-list-section {
+  background: var(--white);
+  padding: var(--spacing-lg);
+  border-radius: var(--border-radius);
+  box-shadow: var(--shadow-sm);
+}
+
+.admit-card-edit-section h3,
+.admit-card-list-section h3 {
+  margin-bottom: var(--spacing-md);
+  color: var(--text-primary);
+  font-size: var(--font-size-lg);
+  font-weight: 600;
+}
+
+.action-buttons {
+  display: flex;
+  gap: var(--spacing-xs);
+}
+
+.action-buttons button {
+  padding: var(--spacing-xs) var(--spacing-sm);
+  border: none;
+  border-radius: var(--border-radius-sm);
+  cursor: pointer;
+  font-size: var(--font-size-base);
+  transition: all 0.2s;
+  
+}
+
+.action-buttons button:hover {
+  opacity: 0.8;
+  transform: scale(1.05);
+}
+
+.select-criteria-section {
+  margin-bottom: var(--spacing-lg);
+}
+
+.select-criteria-section h3 {
+  margin-bottom: var(--spacing-md);
+  color: var(--text-primary);
+  font-size: var(--font-size-lg);
+  font-weight: 600;
+}
+
+.student-list-section h3 {
+  margin-bottom: var(--spacing-md);
+  color: var(--text-primary);
+  font-size: var(--font-size-lg);
+}
+
+/* Marksheet Preview Styles */
+.marksheet-preview-container {
+  width: 100%;
+}
+
+.marksheets-print-view {
+  width: 100%;
+}
+
+.marksheet {
+  background-color: var(--white);
+  border: 1px solid var(--gray-300);
+  box-shadow: var(--shadow-md);
+  margin: 20px auto;
+  position: relative;
+  overflow: hidden;
+}
+
+.marksheet-header,
+.marksheet-body,
+.marksheet-footer {
+  padding: 10px 20px;
+  font-size: 12px;
+  color: var(--gray-800);
+}
+
+.marksheet-body {
+  min-height: 400px;
+}
+
+.marksheet-actions {
+  display: flex;
+  justify-content: center;
+  gap: var(--spacing-md);
+  padding: var(--spacing-lg);
+  background: var(--gray-50);
+  border-radius: var(--border-radius);
+}
+
+@media print {
+  body * {
+    visibility: hidden;
+  }
+  .marksheets-print-view, .marksheets-print-view * {
+    visibility: visible;
+  }
+  .marksheets-print-view {
+    position: absolute;
+    left: 0;
+    top: 0;
+    width: 100%;
+    height: 100%;
+    margin: 0;
+    padding: 0;
+    box-shadow: none;
+    border: none;
+    background-color: white;
+  }
+  .marksheet {
+    page-break-after: always;
+    margin: 0;
+    border: none;
+    box-shadow: none;
+  }
+  .marksheet:last-child {
+    page-break-after: avoid;
+  }
+  .marksheet-actions {
+    display: none;
+  }
+}
+
+@media (max-width: 1024px) {
+  .admit-card-layout {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* Admit Card Preview Styles */
+.admit-card-preview-container {
+  padding: var(--spacing-lg);
+}
+
+.admit-cards-print-view {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-xl);
+}
+
+.admit-card {
+  background: white;
+  box-shadow: var(--shadow-lg);
+}
+
+@media print {
+  .admit-card {
+    page-break-after: always;
+    margin: 0;
+    padding: 20px;
+  }
+  
+  .admit-card-actions {
+    display: none;
+  }
+  
+  .admit-cards-print-view {
+    gap: 0;
+  }
+}
+

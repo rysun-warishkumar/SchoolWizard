@@ -1,0 +1,240 @@
+.income-page {
+  padding: var(--spacing-xl);
+  width: 100%;
+  max-width: 100%;
+  overflow-x: hidden;
+  box-sizing: border-box;
+}
+
+/* Tabs Wrapper - Outer container for overflow control */
+.income-tabs-wrapper {
+  width: 100%;
+  max-width: 100%;
+  overflow: hidden;
+  box-sizing: border-box;
+  margin-bottom: var(--spacing-xl);
+}
+
+/* Tabs Container - Contains border and flex layout for arrows + tabs */
+.income-tabs-container {
+  position: relative;
+  border-bottom: 2px solid var(--gray-200);
+  width: 100%;
+  max-width: 100%;
+  overflow: hidden;
+  box-sizing: border-box;
+  display: flex;
+  align-items: stretch;
+  gap: var(--spacing-xs);
+  padding-bottom: var(--spacing-xs);
+}
+
+/* Tabs - Scrollable area for tab buttons */
+.income-tabs {
+  display: flex;
+  gap: var(--spacing-sm);
+  overflow-x: auto;
+  overflow-y: hidden;
+  scroll-behavior: smooth;
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+  flex: 1 1 0;
+  min-width: 0;
+  padding: 0;
+  box-sizing: border-box;
+  -webkit-overflow-scrolling: touch;
+  margin-bottom: var(--spacing-xs);
+}
+
+.income-tabs::-webkit-scrollbar {
+  display: none;
+}
+
+/* Arrow Buttons */
+.income-tabs-arrow {
+  position: relative;
+  z-index: 10;
+  background: var(--white);
+  border: 1px solid var(--gray-300);
+  border-radius: 50%;
+  width: 36px;
+  height: 36px;
+  min-width: 36px;
+  min-height: 36px;
+  max-width: 36px;
+  max-height: 36px;
+  padding: 0;
+  margin: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  font-size: 20px;
+  font-weight: bold;
+  color: var(--gray-700);
+  box-sizing: border-box;
+  line-height: 1;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  transition: all var(--transition-base);
+  flex-shrink: 0;
+  align-self: center;
+}
+
+.income-tabs-arrow:hover:not(:disabled) {
+  background: var(--primary-color);
+  color: var(--white);
+  border-color: var(--primary-color);
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.15);
+}
+
+.income-tabs-arrow:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.income-tabs-arrow:disabled:hover {
+  background: var(--white);
+  color: var(--gray-700);
+  border-color: var(--gray-300);
+}
+
+.income-tabs-arrow-left {
+  margin-right: var(--spacing-xs);
+}
+
+.income-tabs-arrow-right {
+  margin-left: var(--spacing-xs);
+}
+
+/* Tab Buttons */
+.income-tabs button {
+  padding: var(--spacing-md) var(--spacing-lg);
+  border: none;
+  background: transparent;
+  cursor: pointer;
+  font-size: var(--font-size-base);
+  color: var(--gray-600);
+  border-bottom: 2px solid transparent;
+  margin-bottom: 0;
+  transition: all var(--transition-base);
+  white-space: nowrap;
+  flex-shrink: 0;
+  box-sizing: border-box;
+  display: inline-flex;
+  align-items: center;
+}
+
+.income-tabs button:hover {
+  color: var(--primary-color);
+}
+
+.income-tabs button.active {
+  color: var(--primary-color);
+  border-bottom-color: var(--primary-color);
+  font-weight: 500;
+}
+
+.income-content {
+  width: 100%;
+}
+
+.income-tab-content {
+  width: 100%;
+}
+
+.income-heads-layout {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--spacing-xl);
+}
+
+.income-heads-form-section,
+.income-heads-list-section {
+  background: var(--white);
+  padding: var(--spacing-lg);
+  border-radius: var(--border-radius);
+  box-shadow: var(--shadow-sm);
+}
+
+.add-income-layout {
+  display: grid;
+  grid-template-columns: 2fr 1fr;
+  gap: var(--spacing-xl);
+}
+
+.add-income-form-section {
+  background: var(--white);
+  padding: var(--spacing-lg);
+  border-radius: var(--border-radius);
+  box-shadow: var(--shadow-sm);
+}
+
+.recent-income-section {
+  background: var(--white);
+  padding: var(--spacing-lg);
+  border-radius: var(--border-radius);
+  box-shadow: var(--shadow-sm);
+}
+
+.recent-income-section h3 {
+  margin-top: 0;
+  margin-bottom: var(--spacing-md);
+  color: var(--gray-900);
+}
+
+.income-form {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-md);
+}
+
+.search-income-filters {
+  background: var(--white);
+  padding: var(--spacing-lg);
+  border-radius: var(--border-radius);
+  box-shadow: var(--shadow-sm);
+  margin-bottom: var(--spacing-xl);
+}
+
+.search-results {
+  background: var(--white);
+  border-radius: var(--border-radius);
+  box-shadow: var(--shadow-sm);
+  overflow: hidden;
+}
+
+.pagination {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: var(--spacing-md);
+  padding: var(--spacing-lg);
+}
+
+.pagination button {
+  padding: var(--spacing-sm) var(--spacing-md);
+  border: 1px solid var(--gray-300);
+  background: var(--white);
+  border-radius: var(--border-radius);
+  cursor: pointer;
+  transition: all var(--transition-base);
+}
+
+.pagination button:hover:not(:disabled) {
+  background: var(--primary-color);
+  color: var(--white);
+  border-color: var(--primary-color);
+}
+
+.pagination button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+@media (max-width: 768px) {
+  .income-heads-layout,
+  .add-income-layout {
+    grid-template-columns: 1fr;
+  }
+}
+

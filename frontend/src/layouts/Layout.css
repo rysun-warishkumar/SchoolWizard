@@ -1,0 +1,78 @@
+.layout {
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+  background-color: var(--gray-50);
+  overflow: hidden;
+}
+
+.layout-body {
+  display: flex;
+  flex: 1;
+  overflow: hidden;
+  height: calc(100vh - var(--header-height));
+}
+
+.layout-main {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  margin-left: var(--sidebar-width);
+  transition: margin-left var(--transition-base);
+  min-width: 0;
+  overflow: hidden;
+  width: calc(100% - var(--sidebar-width));
+  box-sizing: border-box;
+  height: 100%;
+}
+
+.layout.sidebar-collapsed .layout-main {
+  margin-left: var(--sidebar-width-collapsed);
+  width: calc(100% - var(--sidebar-width-collapsed));
+}
+
+.layout-content {
+  flex: 1;
+  padding: var(--spacing-xl);
+  overflow-y: auto;
+  overflow-x: hidden;
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
+  box-sizing: border-box;
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  min-height: 0; /* Important for flex children */
+}
+
+/* Chat page specific - no padding and no scroll */
+.layout-content.chat-layout {
+  padding: 0;
+  overflow: hidden;
+  height: 100%;
+  min-height: 0;
+  flex: 1;
+}
+
+.layout-content.chat-layout .chat-page {
+  height: 100%;
+  min-height: 0;
+}
+
+@media (max-width: 768px) {
+  .layout-body {
+    height: calc(100vh - var(--header-height));
+  }
+
+  .layout-main {
+    margin-left: 0 !important;
+    width: 100% !important;
+  }
+
+  .layout.sidebar-collapsed .layout-main {
+    margin-left: 0 !important;
+    width: 100% !important;
+  }
+}
+

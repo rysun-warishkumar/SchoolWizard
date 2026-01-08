@@ -1,0 +1,214 @@
+.certificate-page {
+  padding: var(--spacing-lg);
+}
+
+.certificate-tabs {
+  display: flex;
+  gap: var(--spacing-sm);
+  margin-bottom: var(--spacing-lg);
+  border-bottom: 1px solid var(--gray-200);
+  padding-bottom: var(--spacing-xs);
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+
+.certificate-tabs::-webkit-scrollbar {
+  display: none;
+}
+
+.certificate-tabs button {
+  padding: var(--spacing-sm) var(--spacing-md);
+  border: none;
+  background-color: transparent;
+  color: var(--gray-600);
+  font-size: var(--font-size-base);
+  cursor: pointer;
+  transition: color 0.2s ease, border-bottom 0.2s ease;
+  white-space: nowrap;
+}
+
+.certificate-tabs button.active {
+  color: var(--primary-color);
+  border-bottom: 2px solid var(--primary-color);
+  font-weight: 600;
+}
+
+.certificate-tabs button:hover:not(.active) {
+  color: var(--gray-800);
+}
+
+.certificate-content {
+  background: white;
+  border-radius: var(--border-radius);
+  padding: var(--spacing-lg);
+  box-shadow: var(--shadow-sm);
+}
+
+.certificate-tab-content {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-lg);
+}
+
+.tab-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: var(--spacing-md);
+}
+
+.filters-section {
+  background: var(--gray-50);
+  padding: var(--spacing-md);
+  border-radius: var(--border-radius);
+  margin-bottom: var(--spacing-lg);
+}
+
+.students-list {
+  margin-top: var(--spacing-md);
+}
+
+.certificate-preview {
+  padding: var(--spacing-md);
+}
+
+.preview-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: var(--spacing-sm);
+  margin-bottom: var(--spacing-lg);
+}
+
+.certificate-display {
+  border: 1px solid var(--gray-200);
+  padding: var(--spacing-lg);
+  background: white;
+  min-height: 400px;
+}
+
+.certificates-container {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-lg);
+  padding: var(--spacing-md);
+  background: #f5f5f5;
+}
+
+.certificate-wrapper {
+  page-break-after: always;
+  page-break-inside: avoid;
+}
+
+.id-cards-container {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(350px, 1fr));
+  gap: var(--spacing-lg);
+  padding: var(--spacing-md);
+  background: #f5f5f5;
+}
+
+.id-card-wrapper {
+  page-break-inside: avoid;
+}
+
+@media print {
+  /* Hide everything except certificate content */
+  body * {
+    visibility: hidden;
+  }
+
+  .certificate-preview,
+  .certificate-preview *,
+  .certificates-container,
+  .certificates-container *,
+  .id-cards-container,
+  .id-cards-container *,
+  .certificate-wrapper,
+  .certificate-wrapper *,
+  .id-card-wrapper,
+  .id-card-wrapper * {
+    visibility: visible;
+  }
+
+  .preview-actions,
+  .modal-overlay,
+  .modal-header,
+  .modal-close {
+    display: none !important;
+  }
+
+  .modal-content,
+  .modal-body {
+    position: absolute;
+    left: 0;
+    top: 0;
+    width: 100%;
+    margin: 0;
+    padding: 0;
+    border: none;
+    box-shadow: none;
+    background: white;
+  }
+
+  .certificates-container,
+  .id-cards-container {
+    background: white;
+    padding: 0;
+    margin: 0;
+  }
+
+  .certificate-wrapper,
+  .id-card-wrapper {
+    margin: 0;
+    page-break-after: always;
+    page-break-inside: avoid;
+  }
+
+  .certificate-wrapper:last-child,
+  .id-card-wrapper:last-child {
+    page-break-after: auto;
+  }
+}
+
+.checkbox-group {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  gap: var(--spacing-sm);
+  margin-top: var(--spacing-sm);
+}
+
+.checkbox-group label {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-xs);
+  font-weight: normal;
+  cursor: pointer;
+}
+
+.checkbox-group input[type="checkbox"] {
+  width: auto;
+  margin: 0;
+}
+
+.form-hint {
+  font-size: var(--font-size-sm);
+  color: var(--gray-500);
+  margin-top: var(--spacing-xs);
+}
+
+@media (max-width: 768px) {
+  .certificate-page {
+    padding: var(--spacing-md);
+  }
+
+  .certificate-content {
+    padding: var(--spacing-md);
+  }
+
+  .checkbox-group {
+    grid-template-columns: 1fr;
+  }
+}
+

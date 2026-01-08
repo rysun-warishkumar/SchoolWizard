@@ -1,0 +1,146 @@
+.student-timetable-page {
+  max-width: 1400px;
+  margin: 0 auto;
+}
+
+.timetable-header {
+  margin-bottom: var(--spacing-xl);
+}
+
+.timetable-header h1 {
+  font-size: var(--font-size-2xl);
+  color: var(--gray-900);
+  margin: 0 0 var(--spacing-xs) 0;
+}
+
+.class-info {
+  margin: 0;
+  color: var(--gray-600);
+  font-size: var(--font-size-md);
+}
+
+.timetable-container {
+  background: white;
+  border-radius: var(--radius-lg);
+  padding: var(--spacing-lg);
+  box-shadow: var(--shadow-sm);
+}
+
+.timetable-table-wrapper {
+  overflow-x: auto;
+}
+
+.timetable-table {
+  width: 100%;
+  border-collapse: collapse;
+  min-width: 800px;
+}
+
+.timetable-table thead {
+  background: var(--primary-color);
+  color: white;
+}
+
+.timetable-table th {
+  padding: var(--spacing-md);
+  text-align: center;
+  font-weight: 600;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+}
+
+.timetable-table th:first-child {
+  background: var(--primary-color-dark);
+}
+
+.timetable-table td {
+  padding: var(--spacing-sm);
+  border: 1px solid var(--gray-200);
+  vertical-align: top;
+  min-height: 80px;
+}
+
+.time-cell {
+  background: var(--gray-50);
+  text-align: center;
+  font-weight: 600;
+  width: 120px;
+}
+
+.time-from,
+.time-to {
+  font-size: var(--font-size-sm);
+  color: var(--gray-700);
+}
+
+.subject-cell {
+  min-width: 150px;
+  height: 80px;
+}
+
+.timetable-entry {
+  background: var(--primary-color);
+  color: white;
+  padding: var(--spacing-sm);
+  border-radius: var(--radius-md);
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  text-align: center;
+  transition: all var(--transition-base);
+}
+
+.timetable-entry:hover {
+  background: var(--primary-color-dark);
+  transform: scale(1.02);
+}
+
+.subject-name {
+  font-weight: 600;
+  font-size: var(--font-size-sm);
+  margin-bottom: var(--spacing-xs);
+}
+
+.teacher-name {
+  font-size: var(--font-size-xs);
+  opacity: 0.9;
+  margin-bottom: var(--spacing-xs);
+}
+
+.room-no {
+  font-size: var(--font-size-xs);
+  opacity: 0.8;
+}
+
+.empty-slot {
+  text-align: center;
+  color: var(--gray-400);
+  font-style: italic;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.loading,
+.empty-state {
+  text-align: center;
+  padding: var(--spacing-xl);
+  color: var(--gray-500);
+}
+
+@media (max-width: 768px) {
+  .timetable-table {
+    font-size: var(--font-size-xs);
+  }
+
+  .time-cell {
+    width: 80px;
+  }
+
+  .subject-cell {
+    min-width: 100px;
+  }
+}
+
