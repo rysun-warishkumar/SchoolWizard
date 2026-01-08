@@ -8,8 +8,8 @@
 -- ============================================================================
 
 -- Create Database
-CREATE DATABASE IF NOT EXISTS schoolwizard;
-USE schoolwizard;
+CREATE DATABASE IF NOT EXISTS u524544702_schoolwizard;
+USE u524544702_schoolwizard;
 
 -- ============================================================================
 -- BASE TABLES (from schema.sql)
@@ -121,7 +121,7 @@ ON DUPLICATE KEY UPDATE
 -- Email Settings Table
 -- This table stores SMTP configuration for sending emails
 
-USE schoolwizard;
+USE u524544702_schoolwizard;
 
 CREATE TABLE IF NOT EXISTS email_settings (
     id INT AUTO_INCREMENT PRIMARY KEY,
@@ -267,7 +267,7 @@ ON DUPLICATE KEY UPDATE granted=TRUE;
 -- System Settings Tables
 -- This migration creates tables for various system settings
 
-USE schoolwizard;
+USE u524544702_schoolwizard;
 
 -- SMS Settings Table
 CREATE TABLE IF NOT EXISTS sms_settings (
@@ -486,7 +486,7 @@ CREATE TABLE IF NOT EXISTS system_fields (
 -- Backup and Restore Tables
 -- This migration creates tables for managing database backups
 
-USE schoolwizard;
+USE u524544702_schoolwizard;
 
 -- Backup Records Table
 CREATE TABLE IF NOT EXISTS backup_records (
@@ -531,7 +531,7 @@ ON DUPLICATE KEY UPDATE auto_backup_enabled=auto_backup_enabled;
 -- IMPORTANT: Run files in order: 01, 02, 03, 04, 05
 -- ============================================================================
 
-USE schoolwizard;
+USE u524544702_schoolwizard;
 
 -- ============================================================================
 -- Source: 002_academics_tables.sql
@@ -626,7 +626,7 @@ CREATE TABLE IF NOT EXISTS class_timetable (
 -- This script checks if each column exists before adding it
 -- Run this in phpMyAdmin SQL tab
 
-USE schoolwizard;
+USE u524544702_schoolwizard;
 
 -- Function to add column only if it doesn't exist
 -- Note: MySQL doesn't support IF NOT EXISTS in ALTER TABLE directly
@@ -665,7 +665,7 @@ WHERE TABLE_SCHEMA = 'schoolwizard' AND TABLE_NAME = 'students';
 -- Script to check which columns exist and add only the missing ones
 -- Run this in phpMyAdmin SQL tab
 
-USE schoolwizard;
+USE u524544702_schoolwizard;
 
 -- Check current columns
 SELECT COLUMN_NAME 
@@ -709,7 +709,7 @@ WHERE TABLE_SCHEMA = 'schoolwizard' AND TABLE_NAME = 'students';
 -- Get the exact structure of the students table
 -- Run this to see all columns in order
 
-USE schoolwizard;
+USE u524544702_schoolwizard;
 
 -- Get all columns in the exact order they appear in the table
 SELECT 
@@ -900,7 +900,7 @@ CREATE TABLE IF NOT EXISTS online_admissions (
 -- Run this if you get "Column count doesn't match" errors
 -- Usage: mysql -u root schoolwizard < database/migrations/003_students_tables_ALTER.sql
 
-USE schoolwizard;
+USE u524544702_schoolwizard;
 
 -- Add missing columns if they don't exist
 ALTER TABLE students 
@@ -925,7 +925,7 @@ ADD COLUMN IF NOT EXISTS hostel_room_id INT AFTER hostel_id;
 -- This will NOT delete any data
 -- Run this in phpMyAdmin SQL tab or MySQL client
 
-USE schoolwizard;
+USE u524544702_schoolwizard;
 
 -- Disable foreign key checks temporarily (MySQL will re-enable automatically)
 SET FOREIGN_KEY_CHECKS = 0;
@@ -1026,7 +1026,7 @@ ORDER BY ORDINAL_POSITION;
 -- Run this in phpMyAdmin SQL tab
 -- If you get "Duplicate column name" errors, that means the column already exists - that's fine!
 
-USE schoolwizard;
+USE u524544702_schoolwizard;
 
 -- Add missing columns (ignore errors if they already exist)
 ALTER TABLE students ADD COLUMN father_photo VARCHAR(255) AFTER father_email;
@@ -1050,7 +1050,7 @@ WHERE TABLE_SCHEMA = 'schoolwizard' AND TABLE_NAME = 'students';
 -- Script to verify the students table structure
 -- Run this first to see what columns you have
 
-USE schoolwizard;
+USE u524544702_schoolwizard;
 
 -- List all columns in the students table
 SELECT 
@@ -1117,7 +1117,7 @@ SELECT
 -- ============================================================================
 
 -- Add missing columns to admit_card_templates table
-USE schoolwizard;
+USE u524544702_schoolwizard;
 
 ALTER TABLE admit_card_templates
 ADD COLUMN IF NOT EXISTS heading VARCHAR(255) AFTER name,
@@ -1135,7 +1135,7 @@ ADD COLUMN IF NOT EXISTS exam_name VARCHAR(255) AFTER title;
 -- Base64 encoded images are much longer than 255 characters
 -- This migration changes the photo column from VARCHAR(255) to LONGTEXT
 
-USE schoolwizard;
+USE u524544702_schoolwizard;
 
 -- Change photo column to LONGTEXT to support full base64 image data
 ALTER TABLE students MODIFY COLUMN photo LONGTEXT;
@@ -1163,7 +1163,7 @@ AND COLUMN_NAME LIKE '%photo%';
 -- IMPORTANT: Run files in order: 01, 02, 03, 04, 05
 -- ============================================================================
 
-USE schoolwizard;
+USE u524544702_schoolwizard;
 
 -- ============================================================================
 -- Source: 004_front_office_tables.sql
@@ -1339,7 +1339,7 @@ CREATE TABLE IF NOT EXISTS complains (
 -- Human Resource Module Tables
 -- Departments, Designations, Leave Types, Staff, Attendance, Payroll, Leaves
 
-USE schoolwizard;
+USE u524544702_schoolwizard;
 
 -- Departments
 CREATE TABLE IF NOT EXISTS departments (
@@ -1552,7 +1552,7 @@ CREATE TABLE IF NOT EXISTS teacher_ratings (
 -- Fees Collection Module Tables
 -- Fees Type, Fees Group, Fees Master, Fees Discount, Fees Collection, Fees Reminder
 
-USE schoolwizard;
+USE u524544702_schoolwizard;
 
 -- Fees Types
 CREATE TABLE IF NOT EXISTS fees_types (
@@ -1781,7 +1781,7 @@ CREATE TABLE IF NOT EXISTS fees_reminder_logs (
 
 -- Income and Expenses Module Tables
 
-USE schoolwizard;
+USE u524544702_schoolwizard;
 
 -- Income Heads
 CREATE TABLE IF NOT EXISTS income_heads (
@@ -1854,7 +1854,7 @@ CREATE TABLE IF NOT EXISTS expenses (
 -- IMPORTANT: Run files in order: 01, 02, 03, 04, 05
 -- ============================================================================
 
-USE schoolwizard;
+USE u524544702_schoolwizard;
 
 -- ============================================================================
 -- Source: 008_student_attendance_tables.sql
@@ -1862,7 +1862,7 @@ USE schoolwizard;
 
 -- Student Attendance Module Tables
 
-USE schoolwizard;
+USE u524544702_schoolwizard;
 
 -- Student Attendance (Day Wise)
 CREATE TABLE IF NOT EXISTS student_attendance (
@@ -1942,7 +1942,7 @@ CREATE TABLE IF NOT EXISTS student_leave_requests (
 -- Examinations Module Tables
 -- Marks Grade, Exam Groups, Exams, Exam Subjects, Exam Marks, Exam Results, Admit Cards, Marksheets
 
-USE schoolwizard;
+USE u524544702_schoolwizard;
 
 -- Marks Grades (Grading System)
 CREATE TABLE IF NOT EXISTS marks_grades (
@@ -2116,7 +2116,7 @@ CREATE TABLE IF NOT EXISTS marksheet_templates (
 -- Source: 013_online_examinations_tables.sql
 -- ============================================================================
 
-USE schoolwizard;
+USE u524544702_schoolwizard;
 
 -- Question Bank Table
 CREATE TABLE IF NOT EXISTS question_bank (
@@ -2239,7 +2239,7 @@ CREATE TABLE IF NOT EXISTS online_exam_answers (
 -- Source: 014_homework_tables.sql
 -- ============================================================================
 
-USE schoolwizard;
+USE u524544702_schoolwizard;
 
 -- Homework Table
 CREATE TABLE IF NOT EXISTS homework (
@@ -2295,7 +2295,7 @@ CREATE TABLE IF NOT EXISTS homework_evaluations (
 -- Source: 015_library_tables.sql
 -- ============================================================================
 
-USE schoolwizard;
+USE u524544702_schoolwizard;
 
 -- Books Table
 CREATE TABLE IF NOT EXISTS books (
@@ -2372,7 +2372,7 @@ CREATE TABLE IF NOT EXISTS book_issues (
 -- Source: 016_download_center_tables.sql
 -- ============================================================================
 
-USE schoolwizard;
+USE u524544702_schoolwizard;
 
 -- Download Contents Table
 CREATE TABLE IF NOT EXISTS download_contents (
@@ -2407,7 +2407,7 @@ CREATE TABLE IF NOT EXISTS download_contents (
 -- Source: 017_communicate_tables.sql
 -- ============================================================================
 
-USE schoolwizard;
+USE u524544702_schoolwizard;
 
 -- Notice Board Table
 CREATE TABLE IF NOT EXISTS notice_board (
@@ -2469,7 +2469,7 @@ CREATE TABLE IF NOT EXISTS sms_log (
 -- Source: 018_inventory_tables.sql
 -- ============================================================================
 
-USE schoolwizard;
+USE u524544702_schoolwizard;
 
 -- Item Categories Table
 CREATE TABLE IF NOT EXISTS item_categories (
@@ -2580,7 +2580,7 @@ CREATE TABLE IF NOT EXISTS item_issues (
 -- Source: 019_transport_tables.sql
 -- ============================================================================
 
-USE schoolwizard;
+USE u524544702_schoolwizard;
 
 -- Routes Table
 CREATE TABLE IF NOT EXISTS routes (
@@ -2629,7 +2629,7 @@ CREATE TABLE IF NOT EXISTS vehicle_assignments (
 -- Source: 020_hostel_tables.sql
 -- ============================================================================
 
-USE schoolwizard;
+USE u524544702_schoolwizard;
 
 -- Hostels Table
 CREATE TABLE IF NOT EXISTS hostels (
@@ -2680,7 +2680,7 @@ CREATE TABLE IF NOT EXISTS hostel_rooms (
 -- Source: 021_certificate_tables.sql
 -- ============================================================================
 
-USE schoolwizard;
+USE u524544702_schoolwizard;
 
 -- Certificate Templates Table
 CREATE TABLE IF NOT EXISTS certificate_templates (
@@ -2739,7 +2739,7 @@ CREATE TABLE IF NOT EXISTS id_card_templates (
 -- Source: 022_calendar_todo_tables.sql
 -- ============================================================================
 
-USE schoolwizard;
+USE u524544702_schoolwizard;
 
 -- Calendar Events Table
 CREATE TABLE IF NOT EXISTS calendar_events (
@@ -2782,7 +2782,7 @@ CREATE TABLE IF NOT EXISTS todo_tasks (
 -- Source: 023_chat_tables.sql
 -- ============================================================================
 
-USE schoolwizard;
+USE u524544702_schoolwizard;
 
 -- Chat Conversations Table
 -- Tracks conversations between two users
@@ -2837,7 +2837,7 @@ FOREIGN KEY (last_message_id) REFERENCES chat_messages(id) ON DELETE SET NULL;
 -- Source: 023_chat_tables_update.sql
 -- ============================================================================
 
-USE schoolwizard;
+USE u524544702_schoolwizard;
 
 -- Drop the foreign key constraint if it exists (to avoid errors on re-run)
 -- Note: If you get an error saying the constraint doesn't exist, that's fine - just continue
@@ -2871,7 +2871,7 @@ AND CONSTRAINT_NAME = 'fk_last_message';
 -- Source: 025_alumni_tables.sql
 -- ============================================================================
 
-USE schoolwizard;
+USE u524544702_schoolwizard;
 
 -- Alumni Records Table
 CREATE TABLE IF NOT EXISTS alumni (
@@ -2980,7 +2980,7 @@ CREATE TABLE IF NOT EXISTS alumni_event_registrations (
 -- Source: 026_lesson_plan_tables.sql
 -- ============================================================================
 
-USE schoolwizard;
+USE u524544702_schoolwizard;
 
 -- Subject Status Table
 CREATE TABLE IF NOT EXISTS subject_status (
@@ -3075,13 +3075,13 @@ CREATE TABLE IF NOT EXISTS lesson_plan_attachments (
 -- IMPORTANT: Run files in order: 01, 02, 03, 04, 05
 -- ============================================================================
 
-USE schoolwizard;
+USE u524544702_schoolwizard;
 
 -- ============================================================================
 -- Source: 024_front_cms_tables.sql
 -- ============================================================================
 
-USE schoolwizard;
+USE u524544702_schoolwizard;
 
 -- Front CMS Pages Table (created first as it's referenced by menu_items)
 CREATE TABLE IF NOT EXISTS front_cms_pages (
