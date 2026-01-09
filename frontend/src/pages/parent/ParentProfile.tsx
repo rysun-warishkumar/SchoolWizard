@@ -170,10 +170,10 @@ const ParentProfile = () => {
                     <label>Guardian Name</label>
                     <span>{profile.guardian_name}</span>
                   </div>
-                  {profile.guardian_relation && (
+                  {(profile as any).guardian_relation && (
                     <div className="info-item">
                       <label>Relation</label>
-                      <span>{profile.guardian_relation}</span>
+                      <span>{(profile as any).guardian_relation}</span>
                     </div>
                   )}
                   {profile.guardian_phone && (
@@ -192,11 +192,11 @@ const ParentProfile = () => {
             <div className="info-grid">
               <div className="info-item full-width">
                 <label>Current Address</label>
-                <span>{profile.current_address || '-'}</span>
+                <span>{(profile as any).current_address || '-'}</span>
               </div>
               <div className="info-item full-width">
                 <label>Permanent Address</label>
-                <span>{profile.permanent_address || '-'}</span>
+                <span>{(profile as any).permanent_address || '-'}</span>
               </div>
             </div>
           </div>

@@ -53,7 +53,8 @@ const ExamAttempt: React.FC<ExamAttemptProps> = ({
   const [showTerminateConfirm, setShowTerminateConfirm] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [windowBlurCount, setWindowBlurCount] = useState(0);
-  // Removed unused variables: isFullscreen, isTerminating
+  const [isFullscreen, setIsFullscreen] = useState(false);
+  const [isTerminating, setIsTerminating] = useState(false);
 
   const { showToast } = useToast();
   const examContainerRef = useRef<HTMLDivElement>(null);

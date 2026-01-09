@@ -68,7 +68,7 @@ const ParentDashboard = () => {
   const paidFees = fees.filter((f) => f.status === 'paid').reduce((sum, fee) => sum + parseFloat(fee.amount || '0'), 0);
   const pendingFees = totalFees - paidFees;
 
-  const attendanceData = attendance?.data || [];
+  const attendanceData = Array.isArray(attendance) ? attendance : (attendance?.data || []);
   const totalDays = attendanceData.reduce((sum: number, day: any) => sum + (day.status === 'present' ? 1 : 0), 0);
   const attendancePercentage = attendanceData.length > 0 ? Math.round((totalDays / attendanceData.length) * 100) : 0;
 
@@ -168,7 +168,7 @@ const ParentDashboard = () => {
                 <div className="empty-message">No fee records found</div>
               ) : (
                 <div className="fees-list">
-                  {fees.slice(0, 5).map((fee) => (
+                  {fees.slice(0, 5).map((fee: any) => (
                     <div key={fee.id} className="fee-item">
                       <div className="fee-info">
                         <h4>{fee.fee_type || 'Fee'}</h4>

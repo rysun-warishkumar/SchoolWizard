@@ -462,7 +462,7 @@ const ViewStudentModal = ({ studentId, onClose }: { studentId: number; onClose: 
     
     // Debug: Verify file is in FormData
     console.log('Uploading file:', file.name, file.size, file.type);
-    console.log('FormData entries:', Array.from(formData.entries()).map(([k, v]) => [k, v instanceof File ? `${v.name} (${v.size} bytes)` : v]));
+    console.log('FormData entries:', Array.from(formData.entries()).map(([k, v]) => [k, (v && typeof v === 'object' && 'constructor' in v && (v as any).constructor.name === 'File') ? `${(v as File).name} (${(v as File).size} bytes)` : v]));
     
     // Show preview
     const reader = new FileReader();

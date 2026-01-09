@@ -183,7 +183,9 @@ const ParentHomework = () => {
                             href="#"
                             onClick={(e) => {
                               e.preventDefault();
-                              handleDownloadAttachment(hw.attachment_url);
+                              if (hw.attachment_url) {
+                                handleDownloadAttachment(hw.attachment_url);
+                              }
                             }}
                             className="attachment-link"
                             style={{ cursor: 'pointer' }}

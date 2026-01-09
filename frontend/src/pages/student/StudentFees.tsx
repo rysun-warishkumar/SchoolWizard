@@ -109,7 +109,7 @@ const StudentFees = () => {
     refetchOnWindowFocus: false,
   });
 
-  const { data: invoices = [], isLoading: invoicesLoading } = useQuery(
+  const { data: invoices = [] } = useQuery(
     ['student-fees-invoices', student?.id, statusFilter],
     () =>
       feesService.getStudentFeesInvoices({
@@ -119,7 +119,7 @@ const StudentFees = () => {
     { enabled: !!student?.id, refetchOnWindowFocus: false }
   );
 
-  const { data: payments = [], isLoading: paymentsLoading } = useQuery(
+  const { data: payments = [] } = useQuery(
     ['student-fees-payments', student?.id],
     () =>
       feesService.getFeesPayments({

@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useQuery, useMutation, useQueryClient } from 'react-query';
 import { useSearchParams } from 'react-router-dom';
-import { settingsService, GeneralSettings, Session, EmailSettings, NotificationSetting, SMSSetting, PaymentGateway, PrintSettings, FrontCMSSettings, Language, Module, CustomField, SystemField, BackupRecord, BackupSettings } from '../../services/api/settingsService';
+import { settingsService, GeneralSettings, Session, EmailSettings, NotificationSetting, SMSSetting, PaymentGateway, Language, Module, CustomField, SystemField, BackupRecord, BackupSettings } from '../../services/api/settingsService';
 import { useToast } from '../../contexts/ToastContext';
 import Modal from '../../components/common/Modal';
 import './Settings.css';
@@ -1363,7 +1363,7 @@ const SMSSettingsTab = () => {
       </div>
 
       {showModal && (
-        <Modal title={editingGateway ? 'Edit SMS Gateway' : 'Add SMS Gateway'} onClose={() => { setShowModal(false); resetForm(); }}>
+        <Modal isOpen={showModal} title={editingGateway ? 'Edit SMS Gateway' : 'Add SMS Gateway'} onClose={() => { setShowModal(false); resetForm(); }}>
           <form onSubmit={handleSubmit}>
             <div className="form-group">
               <label>SMS Gateway *</label>

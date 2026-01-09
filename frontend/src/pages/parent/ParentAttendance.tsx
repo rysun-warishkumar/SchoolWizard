@@ -26,15 +26,14 @@ const ParentAttendance = () => {
   const { data: attendance = [], isLoading } = useQuery(
     ['parent-attendance', selectedChildId, month, year],
     () =>
-      attendanceService.getStudentAttendance({
-        student_id: selectedChildId,
+      attendanceService.getMyAttendance({
         month,
         year,
       }),
     { enabled: !!selectedChildId, refetchOnWindowFocus: false }
   );
 
-  const attendanceData = attendance[0];
+  const attendanceData = Array.isArray(attendance) && attendance.length > 0 ? attendance[0] : null;
   const totalDays = attendanceData?.total_days || 0;
   const presentDays = attendanceData?.present_count || 0;
   const absentDays = attendanceData?.absent_count || 0;

@@ -71,10 +71,10 @@ const ModernHomePage: React.FC = () => {
                   backgroundImage: `url(${getImageUrl(banner.image_path)})`,
                 }}
               >
-                {banner.title && (
+                {(banner as any).title && (
                   <div className="banner-content">
-                    <h1>{banner.title}</h1>
-                    {banner.description && <p>{banner.description}</p>}
+                    <h1>{(banner as any).title}</h1>
+                    {(banner as any).description && <p>{(banner as any).description}</p>}
                   </div>
                 )}
               </div>

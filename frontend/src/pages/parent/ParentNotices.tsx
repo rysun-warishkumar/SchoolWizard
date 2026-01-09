@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 import { useQuery } from 'react-query';
 import { communicateService } from '../../services/api/communicateService';
 import './ParentNotices.css';
@@ -10,7 +10,7 @@ const ParentNotices = () => {
     'parent-notices',
     () =>
       communicateService.getNotices({
-        message_to: 'parents',
+        message_to: 'guardians' as any,
       }),
     { refetchOnWindowFocus: false }
   );

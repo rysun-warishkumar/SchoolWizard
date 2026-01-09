@@ -206,8 +206,8 @@ const StudentOnlineExam = () => {
               
               if (exam.exam_date && exam.exam_time_to) {
                 try {
-                  const dateStr = (exam.exam_date && typeof exam.exam_date === 'object' && 'toISOString' in exam.exam_date)
-                    ? (exam.exam_date as Date).toISOString().split('T')[0] 
+                  const dateStr = (exam.exam_date && typeof exam.exam_date === 'object' && 'toISOString' in (exam.exam_date as any))
+                    ? (exam.exam_date as any).toISOString().split('T')[0] 
                     : String(exam.exam_date || '');
                   const timeStr = typeof exam.exam_time_to === 'string' 
                     ? exam.exam_time_to.split('T').pop()?.split('.')[0] || exam.exam_time_to

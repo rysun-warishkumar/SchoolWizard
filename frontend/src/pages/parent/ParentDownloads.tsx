@@ -30,7 +30,7 @@ const ParentDownloads = () => {
         available_for: 'students',
         class_id: selectedChild?.class_id,
         section_id: selectedChild?.section_id,
-        content_type: contentTypeFilter || undefined,
+        content_type: contentTypeFilter as 'assignments' | 'study_material' | 'syllabus' | 'other_downloads' | undefined,
       }),
     { enabled: !!selectedChild?.class_id && !!selectedChild?.section_id, refetchOnWindowFocus: false }
   );

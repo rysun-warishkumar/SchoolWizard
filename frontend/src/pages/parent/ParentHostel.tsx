@@ -35,12 +35,12 @@ const ParentHostel = () => {
   );
 
   // Find selected child's assigned hostel room
-  const studentRoom = selectedChild?.hostel_room_id
-    ? rooms.find((r) => r.id === selectedChild.hostel_room_id)
+  const studentRoom = (selectedChild as any)?.hostel_room_id
+    ? rooms.find((r) => r.id === (selectedChild as any).hostel_room_id)
     : null;
 
   const studentHostel = studentRoom
-    ? hostels.find((h) => h.id === studentRoom.hostel_id)
+    ? hostels.find((h) => h.id === (studentRoom as any).hostel_id)
     : null;
 
   if (children.length === 0) {

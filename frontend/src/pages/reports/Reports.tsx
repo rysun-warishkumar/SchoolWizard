@@ -1,27 +1,9 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 import { useQuery } from 'react-query';
 import { useSearchParams } from 'react-router-dom';
-import {
-  reportsService,
-  StudentListReportItem,
-  StudentAttendanceReportItem,
-  StudentExamResultsReportItem,
-  StudentFeesReportItem,
-  StaffListReportItem,
-  StaffPayrollReportItem,
-  StaffLeaveReportItem,
-  FeesCollectionReportItem,
-  IncomeReportItem,
-  ExpenseReportItem,
-  FinancialSummaryReport,
-  LibraryBookIssueReportItem,
-  TransportReportItem,
-  InventoryReportItem,
-  AdmissionEnquiryReportItem,
-} from '../../services/api/reportsService';
+import { reportsService } from '../../services/api/reportsService';
 import { academicsService } from '../../services/api/academicsService';
 import { examinationsService } from '../../services/api/examinationsService';
-import { useToast } from '../../contexts/ToastContext';
 import './Reports.css';
 
 type TabType =
@@ -213,7 +195,7 @@ const StudentListReport = () => {
   const [statusFilter, setStatusFilter] = useState('');
   const [searchTerm, setSearchTerm] = useState('');
 
-  const { data: classesResponse, error: classesError } = useQuery(['classes'], academicsService.getClasses, {
+  const { data: classesResponse } = useQuery(['classes'], academicsService.getClasses, {
     refetchOnWindowFocus: false,
     retry: 1,
   });
@@ -378,7 +360,7 @@ const StudentAttendanceReport = () => {
   const [month, setMonth] = useState(new Date().getMonth() + 1);
   const [year, setYear] = useState(new Date().getFullYear());
 
-  const { data: classesResponse, error: classesError } = useQuery(['classes'], academicsService.getClasses, {
+  const { data: classesResponse } = useQuery(['classes'], academicsService.getClasses, {
     refetchOnWindowFocus: false,
     retry: 1,
   });
@@ -390,7 +372,7 @@ const StudentAttendanceReport = () => {
   });
   const sections = Array.isArray(sectionsResponse?.data) ? sectionsResponse.data : [];
 
-  const { data: reportData, isLoading, error: reportError } = useQuery(
+  const { data: reportData, isLoading } = useQuery(
     ['student-attendance-report', classFilter, sectionFilter, month, year],
     () =>
       reportsService.getStudentAttendanceReport({
@@ -515,7 +497,7 @@ const StudentExamResultsReport = () => {
   const [classFilter, setClassFilter] = useState('');
   const [sectionFilter, setSectionFilter] = useState('');
 
-  const { data: classesResponse, error: classesError } = useQuery(['classes'], academicsService.getClasses, {
+  const { data: classesResponse } = useQuery(['classes'], academicsService.getClasses, {
     refetchOnWindowFocus: false,
     retry: 1,
   });
@@ -658,7 +640,7 @@ const StudentFeesReport = () => {
   const [endDate, setEndDate] = useState('');
   const [paymentStatusFilter, setPaymentStatusFilter] = useState('');
 
-  const { data: classesResponse, error: classesError } = useQuery(['classes'], academicsService.getClasses, {
+  const { data: classesResponse } = useQuery(['classes'], academicsService.getClasses, {
     refetchOnWindowFocus: false,
     retry: 1,
   });
@@ -670,7 +652,7 @@ const StudentFeesReport = () => {
   });
   const sections = Array.isArray(sectionsResponse?.data) ? sectionsResponse.data : [];
 
-  const { data: feesData, isLoading, error: feesError } = useQuery(
+  const { data: feesData, isLoading } = useQuery(
     ['student-fees-report', classFilter, sectionFilter, startDate, endDate, paymentStatusFilter],
     () =>
       reportsService.getStudentFeesReport({
@@ -805,16 +787,10 @@ const StudentFeesReport = () => {
 // ========== Staff List Report ==========
 
 const StaffListReport = () => {
-  const [roleFilter, setRoleFilter] = useState('');
   const [statusFilter, setStatusFilter] = useState('');
   const [searchTerm, setSearchTerm] = useState('');
 
-  const { data: roles = [] } = useQuery(['roles'], () => {
-    // Assuming rolesService exists
-    return Promise.resolve([]);
-  });
-
-  const { data: staffData, isLoading, error: staffError } = useQuery(
+  const { data: staffData, isLoading } = useQuery(
     ['staff-list-report', roleFilter, statusFilter, searchTerm],
     () =>
       reportsService.getStaffListReport({

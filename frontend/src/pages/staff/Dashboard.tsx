@@ -39,7 +39,7 @@ const StaffDashboard = () => {
     ['staff-attendance-today', today.toISOString().split('T')[0]],
     () =>
       hrService.getStaffAttendance({
-        date: today.toISOString().split('T')[0],
+        attendance_date: today.toISOString().split('T')[0],
       }),
     { refetchOnWindowFocus: false, enabled: false } // Disabled until staff attendance endpoint is available
   );

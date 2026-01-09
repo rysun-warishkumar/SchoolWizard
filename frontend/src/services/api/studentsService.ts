@@ -112,7 +112,7 @@ export const studentsService = {
   async updateStudentWithPhoto(id: string, formData: FormData): Promise<{ success: boolean; message: string; data: Student }> {
     // Verify FormData has the file
     const photoEntry = formData.get('photo');
-    if (!photoEntry || !(photoEntry instanceof File)) {
+    if (!photoEntry || !(photoEntry && typeof photoEntry === 'object' && 'constructor' in photoEntry && (photoEntry as any).constructor.name === 'File')) {
       throw new Error('No photo file found in FormData');
     }
     

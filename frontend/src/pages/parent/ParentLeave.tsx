@@ -1,16 +1,12 @@
 import React, { useState } from 'react';
-import { useQuery, useMutation, useQueryClient } from 'react-query';
+import { useQuery } from 'react-query';
 import { attendanceService } from '../../services/api/attendanceService';
 import { studentsService } from '../../services/api/studentsService';
-import { useToast } from '../../contexts/ToastContext';
 import ChildSelector from '../../components/parent/ChildSelector';
 import './ParentLeave.css';
 
 const ParentLeave = () => {
   const [selectedChildId, setSelectedChildId] = useState<number | null>(null);
-
-  const { showToast } = useToast();
-  const queryClient = useQueryClient();
 
   const { data: childrenData } = useQuery('my-children', () => studentsService.getMyChildren(), {
     refetchOnWindowFocus: false,
@@ -30,7 +26,7 @@ const ParentLeave = () => {
     ['parent-leave-requests', selectedChildId],
     () =>
       attendanceService.getStudentLeaveRequests({
-        student_id: selectedChildId,
+        student_id: selectedChildId || undefined,
       }),
     { enabled: !!selectedChildId, refetchOnWindowFocus: false }
   );

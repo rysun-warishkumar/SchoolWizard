@@ -41,12 +41,12 @@ const ParentTransport = () => {
   );
 
   // Find selected child's assigned route
-  const studentRoute = selectedChild?.transport_route_id
-    ? routes.find((r) => r.id === selectedChild.transport_route_id)
+  const studentRoute = (selectedChild as any)?.transport_route_id
+    ? routes.find((r) => r.id === (selectedChild as any).transport_route_id)
     : null;
 
   const studentVehicle = studentRoute
-    ? assignments.find((a) => a.route_id === studentRoute.id)
+    ? assignments.find((a) => a.route_id === (studentRoute as any).id)
     : null;
 
   const vehicleDetails = studentVehicle
@@ -141,7 +141,7 @@ const ParentTransport = () => {
                     <h3>{route.title}</h3>
                     <p className="route-fare">Fare: ₹{parseFloat(route.fare?.toString() || '0').toFixed(2)}</p>
                     {route.description && <p className="route-description">{route.description}</p>}
-                    {route.id === selectedChild?.transport_route_id && (
+                    {route.id === (selectedChild as any)?.transport_route_id && (
                       <span className="assigned-badge">Assigned</span>
                     )}
                   </div>

@@ -1,7 +1,6 @@
 import { useState } from 'react';
 import { useQuery } from 'react-query';
 import { libraryService } from '../../services/api/libraryService';
-import { studentsService } from '../../services/api/studentsService';
 import './StudentLibrary.css';
 
 const StudentLibrary = () => {

@@ -28,7 +28,7 @@ const ParentOnlineExam = () => {
     () =>
       onlineExaminationsService.getOnlineExams({
         class_id: selectedChild?.class_id,
-        section_id: selectedChild?.section_id,
+        session_id: selectedChild?.session_id,
         is_published: true,
       }),
     { enabled: !!selectedChild?.class_id && !!selectedChild?.section_id, refetchOnWindowFocus: false }
@@ -38,8 +38,8 @@ const ParentOnlineExam = () => {
 
   const filteredExams = statusFilter
     ? exams.filter((exam) => {
-        const startDate = new Date(exam.start_date || exam.exam_date || '');
-        const endDate = new Date(exam.end_date || '');
+        const startDate = new Date((exam as any).start_date || exam.exam_date || '');
+        const endDate = new Date((exam as any).end_date || '');
         const now = new Date();
 
         if (statusFilter === 'scheduled') return startDate > now;
@@ -93,7 +93,7 @@ const ParentOnlineExam = () => {
                   <div key={exam.id} className="exam-card">
                     <div className="exam-header-card">
                       <div>
-                        <h3>{exam.exam_title}</h3>
+                        <h3>{(exam as any).exam_title || exam.title}</h3>
                         <p className="subject-name">{exam.subject_name}</p>
                       </div>
                       <div className="exam-status">

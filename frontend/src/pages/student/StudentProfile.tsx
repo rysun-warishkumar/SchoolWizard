@@ -173,7 +173,7 @@ const StudentProfile = () => {
               </div>
               <div className="info-item">
                 <label>Occupation</label>
-                <span>{student.mother_occupation || '-'}</span>
+                <span>{(student as any).mother_occupation || '-'}</span>
               </div>
               <div className="info-item">
                 <label>Phone</label>
@@ -219,7 +219,7 @@ const StudentProfile = () => {
             <div className="info-grid">
               <div className="info-item full-width">
                 <label>Current Address</label>
-                <span>{student.current_address || '-'}</span>
+                <span>{(student as any).current_address || '-'}</span>
               </div>
               <div className="info-item full-width">
                 <label>Permanent Address</label>

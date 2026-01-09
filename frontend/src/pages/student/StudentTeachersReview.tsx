@@ -49,7 +49,7 @@ const StudentTeachersReview = () => {
 
   const handleSubmitReview = (e: React.FormEvent) => {
     e.preventDefault();
-    const student = studentData?.data;
+    const student = studentData;
     if (!student || !selectedTeacher) return;
 
     submitReviewMutation.mutate({

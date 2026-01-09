@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useQuery } from 'react-query';
-import { feesService, FeesInvoice, FeesPayment } from '../../services/api/feesService';
+import { feesService } from '../../services/api/feesService';
 import { studentsService } from '../../services/api/studentsService';
 import ChildSelector from '../../components/parent/ChildSelector';
 import './ParentFees.css';
@@ -123,7 +123,7 @@ const ParentFees = () => {
     ['parent-fees-invoices', selectedChildId, statusFilter],
     () =>
       feesService.getStudentFeesInvoices({
-        student_id: selectedChildId,
+        student_id: selectedChildId || undefined,
         status: statusFilter || undefined,
       }),
     { enabled: !!selectedChildId, refetchOnWindowFocus: false }
@@ -146,7 +146,6 @@ const ParentFees = () => {
     .filter((inv) => inv.status !== 'paid')
     .reduce((sum, inv) => sum + parseFloat(inv.balance_amount?.toString() || '0'), 0);
 
-  const isLoading = activeTab === 'invoices' ? invoicesLoading : paymentsLoading;
 
   if (children.length === 0) {
     return <div className="empty-state">No children found</div>;

@@ -1,5 +1,5 @@
 import { apiClient } from './apiClient';
-import { User } from '../types/auth';
+import { User } from '../../types/auth';
 
 export interface UpdateProfileData {
   name?: string;
