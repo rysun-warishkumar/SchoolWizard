@@ -1,10 +1,7 @@
-import React from 'react';
 import { useQuery } from 'react-query';
 import { useAuth } from '../../contexts/AuthContext';
 import { hrService } from '../../services/api/hrService';
-import { studentsService } from '../../services/api/studentsService';
 import { homeworkService } from '../../services/api/homeworkService';
-import { attendanceService } from '../../services/api/attendanceService';
 import './StaffDashboard.css';
 
 const StaffDashboard = () => {
@@ -32,19 +29,19 @@ const StaffDashboard = () => {
     { refetchOnWindowFocus: false }
   );
 
-  const pendingHomeworkCount = homeworkData?.data?.filter(
+  const pendingHomeworkCount = (homeworkData || []).filter(
     (h: any) => h.status === 'pending'
   )?.length || 0;
 
-  // Get today's attendance status
+  // Get today's attendance status - using hrService.getStaffAttendance
   const today = new Date();
   const { data: attendanceData } = useQuery(
     ['staff-attendance-today', today.toISOString().split('T')[0]],
     () =>
-      attendanceService.getStaffAttendance({
+      hrService.getStaffAttendance({
         date: today.toISOString().split('T')[0],
       }),
-    { refetchOnWindowFocus: false }
+    { refetchOnWindowFocus: false, enabled: false } // Disabled until staff attendance endpoint is available
   );
 
   const todayAttendance = attendanceData?.data?.[0];

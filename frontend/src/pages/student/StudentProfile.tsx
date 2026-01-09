@@ -1,4 +1,3 @@
-import React from 'react';
 import { useQuery } from 'react-query';
 import { studentsService } from '../../services/api/studentsService';
 import './StudentProfile.css';
@@ -152,7 +151,7 @@ const StudentProfile = () => {
               </div>
               <div className="info-item">
                 <label>Occupation</label>
-                <span>{student.father_occupation || '-'}</span>
+                <span>{(student as any).father_occupation || '-'}</span>
               </div>
               <div className="info-item">
                 <label>Phone</label>
@@ -197,11 +196,11 @@ const StudentProfile = () => {
                 </div>
                 <div className="info-item">
                   <label>Relation</label>
-                  <span>{student.guardian_relation || '-'}</span>
+                  <span>{(student as any).guardian_relation || '-'}</span>
                 </div>
                 <div className="info-item">
                   <label>Occupation</label>
-                  <span>{student.guardian_occupation || '-'}</span>
+                  <span>{(student as any).guardian_occupation || '-'}</span>
                 </div>
                 <div className="info-item">
                   <label>Phone</label>
@@ -224,7 +223,7 @@ const StudentProfile = () => {
               </div>
               <div className="info-item full-width">
                 <label>Permanent Address</label>
-                <span>{student.permanent_address || '-'}</span>
+                <span>{(student as any).permanent_address || '-'}</span>
               </div>
             </div>
           </div>

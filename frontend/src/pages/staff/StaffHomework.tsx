@@ -1,8 +1,7 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from 'react-query';
 import { hrService } from '../../services/api/hrService';
 import { homeworkService } from '../../services/api/homeworkService';
-import { academicsService } from '../../services/api/academicsService';
 import { settingsService } from '../../services/api/settingsService';
 import { apiClient } from '../../services/api/apiClient';
 import { useToast } from '../../contexts/ToastContext';
@@ -111,7 +110,7 @@ const StaffHomework = () => {
     }
   );
 
-  const homework = homeworkData?.data || [];
+  const homework = (Array.isArray(homeworkData) ? homeworkData : []) || [];
 
   const createMutation = useMutation(homeworkService.createHomework, {
     onSuccess: () => {
@@ -138,7 +137,15 @@ const StaffHomework = () => {
       return;
     }
 
-    createMutation.mutate({
+    const homeworkData: {
+      class_id: number;
+      section_id: number;
+      subject_id: number;
+      homework_date: string;
+      submission_date: string;
+      title: string;
+      description?: string;
+    } = {
       class_id: selectedClass.class_id,
       section_id: selectedClass.section_id,
       subject_id: Number(formData.subject_id),
@@ -146,8 +153,9 @@ const StaffHomework = () => {
       submission_date: formData.submission_date,
       title: formData.title,
       description: formData.description,
-      session_id: currentSession.id,
-    });
+    };
+
+    createMutation.mutate(homeworkData);
   };
 
   if (classes.length === 0) {

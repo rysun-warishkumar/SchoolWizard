@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 import { useQuery } from 'react-query';
 import { libraryService } from '../../services/api/libraryService';
 import { studentsService } from '../../services/api/studentsService';
@@ -7,9 +7,9 @@ import './StudentLibrary.css';
 const StudentLibrary = () => {
   const [searchTerm, setSearchTerm] = useState('');
 
-  const { data: student } = useQuery('my-student-profile', () => studentsService.getMyProfile(), {
-    refetchOnWindowFocus: false,
-  });
+  // const { data: student } = useQuery('my-student-profile', () => studentsService.getMyProfile(), {
+  //   refetchOnWindowFocus: false,
+  // });
 
   const { data: books = [], isLoading } = useQuery(
     ['library-books', searchTerm],

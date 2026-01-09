@@ -1,4 +1,3 @@
-import React from 'react';
 import { useQuery } from 'react-query';
 import { academicsService } from '../../services/api/academicsService';
 import { studentsService } from '../../services/api/studentsService';

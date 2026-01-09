@@ -1,4 +1,3 @@
-import React from 'react';
 import { useQuery } from 'react-query';
 import { transportService } from '../../services/api/transportService';
 import { studentsService } from '../../services/api/studentsService';
@@ -28,8 +27,8 @@ const StudentTransport = () => {
   );
 
   // Find student's assigned route
-  const studentRoute = student?.transport_route_id
-    ? routes.find((r) => r.id === student.transport_route_id)
+  const studentRoute = (student as any)?.transport_route_id
+    ? routes.find((r) => r.id === (student as any).transport_route_id)
     : null;
 
   const studentVehicle = studentRoute
@@ -117,7 +116,7 @@ const StudentTransport = () => {
                 <h3>{route.title}</h3>
                 <p className="route-fare">Fare: ₹{parseFloat(route.fare?.toString() || '0').toFixed(2)}</p>
                 {route.description && <p className="route-description">{route.description}</p>}
-                {route.id === student?.transport_route_id && (
+                {route.id === (student as any)?.transport_route_id && (
                   <span className="assigned-badge">Assigned to You</span>
                 )}
               </div>

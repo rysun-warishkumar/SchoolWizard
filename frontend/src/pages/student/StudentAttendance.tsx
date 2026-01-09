@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 import { useQuery } from 'react-query';
 import { attendanceService } from '../../services/api/attendanceService';
 import { studentsService } from '../../services/api/studentsService';
@@ -9,7 +9,7 @@ const StudentAttendance = () => {
   const [month, setMonth] = useState(currentDate.getMonth() + 1);
   const [year, setYear] = useState(currentDate.getFullYear());
 
-  const { data: student } = useQuery('my-student-profile', () => studentsService.getMyProfile(), {
+  useQuery('my-student-profile', () => studentsService.getMyProfile(), {
     refetchOnWindowFocus: false,
   });
 

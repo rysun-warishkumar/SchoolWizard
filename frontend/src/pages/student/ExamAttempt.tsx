@@ -50,11 +50,10 @@ const ExamAttempt: React.FC<ExamAttemptProps> = ({
   );
   const [markedForReview, setMarkedForReview] = useState<Set<number>>(new Set());
   const [remainingSeconds, setRemainingSeconds] = useState(attemptData.remaining_seconds);
-  const [isFullscreen, setIsFullscreen] = useState(false);
   const [showTerminateConfirm, setShowTerminateConfirm] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [windowBlurCount, setWindowBlurCount] = useState(0);
-  const [isTerminating, setIsTerminating] = useState(false);
+  // Removed unused variables: isFullscreen, isTerminating
 
   const { showToast } = useToast();
   const examContainerRef = useRef<HTMLDivElement>(null);
@@ -75,7 +74,7 @@ const ExamAttempt: React.FC<ExamAttemptProps> = ({
   const submitMutation = useMutation(
     () => onlineExaminationsService.submitExam(attemptData.attempt_id),
     {
-      onSuccess: (data) => {
+      onSuccess: () => {
         setIsSubmitting(false);
         exitFullscreen();
         showToast('Exam submitted successfully!', 'success');

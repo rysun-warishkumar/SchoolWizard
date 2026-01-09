@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 import { useQuery } from 'react-query';
 import { homeworkService } from '../../services/api/homeworkService';
 import { studentsService } from '../../services/api/studentsService';
@@ -119,7 +119,7 @@ const StudentHomework = () => {
               // Check if this student's evaluation exists
               // For students, the backend should already filter evaluations to only their own
               // So we can just take the first evaluation if any exist, or check by student_id
-              const studentEvaluation = hw.evaluations?.length > 0 
+              const studentEvaluation = (hw.evaluations && hw.evaluations.length > 0)
                 ? (hw.evaluations.find((e: any) => e.student_id === student?.id) || hw.evaluations[0])
                 : null;
               
@@ -129,7 +129,9 @@ const StudentHomework = () => {
               
               if (studentEvaluation) {
                 // Check is_completed (can be 0/1 from DB or boolean)
-                const isCompletedFlag = studentEvaluation.is_completed === 1 || studentEvaluation.is_completed === true;
+                const isCompletedFlag = studentEvaluation.is_completed !== undefined 
+                  ? (Number(studentEvaluation.is_completed) === 1 || studentEvaluation.is_completed === true)
+                  : false;
                 
                 if (isCompletedFlag) {
                   homeworkStatus = 'completed';
@@ -207,7 +209,9 @@ const StudentHomework = () => {
                           href="#"
                           onClick={(e) => {
                             e.preventDefault();
-                            handleDownloadAttachment(hw.attachment_url);
+                            if (hw.attachment_url) {
+                              handleDownloadAttachment(hw.attachment_url);
+                            }
                           }}
                           className="attachment-link"
                           style={{ cursor: 'pointer' }}

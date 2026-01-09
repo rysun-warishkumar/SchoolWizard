@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from 'react-query';
 import { usersService } from '../../services/api/usersService';
 import { rolesService } from '../../services/api/rolesService';

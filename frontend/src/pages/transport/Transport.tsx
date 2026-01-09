@@ -1,11 +1,10 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from 'react-query';
 import { useSearchParams } from 'react-router-dom';
 import {
   transportService,
   Route,
   Vehicle,
-  VehicleAssignment,
 } from '../../services/api/transportService';
 import { useToast } from '../../contexts/ToastContext';
 import Modal from '../../components/common/Modal';

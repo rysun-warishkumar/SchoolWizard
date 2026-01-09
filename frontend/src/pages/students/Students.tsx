@@ -515,7 +515,6 @@ const ViewStudentModal = ({ studentId, onClose }: { studentId: number; onClose: 
           <div className="student-details-header">
             {(() => {
               const photoUrl = getPhotoUrl(student.photo);
-              const hasPhoto = photoUrl !== null && photoUrl !== '';
               
               const displayPhotoUrl = photoPreview || photoUrl;
               const displayHasPhoto = displayPhotoUrl !== null && displayPhotoUrl !== '';
@@ -773,7 +772,6 @@ const EditStudentModal = ({ studentId, classes, sections, onClose }: { studentId
 
   const [formData, setFormData] = useState<any>({});
   const [error, setError] = useState<string | null>(null);
-  const [photoPreview, setPhotoPreview] = useState<string>('');
 
   useEffect(() => {
     if (studentData?.data) {

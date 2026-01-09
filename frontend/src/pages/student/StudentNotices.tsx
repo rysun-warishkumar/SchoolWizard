@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 import { useQuery } from 'react-query';
 import { communicateService } from '../../services/api/communicateService';
 import './StudentNotices.css';

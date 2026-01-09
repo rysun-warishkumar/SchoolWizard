@@ -1639,7 +1639,7 @@ const PaymentGatewaySettingsTab = () => {
       </div>
 
       {showModal && (
-        <Modal title={editingGateway ? 'Edit Payment Gateway' : 'Add Payment Gateway'} onClose={() => { setShowModal(false); resetForm(); }}>
+        <Modal isOpen={showModal} title={editingGateway ? 'Edit Payment Gateway' : 'Add Payment Gateway'} onClose={() => { setShowModal(false); resetForm(); }}>
           <form onSubmit={handleSubmit}>
             <div className="form-group">
               <label>Gateway Name *</label>
@@ -2275,7 +2275,7 @@ const CustomFieldsTab = () => {
       </div>
 
       {showModal && (
-        <Modal title={editingField ? 'Edit Custom Field' : 'Add Custom Field'} onClose={() => { setShowModal(false); resetForm(); }}>
+        <Modal isOpen={showModal} title={editingField ? 'Edit Custom Field' : 'Add Custom Field'} onClose={() => { setShowModal(false); resetForm(); }}>
           <form onSubmit={handleSubmit}>
             <div className="form-group">
               <label>Field Belongs To *</label>
@@ -2615,7 +2615,6 @@ const BackupRestoreTab = () => {
   }
 
   const backups = backupsData?.data || [];
-  const settings = backupSettingsData?.data;
 
   return (
     <div className="settings-content">

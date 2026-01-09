@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 import { useQuery } from 'react-query';
 import { downloadCenterService } from '../../services/api/downloadCenterService';
 import { studentsService } from '../../services/api/studentsService';
@@ -18,7 +18,9 @@ const StudentDownloads = () => {
         available_for: 'students',
         class_id: student?.class_id,
         section_id: student?.section_id,
-        content_type: contentTypeFilter || undefined,
+        content_type: contentTypeFilter && ['assignments', 'study_material', 'syllabus', 'other_downloads'].includes(contentTypeFilter)
+          ? (contentTypeFilter as 'assignments' | 'study_material' | 'syllabus' | 'other_downloads')
+          : undefined,
       }),
     { enabled: !!student?.class_id && !!student?.section_id, refetchOnWindowFocus: false }
   );

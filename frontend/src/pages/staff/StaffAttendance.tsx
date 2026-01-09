@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from 'react-query';
 import { hrService } from '../../services/api/hrService';
 import { attendanceService } from '../../services/api/attendanceService';
@@ -116,11 +116,16 @@ const StaffAttendance = () => {
       return;
     }
 
-    const records = students.map((student: any) => ({
-      student_id: student.id,
-      status: attendanceRecords[student.id]?.status || 'absent',
-      note: attendanceRecords[student.id]?.note || '',
-    }));
+    const records = students.map((student: any) => {
+      const status = attendanceRecords[student.id]?.status || 'absent';
+      return {
+        student_id: student.id,
+        status: (status === 'present' || status === 'late' || status === 'absent' || status === 'half_day') 
+          ? status as 'present' | 'late' | 'absent' | 'half_day'
+          : 'absent' as 'present' | 'late' | 'absent' | 'half_day',
+        note: attendanceRecords[student.id]?.note || '',
+      };
+    });
 
     submitMutation.mutate({
       class_id: selectedClass.class_id,

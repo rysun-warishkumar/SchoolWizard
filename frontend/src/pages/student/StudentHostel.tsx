@@ -1,4 +1,3 @@
-import React from 'react';
 import { useQuery } from 'react-query';
 import { hostelService } from '../../services/api/hostelService';
 import { studentsService } from '../../services/api/studentsService';
@@ -22,8 +21,8 @@ const StudentHostel = () => {
   );
 
   // Find student's assigned hostel room
-  const studentRoom = student?.hostel_room_id
-    ? rooms.find((r) => r.id === student.hostel_room_id)
+  const studentRoom = (student as any)?.hostel_room_id
+    ? rooms.find((r) => r.id === (student as any).hostel_room_id)
     : null;
 
   const studentHostel = studentRoom

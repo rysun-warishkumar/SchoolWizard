@@ -1,4 +1,3 @@
-import React from 'react';
 import { useQuery } from 'react-query';
 import { hrService } from '../../services/api/hrService';
 import { useAuth } from '../../contexts/AuthContext';

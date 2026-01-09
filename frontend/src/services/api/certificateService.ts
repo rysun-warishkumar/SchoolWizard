@@ -72,7 +72,7 @@ export const certificateService = {
     const formData = new FormData();
     
     Object.keys(data).forEach((key) => {
-      if (key === 'background_image' && data.background_image instanceof File) {
+      if (key === 'background_image' && data.background_image && typeof File !== 'undefined' && (data.background_image as any) instanceof File) {
         formData.append('background_image', data.background_image);
       } else if (key !== 'background_image' && data[key as keyof CertificateTemplate] !== undefined) {
         formData.append(key, String(data[key as keyof CertificateTemplate]));
@@ -91,7 +91,7 @@ export const certificateService = {
     const formData = new FormData();
     
     Object.keys(data).forEach((key) => {
-      if (key === 'background_image' && data.background_image instanceof File) {
+      if (key === 'background_image' && data.background_image && typeof File !== 'undefined' && (data.background_image as any) instanceof File) {
         formData.append('background_image', data.background_image);
       } else if (key !== 'background_image' && data[key as keyof CertificateTemplate] !== undefined) {
         formData.append(key, String(data[key as keyof CertificateTemplate]));
@@ -130,7 +130,7 @@ export const certificateService = {
     const formData = new FormData();
     
     Object.keys(data).forEach((key) => {
-      if (['background_image', 'logo', 'signature'].includes(key) && data[key as keyof typeof data] instanceof File) {
+      if (['background_image', 'logo', 'signature'].includes(key) && data[key as keyof typeof data] && typeof File !== 'undefined' && (data[key as keyof typeof data] as any) instanceof File) {
         formData.append(key, data[key as keyof typeof data] as File);
       } else if (!['background_image', 'logo', 'signature'].includes(key) && data[key as keyof IdCardTemplate] !== undefined) {
         formData.append(key, String(data[key as keyof IdCardTemplate]));
@@ -153,7 +153,7 @@ export const certificateService = {
     const formData = new FormData();
     
     Object.keys(data).forEach((key) => {
-      if (['background_image', 'logo', 'signature'].includes(key) && data[key as keyof typeof data] instanceof File) {
+      if (['background_image', 'logo', 'signature'].includes(key) && data[key as keyof typeof data] && typeof File !== 'undefined' && (data[key as keyof typeof data] as any) instanceof File) {
         formData.append(key, data[key as keyof typeof data] as File);
       } else if (!['background_image', 'logo', 'signature'].includes(key) && data[key as keyof IdCardTemplate] !== undefined) {
         formData.append(key, String(data[key as keyof IdCardTemplate]));

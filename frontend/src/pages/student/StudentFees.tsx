@@ -1,6 +1,6 @@
-import React, { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useQuery } from 'react-query';
-import { feesService, FeesInvoice, FeesPayment } from '../../services/api/feesService';
+import { feesService } from '../../services/api/feesService';
 import { studentsService } from '../../services/api/studentsService';
 import './StudentFees.css';
 
@@ -136,7 +136,7 @@ const StudentFees = () => {
     .filter((inv) => inv.status !== 'paid')
     .reduce((sum, inv) => sum + parseFloat(inv.balance_amount?.toString() || '0'), 0);
 
-  const isLoading = activeTab === 'invoices' ? invoicesLoading : paymentsLoading;
+  // Removed unused isLoading variable
 
   return (
     <div className="student-fees-page">

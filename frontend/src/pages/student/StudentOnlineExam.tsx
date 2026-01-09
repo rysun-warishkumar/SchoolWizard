@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 import { useQuery, useMutation } from 'react-query';
 import { onlineExaminationsService } from '../../services/api/onlineExaminationsService';
 import { studentsService } from '../../services/api/studentsService';
@@ -75,7 +75,7 @@ const StudentOnlineExam = () => {
   // Filter by status on frontend
   const filteredExams = statusFilter
     ? exams.filter((exam) => {
-        const examDate = exam.exam_date ? new Date(exam.exam_date) : null;
+        // const examDate = exam.exam_date ? new Date(exam.exam_date) : null;
         const examTimeFrom = exam.exam_time_from && exam.exam_date 
           ? new Date(`${exam.exam_date}T${exam.exam_time_from}`) 
           : null;
@@ -193,12 +193,10 @@ const StudentOnlineExam = () => {
               
               if (exam.exam_date && exam.exam_time_from) {
                 try {
-                  const dateStr = exam.exam_date instanceof Date 
-                    ? exam.exam_date.toISOString().split('T')[0] 
-                    : exam.exam_date;
+                  const dateStr = exam.exam_date ? (typeof exam.exam_date === 'string' ? exam.exam_date : String(exam.exam_date)) : '';
                   const timeStr = typeof exam.exam_time_from === 'string' 
                     ? exam.exam_time_from.split('T').pop()?.split('.')[0] || exam.exam_time_from
-                    : exam.exam_time_from;
+                    : exam.exam_time_from ? String(exam.exam_time_from) : '';
                   examTimeFrom = new Date(`${dateStr}T${timeStr}`);
                   if (isNaN(examTimeFrom.getTime())) examTimeFrom = null;
                 } catch {
@@ -208,9 +206,9 @@ const StudentOnlineExam = () => {
               
               if (exam.exam_date && exam.exam_time_to) {
                 try {
-                  const dateStr = exam.exam_date instanceof Date 
-                    ? exam.exam_date.toISOString().split('T')[0] 
-                    : exam.exam_date;
+                  const dateStr = (exam.exam_date && typeof exam.exam_date === 'object' && 'toISOString' in exam.exam_date)
+                    ? (exam.exam_date as Date).toISOString().split('T')[0] 
+                    : String(exam.exam_date || '');
                   const timeStr = typeof exam.exam_time_to === 'string' 
                     ? exam.exam_time_to.split('T').pop()?.split('.')[0] || exam.exam_time_to
                     : exam.exam_time_to;
@@ -251,9 +249,10 @@ const StudentOnlineExam = () => {
                 isOngoing = true;
               }
               
-              // Check if student has submitted the exam
-              const hasSubmitted = exam.has_submitted_attempt > 0;
-              const canViewResult = hasSubmitted && exam.is_result_published;
+              // Check if student has submitted the exam (using type assertion for extended properties)
+              const examWithAttempts = exam as any;
+              const hasSubmitted = examWithAttempts.has_submitted_attempt > 0;
+              const canViewResult = hasSubmitted && examWithAttempts.is_result_published;
               // Show "Start Exam" button if exam is published and not yet submitted
               const canStartExam = exam.is_published && !hasSubmitted;
 
@@ -261,7 +260,7 @@ const StudentOnlineExam = () => {
                 <div key={exam.id} className="exam-card">
                   <div className="exam-header-card">
                     <div>
-                      <h3>{exam.name || exam.exam_title}</h3>
+                      <h3>{exam.name || (examWithAttempts.exam_title as string)}</h3>
                       <p className="subject-name">{exam.subject_name}</p>
                     </div>
                     <div className="exam-status">
@@ -284,7 +283,7 @@ const StudentOnlineExam = () => {
                     <div className="detail-item">
                       <label>Time:</label>
                       <span>
-                        {formatTime(exam.exam_time_from, exam.exam_date)} - {formatTime(exam.exam_time_to, exam.exam_date)}
+                        {formatTime(exam.exam_time_from || null, exam.exam_date ? String(exam.exam_date) : null)} - {formatTime(exam.exam_time_to || null, exam.exam_date ? String(exam.exam_date) : null)}
                       </span>
                     </div>
                     <div className="detail-item">
@@ -320,7 +319,7 @@ const StudentOnlineExam = () => {
                       >
                         {startExamMutation.isLoading 
                           ? 'Starting...' 
-                          : exam.has_in_progress_attempt 
+                          : (exam as any).has_in_progress_attempt 
                             ? 'Resume Exam' 
                             : 'Start Exam'}
                       </button>

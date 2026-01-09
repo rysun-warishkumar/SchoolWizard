@@ -182,7 +182,7 @@ mysql -h mysql.hostinger.com -u schoolwizard_user -p schoolwizard < database/con
    ```
    NODE_ENV=production
    PORT=10000
-   DB_HOST=mysql.hostinger.com
+   DB_HOST=your_actual_hostname_from_hostinger_hpanel
    DB_USER=your_database_username
    DB_PASSWORD=your_database_password
    DB_NAME=your_database_name
@@ -191,10 +191,13 @@ mysql -h mysql.hostinger.com -u schoolwizard_user -p schoolwizard < database/con
    JWT_EXPIRE=7d
    CORS_ORIGIN=https://schoolwizard-frontend.onrender.com
    ```
-   **Important Notes**:
+   **⚠️ CRITICAL Notes**:
+   - **`DB_HOST`**: ⚠️ **MUST be the exact hostname from your Hostinger hPanel** - NOT `mysql.hostinger.com` unless that's what your hPanel shows!
+   - **`DB_NAME`**: Usually starts with `u` followed by numbers (e.g., `u524544702_schoolwizard`)
+   - **`DB_USER`**: Usually starts with `u` followed by numbers (e.g., `u524544702_schoolwizard_user`)
    - `JWT_SECRET` must be at least 32 characters long
    - `CORS_ORIGIN` should be your frontend URL (update after frontend deployment)
-   - Replace all placeholder values with your actual credentials
+   - Replace all placeholder values with your actual credentials from Hostinger hPanel
 6. **Advanced Settings**:
    - **Auto-Deploy**: `Yes` (deploys on every push to selected branch)
    - **Health Check Path**: `/health` (backend already has this endpoint)
@@ -547,13 +550,25 @@ The backend already has a health check endpoint at `/health`. Configure it in Re
 
 ### Database Connection Issues
 
-**Error**: `ECONNREFUSED` or `ETIMEDOUT`
+**Error**: `ECONNREFUSED`, `ETIMEDOUT`, or `getaddrinfo ENOTFOUND`
 
 **Solutions**:
-1. **Check Database Host**:
-   - Some Hostinger plans use `localhost` (only works from same server)
-   - Others use `mysql.hostinger.com` or specific host
-   - Check your Hostinger hPanel for correct host
+1. **Check Database Host** (Most Common Issue):
+   - ⚠️ **The hostname `mysql.hostinger.com` is often WRONG!**
+   - **You MUST get the exact hostname from your Hostinger hPanel**:
+     1. Login to Hostinger hPanel
+     2. Go to **Databases** → **MySQL Databases**
+     3. Find your database and click on it
+     4. Look for **"Host"** or **"Server"** field
+     5. Copy that **exact** hostname (it might be different!)
+   - Common actual hostnames:
+     - `mysql.hostinger.in` (India)
+     - `mysql.hostinger.co.uk` (UK)
+     - `mysql.hostinger.nl` (Netherlands)
+     - `mysql123.hostinger.com` (varies by account)
+     - Or a specific IP address
+   - **Update `DB_HOST` in Render** with the correct hostname from hPanel
+   - Some Hostinger plans use `localhost` (only works from same server - won't work from Render)
 
 2. **Enable Remote MySQL**:
    - Hostinger hPanel → Databases → **Remote MySQL**
@@ -803,10 +818,10 @@ Use this checklist to ensure all steps are completed:
 - **Frontend**: `https://schoolwizard-frontend.onrender.com`
 
 ### Database (Hostinger)
-- **Host**: `mysql.hostinger.com` (check your hPanel - may vary)
+- **Host**: ⚠️ **Get from hPanel** - NOT `mysql.hostinger.com` unless that's what hPanel shows!
 - **Port**: `3306`
-- **Database**: `schoolwizard` (or your chosen name)
-- **Username**: `schoolwizard_user` (or your chosen username)
+- **Database**: Usually `u[numbers]_schoolwizard` (check hPanel for exact name)
+- **Username**: Usually `u[numbers]_schoolwizard_user` (check hPanel for exact username)
 - **Password**: (your secure password)
 
 ### Default Login

@@ -13,7 +13,7 @@ const StudentTeachersReview = () => {
   const { showToast } = useToast();
   const queryClient = useQueryClient();
 
-  const { data: studentData } = useQuery('my-student-profile', () => studentsService.getMyStudentProfile(), {
+  const { data: studentData } = useQuery('my-student-profile', () => studentsService.getMyProfile(), {
     refetchOnWindowFocus: false,
   });
 
