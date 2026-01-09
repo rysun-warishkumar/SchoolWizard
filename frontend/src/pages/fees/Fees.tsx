@@ -1979,7 +1979,8 @@ const DueFeesTab = () => {
 
       // Get invoices for these students
       const allInvoices: FeesInvoice[] = [];
-      for (const student of students.data?.data || []) {
+      const studentList = Array.isArray(students?.data) ? students.data : (students?.data?.data || []);
+      for (const student of studentList) {
         try {
           const invoices = await feesService.getStudentFeesInvoices({
             student_id: student.id,

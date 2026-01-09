@@ -1798,7 +1798,7 @@ const SetupListTab = ({ title, queryKey, service, createService }: any) => {
             </tr>
           </thead>
           <tbody>
-            {data?.data.map((item: any) => (
+            {(data && typeof data === 'object' && 'data' in data && Array.isArray(data.data) ? data.data : []).map((item: any) => (
               <tr key={item.id}>
                 <td>{item.name}</td>
                 <td>{item.description || '-'}</td>

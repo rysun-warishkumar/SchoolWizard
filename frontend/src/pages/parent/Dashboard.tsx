@@ -32,7 +32,7 @@ const ParentDashboard = () => {
   // Get fees for selected child
   const { data: fees = [] } = useQuery(
     ['parent-fees', selectedChildId],
-    () => feesService.getStudentFeesInvoices({ student_id: selectedChildId }),
+    () => feesService.getStudentFeesInvoices({ student_id: selectedChildId || undefined }),
     { enabled: !!selectedChildId, refetchOnWindowFocus: false }
   );
 
@@ -65,8 +65,8 @@ const ParentDashboard = () => {
     { enabled: !!selectedChild?.class_id && !!selectedChild?.section_id, refetchOnWindowFocus: false }
   );
 
-  const totalFees = fees.reduce((sum, fee) => sum + parseFloat(fee.amount || '0'), 0);
-  const paidFees = fees.filter((f) => f.status === 'paid').reduce((sum, fee) => sum + parseFloat(fee.amount || '0'), 0);
+  const totalFees = fees.reduce((sum: number, fee: any) => sum + parseFloat(String(fee.amount || '0')), 0);
+  const paidFees = fees.filter((f: any) => f.status === 'paid').reduce((sum: number, fee: any) => sum + parseFloat(String(fee.amount || '0')), 0);
   const pendingFees = totalFees - paidFees;
 
   const attendanceData = Array.isArray(attendance) ? attendance : ((attendance as any)?.data || []);

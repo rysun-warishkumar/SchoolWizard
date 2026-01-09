@@ -3153,7 +3153,7 @@ const DesignAdmitCardAdvancedModal = ({ isOpen, onClose, formData, setFormData, 
               onClick={() => {
                 setShowModal(false);
                 setSelectedTemplate(null);
-                resetForm();
+                if (resetForm) resetForm();
               }}
             >
               Cancel
@@ -3957,7 +3957,7 @@ const DesignMarksheetTab = () => {
               onClick={() => {
                 setShowModal(false);
                 setSelectedTemplate(null);
-                resetForm();
+                if (typeof resetForm === 'function') resetForm();
               }}
             >
               Cancel

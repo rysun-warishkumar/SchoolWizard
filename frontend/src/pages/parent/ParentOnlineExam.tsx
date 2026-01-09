@@ -93,7 +93,7 @@ const ParentOnlineExam = () => {
                   <div key={exam.id} className="exam-card">
                     <div className="exam-header-card">
                       <div>
-                        <h3>{(exam as any).exam_title || exam.name || exam.title}</h3>
+                        <h3>{(exam as any).exam_title || exam.name || (exam as any).title || 'Online Exam'}</h3>
                         <p className="subject-name">{exam.subject_name}</p>
                       </div>
                       <div className="exam-status">

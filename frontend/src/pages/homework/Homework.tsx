@@ -173,7 +173,7 @@ const Homework = () => {
       title: '',
       description: '',
       attachment_url: '',
-      attachment_file: null as File | null,
+      attachment_file: null,
     });
   };
 
@@ -354,7 +354,7 @@ const Homework = () => {
                     </td>
                     <td>{new Date(hw.homework_date).toLocaleDateString()}</td>
                     <td>{new Date(hw.submission_date).toLocaleDateString()}</td>
-                    <td>{hw.evaluation_date ? new Date(hw.evaluation_date).toLocaleDateString() : '-'}</td>
+                    <td>{hw.evaluations && hw.evaluations.length > 0 && hw.evaluations[0].evaluation_date ? new Date(hw.evaluations[0].evaluation_date).toLocaleDateString() : '-'}</td>
                     <td>{hw.created_by_name || '-'}</td>
                     <td>
                       <div className="action-buttons">
@@ -835,8 +835,8 @@ const EvaluateHomeworkModal = ({ homework, isOpen, onClose }: EvaluateHomeworkMo
       student_ids: completedStudentIds,
       evaluation_date: evaluationDate,
       remarks: Object.keys(remarksObject).length > 0 ? Object.values(remarksObject).join('; ') : undefined,
-      student_statuses: statusesObject,
-    });
+      student_statuses: statusesObject as any,
+    } as any);
   };
 
   if (!isOpen) return null;
