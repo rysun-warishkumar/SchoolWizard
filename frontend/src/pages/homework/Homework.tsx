@@ -92,7 +92,18 @@ const Homework = () => {
   const sessions = Array.isArray(sessionsData) ? sessionsData : [];
   
   // Initialize createFormData state first
-  const [createFormData, setCreateFormData] = useState({
+  const [createFormData, setCreateFormData] = useState<{
+    class_id: string;
+    section_id: string;
+    subject_group_id: string;
+    subject_id: string;
+    homework_date: string;
+    submission_date: string;
+    title: string;
+    description: string;
+    attachment_url: string;
+    attachment_file?: File | null;
+  }>({
     class_id: '',
     section_id: '',
     subject_group_id: '',
@@ -102,6 +113,7 @@ const Homework = () => {
     title: '',
     description: '',
     attachment_url: '',
+    attachment_file: null,
   });
   
   // Classes query - always enabled for modal use
@@ -174,7 +186,7 @@ const Homework = () => {
       description: '',
       attachment_url: '',
       attachment_file: null,
-    });
+    } as typeof createFormData);
   };
 
   const handleCreateSubmit = async (e: React.FormEvent) => {
@@ -551,7 +563,7 @@ const Homework = () => {
               onChange={(e) => {
                 const file = e.target.files?.[0];
                 if (file) {
-                  setCreateFormData({ ...createFormData, attachment_file: file });
+                  setCreateFormData({ ...createFormData, attachment_file: file } as typeof createFormData);
                 }
               }}
               accept="*/*"

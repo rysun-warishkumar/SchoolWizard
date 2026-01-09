@@ -3151,7 +3151,7 @@ const DesignAdmitCardAdvancedModal = ({ isOpen, onClose, formData, setFormData, 
               type="button"
               className="btn-secondary"
               onClick={() => {
-                setShowModal(false);
+                onClose();
                 setSelectedTemplate(null);
                 if (resetForm) resetForm();
               }}
