@@ -38,7 +38,6 @@ import ProtectedRoute from './components/auth/ProtectedRoute';
 import StudentRoute from './components/auth/StudentRoute';
 import ParentRoute from './components/auth/ParentRoute';
 import StaffRoute from './components/auth/StaffRoute';
-import StudentLayout from './layouts/StudentLayout';
 import ParentLayout from './layouts/ParentLayout';
 import StudentDashboard from './pages/student/Dashboard';
 import StudentProfile from './pages/student/StudentProfile';

@@ -76,7 +76,7 @@ const Dashboard = () => {
             <Link to="/admission-inquiries" className="dashboard-card admission-inquiry-card">
               <div className="card-header">
                 <h3>Admission Inquiries</h3>
-                {inquiriesData?.pending > 0 && (
+                {inquiriesData?.pending && inquiriesData.pending > 0 && (
                   <span className="badge pending-badge">{inquiriesData.pending} Pending</span>
                 )}
               </div>

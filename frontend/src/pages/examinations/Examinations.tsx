@@ -8,12 +8,16 @@ import {
   Exam,
   ExamSubject,
   ExamMark,
+  AdmitCardTemplate,
+  MarksheetTemplate,
 } from '../../services/api/examinationsService';
 import { settingsService } from '../../services/api/settingsService';
 import { academicsService } from '../../services/api/academicsService';
 import { studentsService } from '../../services/api/studentsService';
 import { useToast } from '../../contexts/ToastContext';
 import Modal from '../../components/common/Modal';
+import AdmitCardTemplateComponent from './templates/AdmitCardTemplate';
+import MarksheetTemplateComponent from './templates/MarksheetTemplate';
 import './Examinations.css';
 import './templates/templates.css';
 
@@ -1702,6 +1706,7 @@ const ExamResultTab = () => {
 };
 
 const DesignAdmitCardTab = () => {
+  const [showModal, setShowModal] = useState(false);
   const [selectedTemplate, setSelectedTemplate] = useState<AdmitCardTemplate | null>(null);
   const [formData, setFormData] = useState({
     name: '',
@@ -2333,10 +2338,10 @@ const PrintAdmitCardTab = () => {
         section_id: Number(filters.section_id),
       });
 
-      if (examStudentsResponse.success && examStudentsResponse.data) {
+      if (Array.isArray(examStudentsResponse) && examStudentsResponse.length > 0) {
         // Get unique students from exam marks
         const studentMap = new Map();
-        examStudentsResponse.data.forEach((mark: any) => {
+        examStudentsResponse.forEach((mark: any) => {
           if (!studentMap.has(mark.student_id)) {
             studentMap.set(mark.student_id, {
               id: mark.student_id,
@@ -2604,7 +2609,7 @@ const PrintAdmitCardTab = () => {
       studentPairs.push(selectedStudentsList.slice(i, i + 2));
     }
 
-    const pagesHTML = studentPairs.map((pair, pageIndex) => {
+    const pagesHTML = studentPairs.map((pair) => {
       const cardsHTML = pair.map((student) => generateAdmitCardHTML(student, examDetails, schoolInfo)).join('');
       const emptyCard = pair.length === 1 ? '<div class="admit-card-single empty"></div>' : '';
       return `
@@ -4657,7 +4662,7 @@ const ExamDetailsModal = ({
   const publishMutation = useMutation(
     (isPublished: boolean) => examinationsService.updateExam(currentExam.id, { is_published: isPublished }),
     {
-      onSuccess: (updatedExam) => {
+      onSuccess: () => {
         queryClient.invalidateQueries(['exam', currentExam.id]);
         queryClient.invalidateQueries('exams');
         showToast(

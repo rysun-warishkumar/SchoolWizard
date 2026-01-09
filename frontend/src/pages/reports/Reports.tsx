@@ -787,6 +787,7 @@ const StudentFeesReport = () => {
 // ========== Staff List Report ==========
 
 const StaffListReport = () => {
+  const [roleFilter, setRoleFilter] = useState('');
   const [statusFilter, setStatusFilter] = useState('');
   const [searchTerm, setSearchTerm] = useState('');
 

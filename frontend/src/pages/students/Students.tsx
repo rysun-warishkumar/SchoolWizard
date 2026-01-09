@@ -772,6 +772,7 @@ const EditStudentModal = ({ studentId, classes, sections, onClose }: { studentId
 
   const [formData, setFormData] = useState<any>({});
   const [error, setError] = useState<string | null>(null);
+  const [photoPreview, setPhotoPreview] = useState<string>('');
 
   useEffect(() => {
     if (studentData?.data) {

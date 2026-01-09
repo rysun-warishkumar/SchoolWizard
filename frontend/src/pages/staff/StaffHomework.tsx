@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from 'react-query';
 import { hrService } from '../../services/api/hrService';
 import { homeworkService } from '../../services/api/homeworkService';
@@ -82,7 +82,7 @@ const StaffHomework = () => {
   const classes = classesData?.data || [];
 
   // Auto-select first class if none selected
-  React.useEffect(() => {
+  useEffect(() => {
     if (classes.length > 0 && !selectedClass) {
       setSelectedClass({
         class_id: classes[0].class_id,

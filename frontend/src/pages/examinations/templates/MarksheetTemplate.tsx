@@ -84,7 +84,7 @@ const MarksheetTemplate: React.FC<MarksheetTemplateProps> = ({
   percentage,
   grade,
   rank,
-  result,
+  // result,
   promotedToClass,
   gradeScale,
   coScholasticAreas,

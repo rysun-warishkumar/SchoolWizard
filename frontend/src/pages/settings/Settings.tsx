@@ -1961,7 +1961,7 @@ const LanguagesTab = () => {
       </div>
 
       {showModal && (
-        <Modal title={editingLanguage ? 'Edit Language' : 'Add Language'} onClose={() => { setShowModal(false); resetForm(); }}>
+        <Modal isOpen={showModal} title={editingLanguage ? 'Edit Language' : 'Add Language'} onClose={() => { setShowModal(false); resetForm(); }}>
           <form onSubmit={handleSubmit}>
             <div className="form-group">
               <label>Language Name *</label>
@@ -2770,7 +2770,7 @@ const BackupRestoreTab = () => {
       </div>
 
       {showRestoreConfirm && (
-        <Modal title="Confirm Restore" onClose={() => { setShowRestoreConfirm(false); setRestoreBackupId(null); }}>
+        <Modal isOpen={showRestoreConfirm} title="Confirm Restore" onClose={() => { setShowRestoreConfirm(false); setRestoreBackupId(null); }}>
           <div>
             <p style={{ color: 'var(--error-color)', fontWeight: 'bold', marginBottom: 'var(--spacing-md)' }}>
               ⚠️ WARNING: This action cannot be undone!
