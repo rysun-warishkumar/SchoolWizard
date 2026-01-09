@@ -299,15 +299,20 @@ backend/uploads/
 
 ### Step 2: Deploy Frontend on Render
 
-1. **In Render Dashboard**, click **"New +"** → **"Static Site"**
+⚠️ **CRITICAL**: You **MUST** create a **Static Site**, NOT a Web Service! If you created it as a Web Service, delete it and create a Static Site instead.
+
+1. **In Render Dashboard**, click **"New +"** → **"Static Site"** (NOT "Web Service")
+   - ⚠️ If you see "Web Service" selected, you're in the wrong place!
+   - Look for "Static Site" option in the dropdown
 2. **Connect Repository**:
    - Select the same `SchoolWizard` repository
    - Choose branch (same as backend, usually `main`)
 3. **Configure Site**:
-   - **Name**: `schoolwizard-frontend`
-   - **Root Directory**: `frontend` ⚠️ Important: Must specify this
+   - **Name**: `SchoolWizard` (or `schoolwizard-frontend`)
+   - **Root Directory**: `frontend` ⚠️ **CRITICAL**: Must specify this!
    - **Build Command**: `npm install && npm run build`
-   - **Publish Directory**: `dist` ⚠️ Important: This is where Vite outputs built files
+   - **Publish Directory**: `dist` ⚠️ **CRITICAL**: This is where Vite outputs built files
+   - **⚠️ IMPORTANT**: The `_redirects` file in `frontend/public/` will be automatically included in the build to handle client-side routing (prevents 404 on page refresh)
 4. **Environment Variables**:
    - Click **"Add Environment Variable"**
    - **Key**: `VITE_API_BASE_URL`
@@ -328,12 +333,32 @@ backend/uploads/
      4. Deploys `dist/` folder as static site
    - Build may take 2-4 minutes
 8. **Note the URL**: 
-   - After successful deployment: `https://schoolwizard-frontend.onrender.com`
+   - After successful deployment: `https://schoolwizard.onrender.com` (or your service name)
    - This is your frontend URL
 9. **Update Backend CORS**:
    - Go back to Backend Service → Environment
-   - Update `CORS_ORIGIN` to: `https://schoolwizard-frontend.onrender.com`
+   - Update `CORS_ORIGIN` to: `https://schoolwizard.onrender.com` (or your frontend URL)
    - Render will automatically redeploy backend
+
+### ⚠️ If You Already Created It as a Web Service (Error Fix)
+
+If you see this error:
+```
+Error: Cannot find module '/opt/render/project/src/frontend/index.js'
+```
+
+**This means you created a Web Service instead of a Static Site!**
+
+**Fix Steps**:
+1. **Delete the Web Service**:
+   - Go to Render Dashboard
+   - Find your frontend service
+   - Click **Settings** → Scroll down → **Delete Service**
+   - Confirm deletion
+2. **Create a Static Site** (follow Step 2 above)
+   - Make sure to select **"Static Site"** not "Web Service"
+   - Set **Root Directory** to `frontend`
+   - Set **Publish Directory** to `dist`
 
 ---
 
@@ -491,10 +516,12 @@ The CORS configuration is already handled via environment variables. Just ensure
    }
    ```
 
-   **If Login Fails**:
+   **If Login Fails with "Invalid credentials"**:
+   - ⚠️ **Most Common Issue**: Admin password hash in database doesn't match `admin123`
+   - **Solution**: Run the SQL query in Step 3 above to reset the password
    - Check backend logs for specific error
    - Verify database connection is working
-   - Ensure admin user exists in database
+   - Ensure admin user exists in database: `SELECT * FROM users WHERE email = 'admin@schoolwizard.com';`
    - Check JWT_SECRET is set correctly
 
 ### Step 4: Update Frontend API URL
@@ -547,6 +574,70 @@ The backend already has a health check endpoint at `/health`. Configure it in Re
 ---
 
 ## Troubleshooting
+
+### 404 Error on Page Refresh / Client-Side Routing Issues
+
+**Error**: `404 Not Found` when refreshing pages like `/library`, `/students`, etc.
+
+**Symptoms**:
+- Pages work when navigating via links
+- Refreshing the page shows 404 error
+- Direct URL access shows 404
+- Console shows: `GET /library 404 (Not Found)`
+
+**Root Cause**: When you refresh a client-side route (like `/library`), the browser makes a request to the server for that path. The server doesn't have a file at `/library`, so it returns 404. React Router only works client-side after `index.html` is loaded.
+
+**Solution**: 
+- ✅ **Already Fixed**: A `_redirects` file has been created in `frontend/public/_redirects`
+- This file tells Render to serve `index.html` for all routes, allowing React Router to handle routing
+- The file is automatically included in the build and deployed
+- **After deploying**, refresh should work correctly
+
+**If you still see 404 after deployment**:
+1. Verify `frontend/public/_redirects` exists with content: `/*    /index.html   200`
+2. Rebuild and redeploy the frontend
+3. Clear browser cache and try again
+
+---
+
+### Blank Page / TypeError: m.map is not a function
+
+**Error**: Page goes blank, console shows `TypeError: m.map is not a function` or similar
+
+**Symptoms**:
+- Page loads but shows blank content
+- Console shows errors like `TypeError: Cannot read property 'map' of undefined`
+- Sometimes works after refresh, sometimes doesn't
+- API calls return 401 or 404 errors
+
+**Root Cause**: 
+- API calls are failing (401 Unauthorized, 404 Not Found)
+- Components try to map over undefined/null data
+- Missing error handling and default values
+
+**Solutions**:
+1. **Check API Base URL**:
+   - Verify `VITE_API_BASE_URL` is set correctly in Render
+   - Should be: `https://your-backend-url.onrender.com/api/v1`
+   - No trailing slash
+
+2. **Check Authentication**:
+   - Ensure you're logged in
+   - Token might be expired - try logging out and back in
+   - Check browser console for 401 errors
+
+3. **Check CORS**:
+   - Verify `CORS_ORIGIN` in backend matches frontend URL
+   - See [CORS Issues](#cors-issues-most-common-frontend-issue) section
+
+4. **Add Error Handling** (Code-level fix):
+   - Components should check if data exists before mapping
+   - Use optional chaining: `data?.map(...)` or `(data || []).map(...)`
+   - Add loading states and error boundaries
+
+**Quick Fix**: Clear browser cache, log out, log back in, and try again.
+
+---
 
 ### Database Connection Issues
 
@@ -792,12 +883,12 @@ Use this checklist to ensure all steps are completed:
 - [ ] Database connection verified in logs
 
 ### Frontend Deployment
-- [ ] Frontend static site created on Render
+- [ ] Frontend **Static Site** created on Render (NOT Web Service!)
 - [ ] Root directory set to `frontend`
 - [ ] Build command: `npm install && npm run build`
 - [ ] Publish directory: `dist`
 - [ ] Environment variable added: `VITE_API_BASE_URL` (with backend URL)
-- [ ] Frontend deployed successfully
+- [ ] Frontend deployed successfully (no "Cannot find module index.js" error)
 - [ ] Frontend URL noted
 - [ ] Backend CORS_ORIGIN updated with frontend URL
 
@@ -828,6 +919,11 @@ Use this checklist to ensure all steps are completed:
 - **Email**: `admin@schoolwizard.com`
 - **Password**: `admin123`
 - **⚠️ Change immediately after deployment!**
+
+**If login fails with "Invalid credentials":**
+- The admin password might not be set correctly in the database
+- See [Step 3: Fix Admin Password](#step-3-fix-admin-password-if-getting-invalid-credentials) in this guide
+- Or run the SQL query in phpMyAdmin to reset the password
 
 ### Environment Variables Summary
 
@@ -967,12 +1063,15 @@ You can customize service names when creating services in Render.
 8. ✅ Note backend URL
 
 ### Phase 3: Frontend Deployment (10-15 minutes)
-1. ✅ Create Static Site on Render
-2. ✅ Configure build settings
-3. ✅ Add environment variable (API URL)
-4. ✅ Deploy and wait for build
-5. ✅ Note frontend URL
-6. ✅ Update backend CORS_ORIGIN
+1. ✅ Create **Static Site** on Render (NOT Web Service!)
+2. ✅ Set Root Directory to `frontend`
+3. ✅ Set Publish Directory to `dist`
+4. ✅ Configure build command: `npm install && npm run build`
+5. ✅ Add environment variable: `VITE_API_BASE_URL` (with backend URL)
+6. ✅ Deploy and wait for build
+7. ✅ Verify no "Cannot find module index.js" error
+8. ✅ Note frontend URL
+9. ✅ Update backend CORS_ORIGIN
 
 ### Phase 4: Verification (5-10 minutes)
 1. ✅ Test login from frontend

@@ -1,5 +1,5 @@
 import { Request, Response, NextFunction } from 'express';
-import { isDevelopment } from '../config/env';
+import { isDevelopment, env } from '../config/env';
 
 export interface AppError extends Error {
   statusCode?: number;
@@ -69,6 +69,28 @@ export const errorHandler = (
   res: Response,
   next: NextFunction
 ): void => {
+  // Ensure CORS headers are set even on errors
+  const origin = req.headers.origin;
+  if (origin) {
+    const allowedOrigins: string[] = [];
+    
+    if (env.cors.origin) {
+      allowedOrigins.push(env.cors.origin);
+    }
+    
+    if (env.cors.origins) {
+      allowedOrigins.push(...env.cors.origins.split(',').map((o: string) => o.trim()));
+    }
+    
+    // In development, allow all origins
+    if (isDevelopment() || allowedOrigins.includes(origin)) {
+      res.header('Access-Control-Allow-Origin', origin);
+      res.header('Access-Control-Allow-Credentials', 'true');
+      res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, PATCH, OPTIONS');
+      res.header('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Requested-With, Accept, Origin');
+    }
+  }
+
   // Handle JSON parsing errors
   if (err instanceof SyntaxError && 'body' in err) {
     res.status(400).json({

@@ -896,8 +896,8 @@ const IssueReturnTab = () => {
     });
   };
 
-  const issuedBooks = issues.filter((i) => i.return_status === 'issued');
-  const returnedBooks = issues.filter((i) => i.return_status === 'returned');
+  const issuedBooks = (issues || []).filter((i) => i.return_status === 'issued');
+  const returnedBooks = (issues || []).filter((i) => i.return_status === 'returned');
 
   return (
     <div className="library-tab-content">

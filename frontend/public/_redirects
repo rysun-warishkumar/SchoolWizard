@@ -1,0 +1,5 @@
+# Render Static Site Redirects
+# This file tells Render to serve index.html for all routes
+# This allows React Router to handle client-side routing
+
+/*    /index.html   200
