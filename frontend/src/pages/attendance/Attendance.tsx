@@ -196,7 +196,7 @@ const StudentAttendanceTab = () => {
   const { showToast } = useToast();
 
   const { data: classesData } = useQuery('classes', academicsService.getClasses);
-  const { data: sectionsData } = useQuery('sections', academicsService.getSections);
+  const { data: sectionsData } = useQuery('sections', () => academicsService.getSections());
   const { data: sessionsData } = useQuery('sessions', () => settingsService.getSessions());
 
   const sessions = sessionsData?.data || [];
@@ -331,7 +331,7 @@ const StudentAttendanceTab = () => {
               disabled={!selectedClass}
             >
               <option value="">Select Section</option>
-              {sectionsData?.data?.map((sec: any) => (
+              {(sectionsData as any)?.data?.map((sec: any) => (
                 <option key={sec.id} value={sec.id}>
                   {sec.name}
                 </option>
@@ -464,7 +464,7 @@ const AttendanceByDateTab = () => {
   const { showToast } = useToast();
 
   const { data: classesData } = useQuery('classes', academicsService.getClasses);
-  const { data: sectionsData } = useQuery('sections', academicsService.getSections);
+  const { data: sectionsData } = useQuery('sections', () => academicsService.getSections());
   const { data: sessionsData } = useQuery('sessions', () => settingsService.getSessions());
 
   const sessions = sessionsData?.data || [];
@@ -528,7 +528,7 @@ const AttendanceByDateTab = () => {
               disabled={!selectedClass}
             >
               <option value="">Select Section</option>
-              {sectionsData?.data?.map((sec: any) => (
+              {(sectionsData as any)?.data?.map((sec: any) => (
                 <option key={sec.id} value={sec.id}>
                   {sec.name}
                 </option>
@@ -613,7 +613,7 @@ const ApproveLeaveTab = () => {
   const { showToast } = useToast();
 
   const { data: classesData } = useQuery('classes', academicsService.getClasses);
-  const { data: sectionsData } = useQuery('sections', academicsService.getSections);
+  const { data: sectionsData } = useQuery('sections', () => academicsService.getSections());
 
   const { data: leaveRequestsData, isLoading } = useQuery(
     ['student-leave-requests', selectedClass, selectedSection, statusFilter],
@@ -708,7 +708,7 @@ const ApproveLeaveTab = () => {
               disabled={!selectedClass}
             >
               <option value="">All Sections</option>
-              {sectionsData?.data?.map((sec: any) => (
+              {(sectionsData as any)?.data?.map((sec: any) => (
                 <option key={sec.id} value={sec.id}>
                   {sec.name}
                 </option>

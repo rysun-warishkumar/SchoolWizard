@@ -1769,7 +1769,7 @@ const SetupListTab = ({ title, queryKey, service, createService }: any) => {
 
   const { data } = useQuery(queryKey, service);
 
-  const createMutation = useMutation(createService, {
+  const createMutation = useMutation((data: any) => createService(data), {
     onSuccess: () => {
       queryClient.invalidateQueries(queryKey);
       setShowModal(false);

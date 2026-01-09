@@ -32,7 +32,7 @@ const ParentDashboard = () => {
   // Get fees for selected child
   const { data: fees = [] } = useQuery(
     ['parent-fees', selectedChildId],
-    () => feesService.getStudentFees({ student_id: selectedChildId }),
+    () => feesService.getStudentFeesInvoices({ student_id: selectedChildId }),
     { enabled: !!selectedChildId, refetchOnWindowFocus: false }
   );
 
@@ -45,9 +45,10 @@ const ParentDashboard = () => {
       const month = currentDate.getMonth() + 1;
       const year = currentDate.getFullYear();
       return attendanceService.getStudentAttendance({
-        student_id: selectedChildId,
-        month,
-        year,
+        class_id: selectedChild?.class_id || 0,
+        section_id: selectedChild?.section_id || 0,
+        attendance_date: new Date().toISOString().split('T')[0],
+        session_id: 1,
       });
     },
     { enabled: !!selectedChildId, refetchOnWindowFocus: false }
@@ -68,7 +69,7 @@ const ParentDashboard = () => {
   const paidFees = fees.filter((f) => f.status === 'paid').reduce((sum, fee) => sum + parseFloat(fee.amount || '0'), 0);
   const pendingFees = totalFees - paidFees;
 
-  const attendanceData = Array.isArray(attendance) ? attendance : (attendance?.data || []);
+  const attendanceData = Array.isArray(attendance) ? attendance : ((attendance as any)?.data || []);
   const totalDays = attendanceData.reduce((sum: number, day: any) => sum + (day.status === 'present' ? 1 : 0), 0);
   const attendancePercentage = attendanceData.length > 0 ? Math.round((totalDays / attendanceData.length) * 100) : 0;
 

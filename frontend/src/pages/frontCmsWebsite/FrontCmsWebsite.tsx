@@ -1734,8 +1734,8 @@ const FrontCmsWebsite: React.FC = () => {
                   onSubmit={(e) => {
                     e.preventDefault();
                     updateContactMutation.mutate({
-                      call_us_numbers: contactForm.call_us_numbers,
-                      email_us_addresses: contactForm.email_us_addresses,
+                      call_us_numbers: Array.isArray(contactForm.call_us_numbers) ? contactForm.call_us_numbers.join(',') : (contactForm.call_us_numbers as any),
+                      email_us_addresses: Array.isArray(contactForm.email_us_addresses) ? contactForm.email_us_addresses.join(',') : (contactForm.email_us_addresses as any),
                       visit_us_address: contactForm.visit_us_address,
                       office_hours: contactForm.office_hours,
                       important_dates_visible: contactForm.important_dates_visible,

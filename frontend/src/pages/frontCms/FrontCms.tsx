@@ -763,7 +763,7 @@ const MenuItemsManager = ({ menu, onClose }: { menu: Menu; onClose: () => void }
     { refetchOnWindowFocus: true }
   );
 
-  useQuery(['front-cms-pages'], frontCmsService.getPages, {
+  useQuery(['front-cms-pages'], () => frontCmsService.getPages(), {
     onSuccess: (data) => setPages(data),
   });
 

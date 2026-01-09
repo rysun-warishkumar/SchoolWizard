@@ -91,7 +91,7 @@ const NoticeBoardTab = () => {
     () =>
       communicateService.getNotices({
         search: searchTerm || undefined,
-        message_to: messageToFilter || undefined,
+        message_to: (messageToFilter as 'students' | 'staff' | 'all' | 'guardians' | undefined) || undefined,
         date_from: dateFrom || undefined,
         date_to: dateTo || undefined,
       }),
@@ -1053,8 +1053,8 @@ const EmailSMSLogTab = () => {
     ['email-logs', statusFilter, recipientTypeFilter, dateFrom, dateTo, searchTerm],
     () =>
       communicateService.getEmailLogs({
-        status: statusFilter || undefined,
-        recipient_type: recipientTypeFilter || undefined,
+        status: (statusFilter as 'pending' | 'failed' | 'sent' | undefined) || undefined,
+        recipient_type: (recipientTypeFilter as 'students' | 'staff' | 'class' | 'guardians' | 'individual' | 'birthday' | undefined) || undefined,
         date_from: dateFrom || undefined,
         date_to: dateTo || undefined,
         search: searchTerm || undefined,
@@ -1069,8 +1069,8 @@ const EmailSMSLogTab = () => {
     ['sms-logs', statusFilter, recipientTypeFilter, dateFrom, dateTo, searchTerm],
     () =>
       communicateService.getSMSLogs({
-        status: statusFilter || undefined,
-        recipient_type: recipientTypeFilter || undefined,
+        status: (statusFilter as 'pending' | 'failed' | 'sent' | undefined) || undefined,
+        recipient_type: (recipientTypeFilter as 'students' | 'staff' | 'class' | 'guardians' | 'individual' | 'birthday' | undefined) || undefined,
         date_from: dateFrom || undefined,
         date_to: dateTo || undefined,
         search: searchTerm || undefined,

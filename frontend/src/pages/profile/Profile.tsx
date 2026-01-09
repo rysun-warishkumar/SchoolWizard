@@ -97,7 +97,7 @@ const Profile = () => {
               {profile?.name?.charAt(0).toUpperCase() || 'U'}
             </div>
             <h2>{profile?.name || 'User'}</h2>
-            <p className="user-role">{profile?.role || profile?.role_name || 'User'}</p>
+            <p className="user-role">{profile?.role || (profile as any)?.role_name || 'User'}</p>
             <p className="user-email">{profile?.email || ''}</p>
           </div>
         </div>
@@ -145,7 +145,7 @@ const Profile = () => {
                   <label>Role</label>
                   <input
                     type="text"
-                    value={profile?.role || profile?.role_name || ''}
+                    value={profile?.role || (profile as any)?.role_name || ''}
                     disabled
                     className="disabled-input"
                   />

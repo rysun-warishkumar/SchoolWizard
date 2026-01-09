@@ -196,7 +196,7 @@ const SubjectStatusTab = () => {
   });
   const classes = classesData?.data || [];
 
-  const { data: sectionsData } = useQuery(['sections'], academicsService.getSections, {
+  const { data: sectionsData } = useQuery(['sections'], () => academicsService.getSections(), {
     refetchOnWindowFocus: false,
   });
   const sections = sectionsData?.data || [];
@@ -318,7 +318,7 @@ const SubjectStatusTab = () => {
           <select value={sectionFilter} onChange={(e) => setSectionFilter(e.target.value)}>
             <option value="">All Sections</option>
             {sections
-              .filter((sec) => !classFilter || sec.class_id === parseInt(classFilter))
+              .filter((sec) => !classFilter || (sec as any).class_id === parseInt(classFilter))
               .map((sec) => (
                 <option key={sec.id} value={sec.id}>
                   {sec.name}
@@ -610,7 +610,7 @@ const LessonPlansTab = () => {
   });
   const classes = classesData?.data || [];
 
-  const { data: sectionsData } = useQuery(['sections'], academicsService.getSections, {
+  const { data: sectionsData } = useQuery(['sections'], () => academicsService.getSections(), {
     refetchOnWindowFocus: false,
   });
   const sections = sectionsData?.data || [];
@@ -744,7 +744,7 @@ const LessonPlansTab = () => {
           <select value={sectionFilter} onChange={(e) => setSectionFilter(e.target.value)}>
             <option value="">All Sections</option>
             {sections
-              .filter((sec) => !classFilter || sec.class_id === parseInt(classFilter))
+              .filter((sec) => !classFilter || (sec as any).class_id === parseInt(classFilter))
               .map((sec) => (
                 <option key={sec.id} value={sec.id}>
                   {sec.name}

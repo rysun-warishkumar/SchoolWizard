@@ -879,7 +879,7 @@ const FeesMasterTab = () => {
                     <td>
                       <button
                         className="btn-sm btn-primary"
-                        onClick={() => handleAssignClick(master.fees_group_id, master.fees_group_name)}
+                        onClick={() => handleAssignClick(master.fees_group_id, master.fees_group_name || '')}
                         title="Assign/View Fees Group"
                       >
                         Assign/View
@@ -1955,7 +1955,7 @@ const DueFeesTab = () => {
   const { data: feesGroups } = useQuery('fees-groups', feesService.getFeesGroups);
   const { data: feesTypes } = useQuery('fees-types', feesService.getFeesTypes);
   const { data: classesData } = useQuery('classes', academicsService.getClasses);
-  const { data: sectionsData } = useQuery('sections', academicsService.getSections);
+  const { data: sectionsData } = useQuery('sections', () => academicsService.getSections());
   const { data: sessionsData } = useQuery('sessions', () => settingsService.getSessions());
 
   const sessions = sessionsData?.data || [];
@@ -1994,7 +1994,7 @@ const DueFeesTab = () => {
 
       // Filter by fees type if selected
       const filteredInvoices = feesType
-        ? allInvoices.filter((inv) => inv.fees_type_id === Number(feesType))
+        ? allInvoices.filter((inv) => (inv as any).fees_type_id === Number(feesType))
         : allInvoices;
 
       // Group by student
@@ -2080,7 +2080,7 @@ const DueFeesTab = () => {
               disabled={!selectedClass}
             >
               <option value="">Select Section</option>
-              {sectionsData?.data?.map((sec: any) => (
+              {(sectionsData as any)?.data?.map((sec: any) => (
                 <option key={sec.id} value={sec.id}>
                   {sec.name}
                 </option>

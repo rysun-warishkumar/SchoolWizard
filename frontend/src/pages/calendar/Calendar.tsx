@@ -403,9 +403,9 @@ const Calendar = () => {
                             {new Date(event.event_date).toLocaleDateString()}
                           </span>
                           <span className="event-type-badge">{event.event_type}</span>
-                          {event.user_name && (
+                          {(event as any).user_name && (
                             <span className="event-creator">
-                              by {event.user_name}
+                              by {(event as any).user_name}
                             </span>
                           )}
                         </div>

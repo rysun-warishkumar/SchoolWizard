@@ -2334,8 +2334,8 @@ const PrintAdmitCardTab = () => {
       // Fetch students for the selected exam, class, and section
       const examStudentsResponse = await examinationsService.getExamMarks({
         exam_id: Number(filters.exam_id),
-        class_id: Number(filters.class_id),
-        section_id: Number(filters.section_id),
+        exam_subject_id: undefined,
+        student_id: undefined,
       });
 
       if (Array.isArray(examStudentsResponse) && examStudentsResponse.length > 0) {
@@ -3350,9 +3350,9 @@ const AdmitCardComponent = ({ student, exam, template }: AdmitCardComponentProps
       )}
 
       {/* Title */}
-      {template.title && (
+      {(template as any).title && (
         <div style={{ textAlign: 'center', marginBottom: '20px', fontSize: '20px', fontWeight: 'bold', textDecoration: 'underline' }}>
-          {replaceVariables(template.title)}
+          {replaceVariables((template as any).title)}
         </div>
       )}
 
@@ -5561,9 +5561,9 @@ const MarksheetComponent = ({ student, exam, template }: MarksheetComponentProps
       )}
 
       {/* Title */}
-      {template.title && (
+      {(template as any).title && (
         <div style={{ textAlign: 'center', marginBottom: '20px', fontSize: '20px', fontWeight: 'bold', textDecoration: 'underline' }}>
-          {replaceVariables(template.title)}
+          {replaceVariables((template as any).title)}
         </div>
       )}
 

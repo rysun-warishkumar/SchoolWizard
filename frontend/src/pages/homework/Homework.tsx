@@ -173,7 +173,7 @@ const Homework = () => {
       title: '',
       description: '',
       attachment_url: '',
-      attachment_file: null,
+      attachment_file: null as File | null,
     });
   };
 
@@ -834,7 +834,7 @@ const EvaluateHomeworkModal = ({ homework, isOpen, onClose }: EvaluateHomeworkMo
       homework_id: homework.id,
       student_ids: completedStudentIds,
       evaluation_date: evaluationDate,
-      student_remarks: Object.keys(remarksObject).length > 0 ? remarksObject : undefined,
+      remarks: Object.keys(remarksObject).length > 0 ? Object.values(remarksObject).join('; ') : undefined,
       student_statuses: statusesObject,
     });
   };

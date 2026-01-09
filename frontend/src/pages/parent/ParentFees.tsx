@@ -133,7 +133,7 @@ const ParentFees = () => {
     ['parent-fees-payments', selectedChildId],
     () =>
       feesService.getFeesPayments({
-        student_id: selectedChildId,
+        student_id: selectedChildId || undefined,
       }),
     { enabled: !!selectedChildId, refetchOnWindowFocus: false }
   );

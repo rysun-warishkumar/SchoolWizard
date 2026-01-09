@@ -1139,7 +1139,7 @@ const EventRegistrationsManager = ({
     { refetchOnWindowFocus: true }
   );
 
-  useQuery(['alumni'], alumniService.getAlumni, {
+  useQuery(['alumni'], () => alumniService.getAlumni(), {
     onSuccess: (data) => setAlumniList(data),
   });
 
