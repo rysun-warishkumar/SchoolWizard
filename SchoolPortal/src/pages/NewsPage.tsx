@@ -38,63 +38,6 @@ const NewsPage: React.FC = () => {
     return `${apiBase}${path.startsWith('/') ? path : `/${path}`}`;
   };
 
-  const dummyNewsArticles = [
-    {
-      id: 1,
-      category: 'academic',
-      title: 'Annual Science Fair 2024 - A Grand Success',
-      excerpt: 'Students showcased innovative projects and experiments at our annual science fair, demonstrating creativity and scientific thinking.',
-      image: 'https://images.unsplash.com/photo-1532094349884-543bc11b234d?w=600',
-      date: 'December 15, 2024',
-      author: 'School Admin',
-    },
-    {
-      id: 2,
-      category: 'sports',
-      title: 'Basketball Team Wins Regional Championship',
-      excerpt: 'Our school basketball team emerged victorious in the regional championship, bringing home the trophy and pride to our institution.',
-      image: 'https://images.unsplash.com/photo-1518611012118-696072aa579a?w=600',
-      date: 'December 10, 2024',
-      author: 'Sports Department',
-    },
-    {
-      id: 3,
-      category: 'events',
-      title: 'Annual Day Celebration - A Night to Remember',
-      excerpt: 'The annual day celebration featured spectacular performances by students, showcasing their talents in music, dance, and drama.',
-      image: 'https://images.unsplash.com/photo-1509062522246-3755977927d7?w=600',
-      date: 'December 5, 2024',
-      author: 'Event Committee',
-    },
-    {
-      id: 4,
-      category: 'achievements',
-      title: 'Students Excel in National Math Olympiad',
-      excerpt: 'Five of our students secured top positions in the National Math Olympiad, bringing recognition to our school.',
-      image: 'https://images.unsplash.com/photo-1509228468518-180dd4864904?w=600',
-      date: 'November 28, 2024',
-      author: 'Academic Department',
-    },
-    {
-      id: 5,
-      category: 'academic',
-      title: 'New Computer Lab Inaugurated',
-      excerpt: 'State-of-the-art computer lab with latest technology inaugurated to enhance digital learning experience for students.',
-      image: 'https://images.unsplash.com/photo-1523050854058-8df90110c9f1?w=600',
-      date: 'November 20, 2024',
-      author: 'School Admin',
-    },
-    {
-      id: 6,
-      category: 'sports',
-      title: 'Inter-School Cricket Tournament Results',
-      excerpt: 'Our cricket team performed exceptionally well in the inter-school tournament, reaching the semi-finals.',
-      image: 'https://images.unsplash.com/photo-1531415074968-036ba1b575da?w=600',
-      date: 'November 15, 2024',
-      author: 'Sports Department',
-    },
-  ];
-
   const filteredNews = selectedCategory === 'all'
     ? newsArticles
     : newsArticles.filter(article => article.category === selectedCategory);

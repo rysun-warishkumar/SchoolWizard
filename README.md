@@ -1,4 +1,4 @@
-# SchoolWizard - School Management System
+# SchoolWizard - School Management System Developed by W | Technology
 
 A comprehensive, modern school management system built with React, Node.js, and MySQL.
 
@@ -61,6 +61,162 @@ SchoolWizard is a complete school management solution designed to handle all asp
 5. **Default Login**
    - Email: `admin@schoolwizard.com`
    - Password: `admin123`
+
+## 🔐 Default Passwords for Auto-Created Users
+
+When users are created automatically by the system, default passwords are generated. Here's a guide to understand the password format for each user type:
+
+### 1. **Student Users** (Created when student is added with email)
+
+**Password Format**: `{FirstName}@{ddMMyyyy}`
+
+**Example**:
+- Student Name: `Ravi Kumar`
+- Creation Date: January 10, 2025
+- Default Password: `Ravi@10012025`
+
+**Where it's used**:
+- When creating a new student via "Student Admission" form
+- When bulk importing students via Excel (if email is provided)
+
+**Note**: The password uses the student's first name (without spaces/special characters) and the creation date in `ddMMyyyy` format.
+
+---
+
+### 2. **Parent Users** (Created automatically when student is added)
+
+**Password Format**: `{FirstName}@{YYYYMMDD}`
+
+**Example**:
+- Parent Name: `John Smith`
+- Creation Date: January 10, 2025
+- Default Password: `John@20250110`
+
+**Where it's used**:
+- When creating a student with father/mother/guardian email addresses
+- Parent accounts are created automatically for:
+  - Father (if `father_email` is provided)
+  - Mother (if `mother_email` is provided and different from father)
+  - Guardian (if `guardian_email` is provided and different from father/mother)
+
+**Note**: 
+- The password uses the parent's first name (extracted from full name, alphanumeric only) and the creation date in `YYYYMMDD` format
+- If a parent email already exists in the system, no new account is created (existing account is used)
+- An email is automatically sent to the parent with login credentials
+
+---
+
+### 3. **Staff Users** (Created when staff member is added)
+
+**Password Format**: `staff123` (Fixed password for all staff)
+
+**Example**:
+- All staff members get the same default password: `staff123`
+
+**Where it's used**:
+- When creating a new staff member via "HR" → "Add Staff" form
+- Only if an email address is provided for the staff member
+
+**Note**: 
+- This is a fixed password for all staff members
+- **Important**: Staff should change their password immediately after first login
+- Consider implementing a password change requirement on first login
+
+---
+
+### 4. **Manually Created Users** (Via Users module)
+
+**Password Format**: **No default** - Admin must provide password
+
+**Where it's used**:
+- When admin manually creates a user via "Users" → "Add User"
+- Admin must specify the password during user creation
+
+**Note**: This is the only user creation method that requires manual password entry.
+
+---
+
+## 📧 Email Notifications
+
+### Parent Accounts
+- **Automatic Email**: When a parent account is created, an email is automatically sent to the parent's email address containing:
+  - Login credentials (email and password)
+  - Student information (name and admission number)
+  - Instructions to change password
+
+### Student Accounts
+- **No Automatic Email**: Student accounts are created but no email is sent automatically
+- Students can be informed of their credentials manually or through other communication channels
+
+### Staff Accounts
+- **No Automatic Email**: Staff accounts are created but no email is sent automatically
+- Staff credentials should be shared securely through appropriate channels
+
+---
+
+## 🔄 Password Reset
+
+### For Parents
+- Parents can request password reset (if implemented)
+- Admin can reset parent password via the system
+- Reset password follows the same format: `{FirstName}@{YYYYMMDD}` (based on reset date)
+
+### For Students
+- Students can request password reset (if implemented)
+- Admin can reset student password via the system
+- Reset password follows the same format: `{FirstName}@{ddMMyyyy}` (based on reset date)
+
+### For Staff
+- Staff can request password reset (if implemented)
+- Admin can reset staff password via the system
+- Reset password: `staff123` (fixed)
+
+---
+
+## ⚠️ Security Recommendations
+
+1. **Change Default Passwords**: All users should change their default passwords immediately after first login
+2. **Password Policy**: Consider implementing:
+   - Minimum password length (8+ characters)
+   - Password complexity requirements
+   - Password expiration policies
+   - Force password change on first login
+3. **Secure Communication**: Share default passwords securely:
+   - Use encrypted email
+   - Share in person or via secure channels
+   - Never share passwords via unsecured methods
+4. **Regular Audits**: Periodically audit user accounts to ensure passwords have been changed
+5. **Two-Factor Authentication**: Consider implementing 2FA for sensitive accounts (admin, staff)
+
+---
+
+## 📝 Quick Reference Table
+
+| User Type | Password Format | Example | Auto Email? |
+|-----------|----------------|---------|-------------|
+| **Student** | `{FirstName}@{ddMMyyyy}` | `Ravi@10012025` | ❌ No |
+| **Parent** | `{FirstName}@{YYYYMMDD}` | `John@20250110` | ✅ Yes |
+| **Staff** | `staff123` (fixed) | `staff123` | ❌ No |
+| **Manual User** | Admin-provided | (varies) | ❌ No |
+
+---
+
+## 🔍 Finding User Passwords
+
+If you need to find or reset a user's password:
+
+1. **Via Database** (Admin only):
+   - Passwords are stored as bcrypt hashes (cannot be decrypted)
+   - You can only reset passwords, not retrieve them
+
+2. **Via Admin Panel**:
+   - Go to "Users" module
+   - Find the user
+   - Use "Reset Password" option (if available)
+
+3. **Via SQL** (Advanced):
+   - Use the password reset scripts in `backend/src/scripts/`
+   - Or manually update password hash in database
 
 ## 📁 Project Structure
 

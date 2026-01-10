@@ -23,12 +23,13 @@ Complete guide to deploy SchoolWizard on Render (Backend & Frontend) with Hostin
 2. [Database Setup (Hostinger MySQL)](#database-setup-hostinger-mysql)
 3. [Backend Deployment (Render)](#backend-deployment-render)
 4. [Frontend Deployment (Render)](#frontend-deployment-render)
-5. [Environment Variables](#environment-variables)
-6. [Post-Deployment Configuration](#post-deployment-configuration)
-7. [Deployment Checklist](#deployment-checklist)
-8. [Troubleshooting](#troubleshooting)
-9. [Custom Domain Setup](#custom-domain-setup-optional)
-10. [Additional Tips & Best Practices](#additional-tips--best-practices)
+5. [Public School Portal Deployment (Render)](#public-school-portal-deployment-render) ⭐ NEW
+6. [Environment Variables](#environment-variables)
+7. [Post-Deployment Configuration](#post-deployment-configuration)
+8. [Deployment Checklist](#deployment-checklist)
+9. [Troubleshooting](#troubleshooting)
+10. [Custom Domain Setup](#custom-domain-setup-optional)
+11. [Additional Tips & Best Practices](#additional-tips--best-practices)
 
 ---
 
@@ -413,6 +414,169 @@ VITE_API_BASE_URL=https://schoolwizard-backend.onrender.com/api/v1
 
 ---
 
+## Public School Portal Deployment (Render)
+
+The **SchoolPortal** is a separate public-facing website that displays your school's information, news, events, gallery, etc. It's a standalone React application that needs to be hosted separately.
+
+### Step 1: Prepare SchoolPortal for Deployment
+
+1. **Verify SchoolPortal Structure**:
+   - Ensure `SchoolPortal/` folder exists in your repository
+   - Check that `SchoolPortal/package.json` and `SchoolPortal/vite.config.ts` exist
+
+2. **Create Environment File** (optional, can be set in Render):
+   - Create `SchoolPortal/.env.example`:
+     ```env
+     VITE_API_BASE_URL=http://localhost:5000
+     ```
+   - **Note**: For production, set this in Render Dashboard (see Step 3)
+
+### Step 2: Deploy SchoolPortal as Static Site on Render
+
+1. **Go to Render Dashboard**:
+   - Visit [dashboard.render.com](https://dashboard.render.com)
+   - Click **"New +"** → **"Static Site"**
+
+2. **Connect Repository**:
+   - **Connect account**: GitHub/GitLab/Bitbucket
+   - **Repository**: Select your `SchoolWizard` repository
+   - **Branch**: `main` (or your default branch)
+
+3. **Configure Build Settings**:
+   - **Name**: `schoolwizard-portal` (or any name you prefer)
+   - **Root Directory**: `SchoolPortal` ⚠️ **Important**: Set this to `SchoolPortal`
+   - **Build Command**: `npm install && npm run build`
+   - **Publish Directory**: `dist`
+
+4. **Add Environment Variables**:
+   - Click **"Environment"** tab
+   - Add variable:
+     ```
+     Key: VITE_API_BASE_URL
+     Value: https://schoolwizard-backend.onrender.com/api/v1
+     ```
+   - **Important**: Replace with your actual backend URL (same as frontend)
+
+5. **Configure Redirects** (for SPA routing):
+   - Go to **Settings** → **Redirects/Rewrites**
+   - Add redirect:
+     - **Source Path**: `/*`
+     - **Destination Path**: `/index.html`
+     - **Status Code**: `200` (NOT 301/302)
+   - This ensures client-side routing works on refresh
+
+6. **Deploy**:
+   - Click **"Create Static Site"**
+   - Render will automatically:
+     - Clone your repository
+     - Install dependencies
+     - Build the application
+     - Deploy to CDN
+
+7. **Wait for Deployment**:
+   - First deployment takes 3-5 minutes
+   - Subsequent deployments are faster (1-2 minutes)
+   - Monitor build logs for any errors
+
+### Step 3: Verify SchoolPortal Deployment
+
+1. **Check Deployment Status**:
+   - Render Dashboard → Your Static Site → **Logs** tab
+   - Should see: `✓ Build successful`
+   - Should see: `✓ Deployed successfully`
+
+2. **Test Public Website**:
+   - Visit your SchoolPortal URL: `https://schoolwizard-portal.onrender.com`
+   - Should see the public school website homepage
+   - Test navigation (About, Admission, Gallery, News, Events, Contact)
+   - Test that pages load correctly on refresh
+
+3. **Test API Connection**:
+   - Open browser console (F12)
+   - Check Network tab for API calls
+   - Should see successful calls to `/api/public/website/...`
+   - If errors, verify `VITE_API_BASE_URL` is correct
+
+### Step 4: Update Backend CORS (if needed)
+
+If SchoolPortal is on a different domain than the main frontend:
+
+1. **Update Backend CORS_ORIGINS**:
+   - Render Dashboard → Backend Service → Environment
+   - Update `CORS_ORIGINS` (comma-separated):
+     ```
+     CORS_ORIGINS=https://schoolwizard-frontend.onrender.com,https://schoolwizard-portal.onrender.com
+     ```
+   - Or add SchoolPortal URL to existing `CORS_ORIGINS`
+
+2. **Restart Backend** (if needed):
+   - Changes to environment variables trigger automatic redeployment
+   - Wait 1-2 minutes for restart
+
+### Step 5: Configure Public Website Content
+
+1. **Login to Admin Panel**:
+   - Go to your main frontend: `https://schoolwizard-frontend.onrender.com`
+   - Login as admin
+
+2. **Configure Website Settings**:
+   - Navigate to **Front CMS Website** → **Header Configuration**
+   - Set:
+     - School Logo
+     - School Name
+     - Tag Line
+     - Contact Email & Phone
+     - Social Media Links
+
+3. **Add Homepage Banners**:
+   - Navigate to **Front CMS Website** → **Home Page Banners**
+   - Add banner images with titles, descriptions, and button links
+   - Set sort order and activate banners
+
+4. **Add Content** (via other CMS modules):
+   - **About Us**: Configure mission, vision, history, etc.
+   - **Gallery**: Add gallery categories and images
+   - **News & Events**: Publish news articles and events
+   - **Admission**: Configure admission information
+
+5. **Verify on Public Website**:
+   - Refresh SchoolPortal website
+   - Content should appear automatically (fetched from backend)
+
+### Important Notes
+
+- **SchoolPortal is Separate**: It's a completely separate application from the main frontend
+- **Same Backend**: Both frontend and SchoolPortal use the same backend API
+- **Public Access**: SchoolPortal is publicly accessible (no login required)
+- **Content Management**: Content is managed from the admin panel (main frontend)
+- **Custom Domain**: You can set up a custom domain for SchoolPortal (e.g., `www.yourschool.com`)
+
+### Troubleshooting SchoolPortal
+
+**Issue: Blank Page / 404 on Refresh**
+- **Solution**: Ensure redirects are configured (Step 2, point 5)
+- Status code must be `200`, not `301` or `302`
+
+**Issue: API Calls Failing**
+- **Solution**: Verify `VITE_API_BASE_URL` environment variable
+- Check backend CORS settings include SchoolPortal URL
+- Check browser console for CORS errors
+
+**Issue: Content Not Loading**
+- **Solution**: 
+  - Verify backend is running and accessible
+  - Check that public API endpoints are working: `/api/public/website/website-settings`
+  - Ensure content is configured in admin panel
+
+**Issue: Build Fails**
+- **Solution**:
+  - Check build logs in Render Dashboard
+  - Verify `Root Directory` is set to `SchoolPortal`
+  - Ensure `package.json` exists in SchoolPortal folder
+  - Check for TypeScript/compilation errors
+
+---
+
 ## Post-Deployment Configuration
 
 ### Step 1: Update Backend CORS
@@ -593,30 +757,51 @@ The backend already has a health check endpoint at `/health`. Configure it in Re
 - The file is automatically included in the build and deployed
 - **After deploying**, refresh should work correctly
 
-**If you still see 404 after deployment**:
+**If you still see 404 or redirect to `/index.html` after deployment**:
 
-**Option 1: Configure Redirects in Render Dashboard (Recommended)**
-1. Go to Render Dashboard → Your Static Site → Settings
-2. Scroll down to **"Redirects/Rewrites"** section
-3. Click **"Add Redirect"** or **"Add Rewrite"**
-4. Configure:
-   - **Source Path**: `/*`
+**⚠️ IMPORTANT: Render Static Sites require redirects to be configured in the Dashboard**
+
+The `_redirects` file alone may not work on Render. You **MUST** configure redirects in the Render Dashboard:
+
+**Step 1: Configure Redirects in Render Dashboard (REQUIRED)**
+1. Go to [Render Dashboard](https://dashboard.render.com/)
+2. Navigate to your Static Site (e.g., "SchoolWizard")
+3. Click on **Settings** (gear icon)
+4. Scroll down to find **"Redirects/Rewrites"** section
+5. Click **"Add Redirect"** or **"Add Rewrite"**
+6. Configure as follows:
+   - **Source Path**: `/*` (matches all paths)
    - **Destination Path**: `/index.html`
-   - If using "Redirect", set status to `200` (not 301/302)
-   - If using "Rewrite", it will internally serve index.html
-5. Save and wait for redeployment
-6. Test by refreshing a route like `/students`
+   - **Status Code**: `200` (NOT 301 or 302 - this is critical!)
+   - **Type**: Use "Rewrite" if available (internally serves index.html without changing URL)
+     - OR use "Redirect" with status `200` (serves index.html but keeps URL)
+7. Click **Save**
+8. Render will automatically redeploy
+9. Wait for deployment to complete (usually 1-2 minutes)
+10. Test by:
+    - Navigating to `https://schoolwizard-0bcm.onrender.com/students`
+    - Refreshing the page (F5 or Ctrl+R)
+    - The URL should stay as `/students` and not redirect to `/index.html`
 
-**Option 2: Verify _redirects File**
+**Step 2: Verify _redirects File (Backup)**
 1. Verify `frontend/public/_redirects` exists with content: `/*    /index.html   200`
 2. The file should be automatically copied to `dist/_redirects` during build
-3. Rebuild and redeploy the frontend
-4. Clear browser cache and try again
+3. This serves as a backup, but Render Dashboard configuration takes precedence
 
-**Option 3: Manual Verification**
-1. After build completes, check if `dist/_redirects` exists
-2. If not, the Vite plugin should copy it automatically
-3. If still not working, use Option 1 (Render Dashboard configuration)
+**Step 3: Clear Browser Cache**
+- After configuring redirects, clear your browser cache or use Incognito/Private mode
+- Hard refresh: `Ctrl+Shift+R` (Windows/Linux) or `Cmd+Shift+R` (Mac)
+
+**Troubleshooting:**
+- If redirects are configured but still redirecting to `/index.html`:
+  - Check that status code is `200`, not `301` or `302`
+  - Verify the source path is `/*` (with asterisk)
+  - Wait a few minutes for changes to propagate
+  - Try in a different browser or incognito mode
+- If you see 404 errors:
+  - The redirect might not be configured correctly
+  - Check Render deployment logs for errors
+  - Verify the Static Site service type (not Web Service)
 
 ---
 

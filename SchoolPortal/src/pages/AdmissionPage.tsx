@@ -16,7 +16,6 @@ const AdmissionPage: React.FC = () => {
   const [submitting, setSubmitting] = useState(false);
   const [importantDates, setImportantDates] = useState<any[]>([]);
   const [contactDetails, setContactDetails] = useState<any>(null);
-  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     const fetchData = async () => {
@@ -29,8 +28,6 @@ const AdmissionPage: React.FC = () => {
         setContactDetails(contact);
       } catch (error) {
         console.error('Error fetching admission data:', error);
-      } finally {
-        setLoading(false);
       }
     };
     fetchData();
