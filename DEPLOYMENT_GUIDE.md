@@ -455,7 +455,10 @@ The **SchoolPortal** is a separate public-facing website that displays your scho
      Key: VITE_API_BASE_URL
      Value: https://schoolwizard-backend.onrender.com/api/v1
      ```
-   - **Important**: Replace with your actual backend URL (same as frontend)
+   - **Important**: 
+     - Replace with your actual backend URL
+     - Must include `/api/v1` at the end
+     - Same URL as your main frontend uses
 
 5. **Configure Redirects** (for SPA routing):
    - Go to **Settings** → **Redirects/Rewrites**
@@ -497,21 +500,34 @@ The **SchoolPortal** is a separate public-facing website that displays your scho
    - Should see successful calls to `/api/public/website/...`
    - If errors, verify `VITE_API_BASE_URL` is correct
 
-### Step 4: Update Backend CORS (if needed)
+### Step 4: Update Backend CORS (REQUIRED)
 
-If SchoolPortal is on a different domain than the main frontend:
+**⚠️ IMPORTANT**: You MUST add the SchoolPortal URL to backend CORS configuration, otherwise the portal won't be able to fetch data from the backend.
 
 1. **Update Backend CORS_ORIGINS**:
-   - Render Dashboard → Backend Service → Environment
-   - Update `CORS_ORIGINS` (comma-separated):
+   - Go to Render Dashboard → Your Backend Service → **Environment** tab
+   - Find `CORS_ORIGINS` environment variable (or create it if it doesn't exist)
+   - Update to include both frontend and portal URLs (comma-separated, no spaces):
      ```
      CORS_ORIGINS=https://schoolwizard-frontend.onrender.com,https://schoolwizard-portal.onrender.com
      ```
-   - Or add SchoolPortal URL to existing `CORS_ORIGINS`
+   - **OR** if you only have `CORS_ORIGIN` (singular), change it to `CORS_ORIGINS` (plural) with both URLs
+   - **Important**: 
+     - Use `https://` (not `http://`)
+     - No trailing slashes
+     - No spaces after commas
+     - Replace with your actual URLs
 
-2. **Restart Backend** (if needed):
-   - Changes to environment variables trigger automatic redeployment
-   - Wait 1-2 minutes for restart
+2. **Save and Wait**:
+   - Click **Save Changes**
+   - Render will automatically redeploy the backend (takes 1-2 minutes)
+   - Monitor the logs to ensure deployment succeeds
+
+3. **Verify CORS is Working**:
+   - After backend redeploys, refresh the SchoolPortal website
+   - Open browser console (F12)
+   - Check Network tab - API calls should succeed (200 status)
+   - No more CORS errors should appear
 
 ### Step 5: Configure Public Website Content
 

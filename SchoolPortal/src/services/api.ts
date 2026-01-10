@@ -90,7 +90,7 @@ export interface Leader {
 export const websiteService = {
   getSettings: async (): Promise<WebsiteSettings> => {
     try {
-      const response = await apiClient.get('/api/public/website/website-settings');
+      const response = await apiClient.get('/public/website/website-settings');
       const data = response.data.data;
       // Convert MySQL boolean (0/1) to JavaScript boolean
       return {
@@ -122,7 +122,7 @@ export const websiteService = {
 
   getBanners: async (): Promise<Banner[]> => {
     try {
-      const response = await apiClient.get('/api/public/website/banners');
+      const response = await apiClient.get('/public/website/banners');
       return Array.isArray(response.data.data) ? response.data.data : [];
     } catch (error: any) {
       console.error('Error fetching banners:', error);
@@ -134,7 +134,7 @@ export const websiteService = {
   // About Us Page Services
   getMissionVision: async (): Promise<MissionVision> => {
     try {
-      const response = await apiClient.get('/api/public/about-us/mission-vision');
+      const response = await apiClient.get('/public/about-us/mission-vision');
       return response.data.data;
     } catch (error: any) {
       console.error('Error fetching mission & vision:', error);
@@ -147,7 +147,7 @@ export const websiteService = {
 
   getCounters: async (): Promise<Counter[]> => {
     try {
-      const response = await apiClient.get('/api/public/about-us/counters');
+      const response = await apiClient.get('/public/about-us/counters');
       const data = response.data.data || [];
       return Array.isArray(data) ? data.filter((c: Counter) => c.is_active).sort((a, b) => a.sort_order - b.sort_order) : [];
     } catch (error: any) {
@@ -158,7 +158,7 @@ export const websiteService = {
 
   getHistory: async (): Promise<History> => {
     try {
-      const response = await apiClient.get('/api/public/about-us/history');
+      const response = await apiClient.get('/public/about-us/history');
       return response.data.data;
     } catch (error: any) {
       console.error('Error fetching history:', error);
@@ -182,7 +182,7 @@ export const websiteService = {
 
   getAchievements: async (): Promise<Achievement[]> => {
     try {
-      const response = await apiClient.get('/api/public/about-us/achievements');
+      const response = await apiClient.get('/public/about-us/achievements');
       const data = response.data.data || [];
       return Array.isArray(data) ? data.filter((a: Achievement) => a.is_active).sort((a, b) => a.sort_order - b.sort_order) : [];
     } catch (error: any) {
@@ -193,7 +193,7 @@ export const websiteService = {
 
   getLeadership: async (): Promise<Leader[]> => {
     try {
-      const response = await apiClient.get('/api/public/about-us/leadership');
+      const response = await apiClient.get('/public/about-us/leadership');
       const data = response.data.data || [];
       return Array.isArray(data) ? data.filter((l: Leader) => l.is_active).sort((a, b) => a.sort_order - b.sort_order) : [];
     } catch (error: any) {
@@ -224,7 +224,7 @@ export const websiteService = {
 
   getImportantDates: async (): Promise<any[]> => {
     try {
-      const response = await apiClient.get('/api/public/admission/important-dates');
+      const response = await apiClient.get('/public/admission/important-dates');
       const data = response.data.data || [];
       return Array.isArray(data) ? data.filter((d: any) => d.is_active).sort((a, b) => a.sort_order - b.sort_order) : [];
     } catch (error: any) {
@@ -253,7 +253,7 @@ export const websiteService = {
   // Gallery Services
   getGalleryCategories: async (): Promise<any[]> => {
     try {
-      const response = await apiClient.get('/api/public/gallery/categories');
+      const response = await apiClient.get('/public/gallery/categories');
       const data = response.data.data || [];
       return Array.isArray(data) ? data.filter((c: any) => c.is_active).sort((a, b) => a.sort_order - b.sort_order) : [];
     } catch (error: any) {
@@ -265,7 +265,7 @@ export const websiteService = {
   getGalleryImages: async (categoryId?: number): Promise<any[]> => {
     try {
       const params = categoryId ? { category_id: categoryId } : {};
-      const response = await apiClient.get('/api/public/gallery/images', { params });
+      const response = await apiClient.get('/public/gallery/images', { params });
       const data = response.data.data || [];
       return Array.isArray(data) ? data.filter((img: any) => img.is_active).sort((a, b) => a.sort_order - b.sort_order) : [];
     } catch (error: any) {
@@ -280,7 +280,7 @@ export const websiteService = {
       const params: any = {};
       if (category) params.category = category;
       if (featured !== undefined) params.featured = featured;
-      const response = await apiClient.get('/api/public/news-events/news', { params });
+      const response = await apiClient.get('/public/news-events/news', { params });
       const data = response.data.data || [];
       return Array.isArray(data) ? data.filter((article: any) => article.is_active) : [];
     } catch (error: any) {
@@ -291,7 +291,7 @@ export const websiteService = {
 
   getNewsArticle: async (identifier: string | number): Promise<any> => {
     try {
-      const response = await apiClient.get(`/api/public/news-events/news/${identifier}`);
+      const response = await apiClient.get(`/public/news-events/news/${identifier}`);
       return response.data.data;
     } catch (error: any) {
       console.error('Error fetching news article:', error);
@@ -317,7 +317,7 @@ export const websiteService = {
 
   getEvent: async (identifier: string | number): Promise<any> => {
     try {
-      const response = await apiClient.get(`/api/public/news-events/events/${identifier}`);
+      const response = await apiClient.get(`/public/news-events/events/${identifier}`);
       return response.data.data;
     } catch (error: any) {
       console.error('Error fetching event:', error);
