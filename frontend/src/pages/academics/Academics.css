@@ -1,6 +1,6 @@
-.academics-page {
+/* .academics-page {
   padding: var(--spacing-xl);
-}
+} */
 
 /* Tabs Wrapper - Outer container for overflow control */
 .academics-tabs-wrapper {
@@ -132,7 +132,7 @@
 
 .academics-content {
   background: var(--white);
-  padding: var(--spacing-xl);
+  /* padding: var(--spacing-xl); */
   border-radius: var(--radius-lg);
   box-shadow: var(--shadow-md);
 }

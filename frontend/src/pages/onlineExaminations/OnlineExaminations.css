@@ -1,5 +1,5 @@
 .online-examinations-page {
-  padding: var(--spacing-xl);
+  /* padding: var(--spacing-xl); */
   width: 100%;
   max-width: 100%;
   overflow-x: hidden;
@@ -524,5 +524,19 @@
   text-align: center;
   padding: var(--spacing-xl);
   color: var(--gray-600);
+}
+
+/* Table responsive container for horizontal scrolling */
+.table-responsive-container {
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch; /* Smooth scrolling on iOS */
+  width: 100%;
+  margin-top: var(--spacing-md);
+}
+
+.table-responsive-container table {
+  width: 100%;
+  min-width: fit-content; /* Allow table to be as wide as its content */
+  border-collapse: collapse;
 }
 

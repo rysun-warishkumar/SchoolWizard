@@ -8,9 +8,11 @@ import './Sidebar.css';
 interface SidebarProps {
   isCollapsed: boolean;
   onToggle: () => void;
+  isMobileOpen?: boolean;
+  onMobileClose?: () => void;
 }
 
-const Sidebar = ({ isCollapsed, onToggle }: SidebarProps) => {
+const Sidebar = ({ isCollapsed, onToggle, isMobileOpen = false, onMobileClose }: SidebarProps) => {
   const { user } = useAuth();
   const location = useLocation();
   const isChatPage = location.pathname === '/chat';
@@ -119,12 +121,20 @@ const Sidebar = ({ isCollapsed, onToggle }: SidebarProps) => {
   });
 
   return (
-    <aside className={`sidebar ${isCollapsed ? 'collapsed' : ''}`}>
+    <aside className={`sidebar ${isCollapsed ? 'collapsed' : ''} ${isMobileOpen ? 'open' : ''}`}>
       <div className="sidebar-header">
         <button className="sidebar-toggle" onClick={onToggle} title={isCollapsed ? 'Expand Sidebar' : 'Collapse Sidebar'}>
           {isCollapsed ? '=' : '←'}
         </button>
         {!isCollapsed && <h3 className="sidebar-title"></h3>}
+        {/* Mobile close button */}
+        <button 
+          className="mobile-sidebar-close"
+          onClick={onMobileClose}
+          aria-label="Close sidebar"
+        >
+          ×
+        </button>
       </div>
       <nav className="sidebar-nav">
         <ul className="sidebar-menu">

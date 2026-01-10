@@ -537,6 +537,8 @@
 
   .form-row {
     grid-template-columns: 1fr;
+    display: flex !important;
+    flex-direction: column;
   }
 
   .banners-grid {

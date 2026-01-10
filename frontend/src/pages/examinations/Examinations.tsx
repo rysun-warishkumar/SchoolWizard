@@ -713,7 +713,7 @@ const MarksGradeTab = () => {
     <div className="examinations-tab-content">
       <div className="tab-header">
         <h2>Marks Grade</h2>
-        <div style={{ display: 'flex', gap: 'var(--spacing-md)', alignItems: 'center' }}>
+        <div style={{ display: 'flex', gap: 'var(--spacing-md)', alignItems: 'center', flexWrap: 'wrap', flexDirection: 'row' }}>
           <div className="form-group" style={{ margin: 0 }}>
             <label>Filter by Exam Type:</label>
             <select
@@ -1530,7 +1530,7 @@ const ExamResultTab = () => {
         <h2>Exam Result</h2>
       </div>
 
-      <div className="filters-section" style={{ marginBottom: 'var(--spacing-lg)' }}>
+      <div className="" style={{ marginBottom: 'var(--spacing-lg)' }}>
         <div className="form-row">
           <div className="form-group">
             <label>Session <span className="required">*</span></label>

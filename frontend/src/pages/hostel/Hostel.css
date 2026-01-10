@@ -78,6 +78,13 @@
   flex: 1;
 }
 
+@media (max-width: 768px) {
+  .filters-section {
+    flex-wrap: wrap;
+    flex-direction: row;
+  }
+}
+
 .filter-select {
   padding: var(--spacing-sm) var(--spacing-md);
   border: 1px solid var(--gray-300);

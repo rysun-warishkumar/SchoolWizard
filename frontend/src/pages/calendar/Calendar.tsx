@@ -165,14 +165,15 @@ const Calendar = () => {
               </div>
             </div>
 
-            <div className="calendar-grid">
-              {dayNames.map((day) => (
-                <div key={day} className="calendar-day-header">
-                  {day}
-                </div>
-              ))}
+            <div className="calendar-grid-container">
+              <div className="calendar-grid">
+                {dayNames.map((day) => (
+                  <div key={day} className="calendar-day-header">
+                    {day}
+                  </div>
+                ))}
 
-              {days.map((day, index) => {
+                {days.map((day, index) => {
                 const dayEvents = getEventsForDate(day);
                 const isToday =
                   day !== null &&
@@ -233,6 +234,7 @@ const Calendar = () => {
                   </div>
                 );
               })}
+              </div>
             </div>
 
             <div className="calendar-sidebar">

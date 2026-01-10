@@ -314,61 +314,63 @@ const QuestionBankTab = () => {
       {isLoading ? (
         <div className="loading">Loading...</div>
       ) : questions && questions.length > 0 ? (
-        <table className="data-table">
-          <thead>
-            <tr>
-              <th>Subject</th>
-              <th>Question</th>
-              <th>Options</th>
-              <th>Correct Answer</th>
-              <th>Marks</th>
-              <th>Actions</th>
-            </tr>
-          </thead>
-          <tbody>
-            {questions.map((question) => (
-              <tr key={question.id}>
-                <td>
-                  {question.subject_name} ({question.subject_code})
-                </td>
-                <td style={{ maxWidth: '300px', wordWrap: 'break-word' }}>
-                  {question.question}
-                </td>
-                <td style={{ maxWidth: '200px', fontSize: 'var(--font-size-sm)' }}>
-                  {question.option_a && <div>A. {question.option_a}</div>}
-                  {question.option_b && <div>B. {question.option_b}</div>}
-                  {question.option_c && <div>C. {question.option_c}</div>}
-                  {question.option_d && <div>D. {question.option_d}</div>}
-                  {question.option_e && <div>E. {question.option_e}</div>}
-                </td>
-                <td>
-                  <span className="badge badge-success">{question.correct_answer}</span>
-                </td>
-                <td>{question.marks}</td>
-                <td>
-                  <div className="action-buttons">
-                    <button
-                      className="btn-sm btn-secondary"
-                      onClick={() => handleEdit(question)}
-                    >
-                      Edit
-                    </button>
-                    <button
-                      className="btn-sm btn-danger"
-                      onClick={() => {
-                        if (window.confirm('Are you sure you want to delete this question?')) {
-                          deleteMutation.mutate(question.id);
-                        }
-                      }}
-                    >
-                      Delete
-                    </button>
-                  </div>
-                </td>
+        <div className="table-responsive-container">
+          <table className="data-table">
+            <thead>
+              <tr>
+                <th>Subject</th>
+                <th>Question</th>
+                <th>Options</th>
+                <th>Correct Answer</th>
+                <th>Marks</th>
+                <th>Actions</th>
               </tr>
-            ))}
-          </tbody>
-        </table>
+            </thead>
+            <tbody>
+              {questions.map((question) => (
+                <tr key={question.id}>
+                  <td>
+                    {question.subject_name} ({question.subject_code})
+                  </td>
+                  <td style={{ maxWidth: '300px', wordWrap: 'break-word' }}>
+                    {question.question}
+                  </td>
+                  <td style={{ maxWidth: '200px', fontSize: 'var(--font-size-sm)' }}>
+                    {question.option_a && <div>A. {question.option_a}</div>}
+                    {question.option_b && <div>B. {question.option_b}</div>}
+                    {question.option_c && <div>C. {question.option_c}</div>}
+                    {question.option_d && <div>D. {question.option_d}</div>}
+                    {question.option_e && <div>E. {question.option_e}</div>}
+                  </td>
+                  <td>
+                    <span className="badge badge-success">{question.correct_answer}</span>
+                  </td>
+                  <td>{question.marks}</td>
+                  <td>
+                    <div className="action-buttons">
+                      <button
+                        className="btn-sm btn-secondary"
+                        onClick={() => handleEdit(question)}
+                      >
+                        Edit
+                      </button>
+                      <button
+                        className="btn-sm btn-danger"
+                        onClick={() => {
+                          if (window.confirm('Are you sure you want to delete this question?')) {
+                            deleteMutation.mutate(question.id);
+                          }
+                        }}
+                      >
+                        Delete
+                      </button>
+                    </div>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
       ) : (
         <div className="empty-state">No questions found</div>
       )}
@@ -763,64 +765,66 @@ const OnlineExamsTab = () => {
       {isLoading ? (
         <div className="loading">Loading...</div>
       ) : exams && Array.isArray(exams) && exams.length > 0 ? (
-        <table className="data-table">
-          <thead>
-            <tr>
-              <th>Exam Name</th>
-              <th>Subject</th>
-              <th>Session</th>
-              <th>Class</th>
-              <th>Date</th>
-              <th>Duration</th>
-              <th>Total Marks</th>
-              <th>Status</th>
-              <th>Actions</th>
-            </tr>
-          </thead>
-          <tbody>
-            {exams.map((exam) => (
-              <tr key={exam.id}>
-                <td>{exam.name}</td>
-                <td>{exam.subject_name} ({exam.subject_code})</td>
-                <td>{exam.session_name}</td>
-                <td>{exam.class_name || '-'} {exam.section_name ? `- ${exam.section_name}` : ''}</td>
-                <td>{exam.exam_date ? (() => {
-                  // Parse date string directly to avoid timezone conversion issues
-                  const dateStr = String(exam.exam_date).split('T')[0]; // Get YYYY-MM-DD part
-                  const [year, month, day] = dateStr.split('-');
-                  return month && day ? `${month}/${day}/${year}` : dateStr;
-                })() : '-'}</td>
-                <td>{exam.duration_minutes} min</td>
-                <td>{exam.total_marks}</td>
-                <td>
-                  <span className={`badge ${exam.is_published ? 'badge-success' : 'badge-warning'}`}>
-                    {exam.is_published ? 'PUBLISHED' : 'DRAFT'}
-                  </span>
-                </td>
-                <td>
-                  <div className="action-buttons">
-                    <button
-                      className="btn-sm btn-secondary"
-                      onClick={() => handleViewDetails(exam)}
-                    >
-                      View
-                    </button>
-                    <button
-                      className="btn-sm btn-danger"
-                      onClick={() => {
-                        if (window.confirm('Are you sure you want to delete this exam?')) {
-                          deleteMutation.mutate(exam.id);
-                        }
-                      }}
-                    >
-                      Delete
-                    </button>
-                  </div>
-                </td>
+        <div className="table-responsive-container">
+          <table className="data-table">
+            <thead>
+              <tr>
+                <th>Exam Name</th>
+                <th>Subject</th>
+                <th>Session</th>
+                <th>Class</th>
+                <th>Date</th>
+                <th>Duration</th>
+                <th>Total Marks</th>
+                <th>Status</th>
+                <th>Actions</th>
               </tr>
-            ))}
-          </tbody>
-        </table>
+            </thead>
+            <tbody>
+              {exams.map((exam) => (
+                <tr key={exam.id}>
+                  <td>{exam.name}</td>
+                  <td>{exam.subject_name} ({exam.subject_code})</td>
+                  <td>{exam.session_name}</td>
+                  <td>{exam.class_name || '-'} {exam.section_name ? `- ${exam.section_name}` : ''}</td>
+                  <td>{exam.exam_date ? (() => {
+                    // Parse date string directly to avoid timezone conversion issues
+                    const dateStr = String(exam.exam_date).split('T')[0]; // Get YYYY-MM-DD part
+                    const [year, month, day] = dateStr.split('-');
+                    return month && day ? `${month}/${day}/${year}` : dateStr;
+                  })() : '-'}</td>
+                  <td>{exam.duration_minutes} min</td>
+                  <td>{exam.total_marks}</td>
+                  <td>
+                    <span className={`badge ${exam.is_published ? 'badge-success' : 'badge-warning'}`}>
+                      {exam.is_published ? 'PUBLISHED' : 'DRAFT'}
+                    </span>
+                  </td>
+                  <td>
+                    <div className="action-buttons">
+                      <button
+                        className="btn-sm btn-secondary"
+                        onClick={() => handleViewDetails(exam)}
+                      >
+                        View
+                      </button>
+                      <button
+                        className="btn-sm btn-danger"
+                        onClick={() => {
+                          if (window.confirm('Are you sure you want to delete this exam?')) {
+                            deleteMutation.mutate(exam.id);
+                          }
+                        }}
+                      >
+                        Delete
+                      </button>
+                    </div>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
       ) : (
         <div className="empty-state">No online exams found</div>
       )}

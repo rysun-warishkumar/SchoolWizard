@@ -1,5 +1,35 @@
 .communicate-page {
   padding: var(--spacing-lg);
+  width: 100%;
+  max-width: 100%;
+  overflow-x: hidden;
+  box-sizing: border-box;
+}
+
+@media (max-width: 768px) {
+  .communicate-page {
+    padding: var(--spacing-md);
+  }
+
+  .communicate-tabs {
+    margin-bottom: var(--spacing-md);
+  }
+
+  .communicate-tabs button {
+    font-size: var(--font-size-sm);
+    padding: var(--spacing-xs) var(--spacing-sm);
+  }
+
+  .send-email-tabs button,
+  .send-sms-tabs button {
+    font-size: var(--font-size-sm);
+    padding: var(--spacing-xs) var(--spacing-sm);
+  }
+
+  .log-type-tabs button {
+    font-size: var(--font-size-sm);
+    padding: var(--spacing-xs) var(--spacing-sm);
+  }
 }
 
 .page-header {
@@ -21,9 +51,13 @@
   border-bottom: 1px solid var(--gray-200);
   padding-bottom: var(--spacing-xs);
   overflow-x: auto;
+  overflow-y: hidden;
   -webkit-overflow-scrolling: touch;
   scrollbar-width: none;
   -ms-overflow-style: none;
+  width: 100%;
+  max-width: 100%;
+  box-sizing: border-box;
 }
 
 .communicate-tabs::-webkit-scrollbar {
@@ -39,6 +73,9 @@
   cursor: pointer;
   transition: color 0.2s ease, border-bottom 0.2s ease;
   white-space: nowrap;
+  flex-shrink: 0;
+  min-width: fit-content;
+  box-sizing: border-box;
 }
 
 .communicate-tabs button.active {
@@ -53,7 +90,7 @@
 
 .communicate-content {
   background-color: var(--white);
-  padding: var(--spacing-lg);
+  /* padding: var(--spacing-lg); */
   border-radius: var(--border-radius);
   box-shadow: var(--shadow-sm);
 }
@@ -113,6 +150,19 @@
   margin-bottom: var(--spacing-lg);
   border-bottom: 1px solid var(--gray-200);
   padding-bottom: var(--spacing-xs);
+  overflow-x: auto;
+  overflow-y: hidden;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+  width: 100%;
+  max-width: 100%;
+  box-sizing: border-box;
+}
+
+.send-email-tabs::-webkit-scrollbar,
+.send-sms-tabs::-webkit-scrollbar {
+  display: none;
 }
 
 .send-email-tabs button,
@@ -124,6 +174,10 @@
   font-size: var(--font-size-base);
   cursor: pointer;
   transition: color 0.2s ease, border-bottom 0.2s ease;
+  white-space: nowrap;
+  flex-shrink: 0;
+  min-width: fit-content;
+  box-sizing: border-box;
 }
 
 .send-email-tabs button.active,
@@ -244,6 +298,18 @@
   margin-bottom: var(--spacing-lg);
   border-bottom: 1px solid var(--gray-200);
   padding-bottom: var(--spacing-xs);
+  overflow-x: auto;
+  overflow-y: hidden;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+  width: 100%;
+  max-width: 100%;
+  box-sizing: border-box;
+}
+
+.log-type-tabs::-webkit-scrollbar {
+  display: none;
 }
 
 .log-type-tabs button {
@@ -254,6 +320,10 @@
   font-size: var(--font-size-base);
   cursor: pointer;
   transition: color 0.2s ease, border-bottom 0.2s ease;
+  white-space: nowrap;
+  flex-shrink: 0;
+  min-width: fit-content;
+  box-sizing: border-box;
 }
 
 .log-type-tabs button.active {

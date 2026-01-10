@@ -125,8 +125,13 @@
 .permissions-table-container {
   flex: 1;
   overflow: auto;
+  overflow-x: auto;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
   border: 1px solid var(--gray-200);
   border-radius: var(--radius-md);
+  min-height: 0; /* Important for flex children to allow scrolling */
+  max-height: 100%;
 }
 
 .permissions-table {
@@ -358,6 +363,9 @@
   max-height: 95vh;
   height: 95vh;
   padding: var(--spacing-lg);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
 }
 
 .modal-content h2 {
@@ -475,24 +483,137 @@
 }
 
 @media (max-width: 768px) {
-  .permissions-modal-table {
+  .modal-overlay:has(.permissions-modal-table) {
+    padding: var(--spacing-xs);
+    align-items: flex-start;
+    padding-top: var(--spacing-md);
+  }
+
+  .modal-content.permissions-modal-table {
     max-width: 100vw;
+    width: calc(100vw - var(--spacing-md));
+    max-height: calc(100vh - var(--spacing-md));
+    height: calc(100vh - var(--spacing-md));
     padding: var(--spacing-md);
+    border-radius: var(--radius-md);
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+  }
+
+  .permissions-header {
+    margin-bottom: var(--spacing-md);
+    padding-bottom: var(--spacing-sm);
+    flex-direction: column;
+    align-items: flex-start;
+    flex-shrink: 0;
+  }
+
+  .permissions-header h2 {
+    font-size: var(--font-size-xl);
+    margin-bottom: var(--spacing-sm);
+  }
+
+  .permissions-header-actions {
+    width: 100%;
+    flex-wrap: wrap;
+  }
+
+  .permissions-header-actions button {
+    flex: 1;
+    min-width: 120px;
+    font-size: var(--font-size-sm);
+    padding: var(--spacing-xs) var(--spacing-sm);
   }
 
   .permissions-table-container {
+    flex: 1;
     overflow-x: auto;
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+    min-height: 0;
+    max-height: 100%;
+    width: 100%;
+    /* Ensure smooth scrolling on mobile */
+    scrollbar-width: thin;
   }
 
-  .module-column {
-    min-width: 250px;
+  .permissions-table-container::-webkit-scrollbar {
+    height: 8px;
+    width: 8px;
   }
 
-  .role-column {
-    min-width: 150px;
+  .permissions-table-container::-webkit-scrollbar-track {
+    background: var(--gray-100);
+    border-radius: 4px;
   }
 
+  .permissions-table-container::-webkit-scrollbar-thumb {
+    background: var(--gray-400);
+    border-radius: 4px;
+  }
+
+  .permissions-table-container::-webkit-scrollbar-thumb:hover {
+    background: var(--gray-500);
+  }
+
+  .permissions-table {
+    min-width: 600px; /* Ensure table doesn't get too compressed */
+  }
+
+  /* Remove sticky positioning on mobile for better scrolling */
+  .permissions-table th:first-child,
+  .module-info-cell {
+    position: static !important;
+    background: var(--gray-50);
+    z-index: auto;
+  }
+
+  .permissions-table thead {
+    position: static;
+  }
+
+  .module-column,
+  .module-info-cell {
+    min-width: 150px; /* Reduced from 200px to make it smaller */
+    max-width: 180px; /* Limit maximum width */
+  }
+
+  .role-column,
   .permission-cell {
     min-width: 150px;
+  }
+
+  .module-name {
+    font-size: var(--font-size-xs);
+    line-height: 1.3;
+  }
+
+  .module-description {
+    font-size: 10px;
+    line-height: 1.3;
+    display: -webkit-box;
+    -webkit-line-clamp: 2; /* Limit to 2 lines */
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .module-icon {
+    font-size: 1.2rem; /* Slightly smaller icon on mobile */
+  }
+
+  .module-info {
+    gap: var(--spacing-sm); /* Reduce gap between icon and text */
+  }
+
+  .permission-toggle-item {
+    font-size: 10px;
+    padding: 4px;
+  }
+
+  .permission-badge {
+    font-size: 9px;
+    padding: 2px 6px;
   }
 }

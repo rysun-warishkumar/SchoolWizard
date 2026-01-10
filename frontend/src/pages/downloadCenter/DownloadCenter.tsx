@@ -449,68 +449,70 @@ const UploadContentTab = () => {
       {isLoading ? (
         <div className="loading">Loading...</div>
       ) : contents.length > 0 ? (
-        <table className="data-table">
-          <thead>
-            <tr>
-              <th>Content Title</th>
-              <th>Type</th>
-              <th>Available For</th>
-              <th>Class - Section</th>
-              <th>Upload Date</th>
-              <th>File Name</th>
-              <th>Uploaded By</th>
-              <th>Actions</th>
-            </tr>
-          </thead>
-          <tbody>
-            {contents.map((content) => (
-              <tr key={content.id}>
-                <td>{content.content_title}</td>
-                <td>
-                  <span className="content-type-badge">{content.content_type.replace('_', ' ')}</span>
-                </td>
-                <td>{content.available_for}</td>
-                <td>
-                  {content.class_name && content.section_name
-                    ? `${content.class_name} - ${content.section_name}`
-                    : content.class_name || '-'}
-                </td>
-                <td>{new Date(content.upload_date).toLocaleDateString()}</td>
-                <td>{content.file_name}</td>
-                <td>{content.uploaded_by_name || '-'}</td>
-                <td>
-                  <div className="action-buttons">
-                    <button
-                      className="btn-sm btn-primary"
-                      onClick={() => handleDownload(content)}
-                      title="Download"
-                    >
-                      Download
-                    </button>
-                    <button
-                      className="btn-sm btn-secondary"
-                      onClick={() => handleEdit(content)}
-                      title="Edit"
-                    >
-                      Edit
-                    </button>
-                    <button
-                      className="btn-sm btn-danger"
-                      onClick={() => {
-                        if (window.confirm('Are you sure you want to delete this content?')) {
-                          deleteMutation.mutate(content.id);
-                        }
-                      }}
-                      title="Delete"
-                    >
-                      Delete
-                    </button>
-                  </div>
-                </td>
+        <div className="table-responsive-container">
+          <table className="data-table">
+            <thead>
+              <tr>
+                <th>Content Title</th>
+                <th>Type</th>
+                <th>Available For</th>
+                <th>Class - Section</th>
+                <th>Upload Date</th>
+                <th>File Name</th>
+                <th>Uploaded By</th>
+                <th>Actions</th>
               </tr>
-            ))}
-          </tbody>
-        </table>
+            </thead>
+            <tbody>
+              {contents.map((content) => (
+                <tr key={content.id}>
+                  <td>{content.content_title}</td>
+                  <td>
+                    <span className="content-type-badge">{content.content_type.replace('_', ' ')}</span>
+                  </td>
+                  <td>{content.available_for}</td>
+                  <td>
+                    {content.class_name && content.section_name
+                      ? `${content.class_name} - ${content.section_name}`
+                      : content.class_name || '-'}
+                  </td>
+                  <td>{new Date(content.upload_date).toLocaleDateString()}</td>
+                  <td>{content.file_name}</td>
+                  <td>{content.uploaded_by_name || '-'}</td>
+                  <td>
+                    <div className="action-buttons">
+                      <button
+                        className="btn-sm btn-primary"
+                        onClick={() => handleDownload(content)}
+                        title="Download"
+                      >
+                        Download
+                      </button>
+                      <button
+                        className="btn-sm btn-secondary"
+                        onClick={() => handleEdit(content)}
+                        title="Edit"
+                      >
+                        Edit
+                      </button>
+                      <button
+                        className="btn-sm btn-danger"
+                        onClick={() => {
+                          if (window.confirm('Are you sure you want to delete this content?')) {
+                            deleteMutation.mutate(content.id);
+                          }
+                        }}
+                        title="Delete"
+                      >
+                        Delete
+                      </button>
+                    </div>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
       ) : (
         <div className="empty-state">No content found</div>
       )}
@@ -913,63 +915,65 @@ const ContentListTab = ({ content_type }: ContentListTabProps) => {
       {isLoading ? (
         <div className="loading">Loading...</div>
       ) : contents.length > 0 ? (
-        <table className="data-table">
-          <thead>
-            <tr>
-              <th>Content Title</th>
-              <th>Available For</th>
-              <th>Class - Section</th>
-              <th>Upload Date</th>
-              <th>File Name</th>
-              <th>File Size</th>
-              <th>Uploaded By</th>
-              <th>Actions</th>
-            </tr>
-          </thead>
-          <tbody>
-            {contents.map((content) => (
-              <tr key={content.id}>
-                <td>{content.content_title}</td>
-                <td>{content.available_for}</td>
-                <td>
-                  {content.class_name && content.section_name
-                    ? `${content.class_name} - ${content.section_name}`
-                    : content.class_name || '-'}
-                </td>
-                <td>{new Date(content.upload_date).toLocaleDateString()}</td>
-                <td>{content.file_name}</td>
-                <td>
-                  {content.file_size
-                    ? `${(content.file_size / 1024).toFixed(2)} KB`
-                    : '-'}
-                </td>
-                <td>{content.uploaded_by_name || '-'}</td>
-                <td>
-                  <div className="action-buttons">
-                    <button
-                      className="btn-sm btn-primary"
-                      onClick={() => handleDownload(content)}
-                      title="Download"
-                    >
-                      Download
-                    </button>
-                    <button
-                      className="btn-sm btn-danger"
-                      onClick={() => {
-                        if (window.confirm('Are you sure you want to delete this content?')) {
-                          deleteMutation.mutate(content.id);
-                        }
-                      }}
-                      title="Delete"
-                    >
-                      Delete
-                    </button>
-                  </div>
-                </td>
+        <div className="table-responsive-container">
+          <table className="data-table">
+            <thead>
+              <tr>
+                <th>Content Title</th>
+                <th>Available For</th>
+                <th>Class - Section</th>
+                <th>Upload Date</th>
+                <th>File Name</th>
+                <th>File Size</th>
+                <th>Uploaded By</th>
+                <th>Actions</th>
               </tr>
-            ))}
-          </tbody>
-        </table>
+            </thead>
+            <tbody>
+              {contents.map((content) => (
+                <tr key={content.id}>
+                  <td>{content.content_title}</td>
+                  <td>{content.available_for}</td>
+                  <td>
+                    {content.class_name && content.section_name
+                      ? `${content.class_name} - ${content.section_name}`
+                      : content.class_name || '-'}
+                  </td>
+                  <td>{new Date(content.upload_date).toLocaleDateString()}</td>
+                  <td>{content.file_name}</td>
+                  <td>
+                    {content.file_size
+                      ? `${(content.file_size / 1024).toFixed(2)} KB`
+                      : '-'}
+                  </td>
+                  <td>{content.uploaded_by_name || '-'}</td>
+                  <td>
+                    <div className="action-buttons">
+                      <button
+                        className="btn-sm btn-primary"
+                        onClick={() => handleDownload(content)}
+                        title="Download"
+                      >
+                        Download
+                      </button>
+                      <button
+                        className="btn-sm btn-danger"
+                        onClick={() => {
+                          if (window.confirm('Are you sure you want to delete this content?')) {
+                            deleteMutation.mutate(content.id);
+                          }
+                        }}
+                        title="Delete"
+                      >
+                        Delete
+                      </button>
+                    </div>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
       ) : (
         <div className="empty-state">
           No {getContentTypeLabel(content_type)} found

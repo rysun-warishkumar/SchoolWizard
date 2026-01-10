@@ -246,7 +246,7 @@ const Homework = () => {
         </button>
       </div>
 
-      <div className="filters-section">
+      <div className="">
         <div className="form-row">
           <div className="form-group">
             <label>Session <span className="required">*</span></label>
@@ -343,57 +343,59 @@ const Homework = () => {
                 />
               </div>
             </div>
-            <table className="data-table">
-              <thead>
-                <tr>
-                  <th>Class</th>
-                  <th>Section</th>
-                  <th>Subject</th>
-                  <th>Homework Date</th>
-                  <th>Submission Date</th>
-                  <th>Evaluation Date</th>
-                  <th>Created By</th>
-                  <th>Action</th>
-                </tr>
-              </thead>
-              <tbody>
-                {filteredHomework.map((hw) => (
-                  <tr key={hw.id}>
-                    <td>{hw.class_name}</td>
-                    <td>{hw.section_name}</td>
-                    <td>
-                      {hw.subject_name} {hw.subject_code ? `(${hw.subject_code})` : ''}
-                    </td>
-                    <td>{new Date(hw.homework_date).toLocaleDateString()}</td>
-                    <td>{new Date(hw.submission_date).toLocaleDateString()}</td>
-                    <td>{hw.evaluations && hw.evaluations.length > 0 && hw.evaluations[0].evaluation_date ? new Date(hw.evaluations[0].evaluation_date).toLocaleDateString() : '-'}</td>
-                    <td>{hw.created_by_name || '-'}</td>
-                    <td>
-                      <div className="action-buttons">
-                        <button
-                          className="btn-sm btn-secondary"
-                          onClick={() => handleViewEvaluate(hw)}
-                          title="View / Evaluate"
-                        >
-                          View
-                        </button>
-                        <button
-                          className="btn-sm btn-danger"
-                          onClick={() => {
-                            if (window.confirm('Are you sure you want to delete this homework?')) {
-                              deleteMutation.mutate(hw.id);
-                            }
-                          }}
-                          title="Delete"
-                        >
-                          Delete
-                        </button>
-                      </div>
-                    </td>
+            <div className="table-responsive-container">
+              <table className="data-table">
+                <thead>
+                  <tr>
+                    <th>Class</th>
+                    <th>Section</th>
+                    <th>Subject</th>
+                    <th>Homework Date</th>
+                    <th>Submission Date</th>
+                    <th>Evaluation Date</th>
+                    <th>Created By</th>
+                    <th>Action</th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
+                </thead>
+                <tbody>
+                  {filteredHomework.map((hw) => (
+                    <tr key={hw.id}>
+                      <td>{hw.class_name}</td>
+                      <td>{hw.section_name}</td>
+                      <td>
+                        {hw.subject_name} {hw.subject_code ? `(${hw.subject_code})` : ''}
+                      </td>
+                      <td>{new Date(hw.homework_date).toLocaleDateString()}</td>
+                      <td>{new Date(hw.submission_date).toLocaleDateString()}</td>
+                      <td>{hw.evaluations && hw.evaluations.length > 0 && hw.evaluations[0].evaluation_date ? new Date(hw.evaluations[0].evaluation_date).toLocaleDateString() : '-'}</td>
+                      <td>{hw.created_by_name || '-'}</td>
+                      <td>
+                        <div className="action-buttons">
+                          <button
+                            className="btn-sm btn-secondary"
+                            onClick={() => handleViewEvaluate(hw)}
+                            title="View / Evaluate"
+                          >
+                            View
+                          </button>
+                          <button
+                            className="btn-sm btn-danger"
+                            onClick={() => {
+                              if (window.confirm('Are you sure you want to delete this homework?')) {
+                                deleteMutation.mutate(hw.id);
+                              }
+                            }}
+                            title="Delete"
+                          >
+                            Delete
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
           </div>
         ) : (
           <div className="empty-state">
