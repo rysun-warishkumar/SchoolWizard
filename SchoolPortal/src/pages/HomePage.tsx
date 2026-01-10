@@ -69,9 +69,9 @@ const HomePage: React.FC = () => {
   const services = [
     {
       icon: 'fas fa-flag',
-      title: 'NCC',
+      title: 'Admission Enquiry',
       color: 'var(--accent-green)',
-      link: '/ncc',
+      link: '#',
     },
     {
       icon: 'fas fa-headset',
