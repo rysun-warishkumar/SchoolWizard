@@ -73,8 +73,6 @@ const Sidebar = ({ isCollapsed, onToggle, isMobileOpen = false, onMobileClose }:
     '/roles': 'roles',
     '/settings': 'settings',
     '/front-cms-website': 'settings',
-    '/admission-inquiries': 'students',
-    '/contact-messages': 'settings',
   };
 
   // Define menu items
@@ -96,8 +94,6 @@ const Sidebar = ({ isCollapsed, onToggle, isMobileOpen = false, onMobileClose }:
     { path: '/calendar', label: 'Calendar & ToDo', icon: '📅', module: 'calendar' },
     { path: '/chat', label: 'Chat', icon: '/chat-icon.png', module: 'chat' },
     { path: '/front-cms-website', label: 'Front CMS Website', icon: '🌐', module: 'settings' },
-    { path: '/admission-inquiries', label: 'Admission Inquiries', icon: '📋', module: 'students' },
-    { path: '/contact-messages', label: 'Contact Messages', icon: '📧', module: 'settings' },
     { path: '/alumni', label: 'Alumni', icon: '🎓', module: 'alumni' },
     { path: '/reports', label: 'Reports', icon: '📊', module: 'reports' },
     { path: '/lesson-plan', label: 'Lesson Plan', icon: '📚', module: 'lesson-plan' },

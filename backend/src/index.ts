@@ -243,6 +243,7 @@ app.use('/api/v1/public/website', publicCmsWebsiteRoutes); // Public website rou
 app.use('/api/v1/public/cms', publicCmsRoutes); // Public CMS routes (no auth required)
 app.use('/api/v1/public/about-us', publicAboutUsPageRoutes); // Public About Us page routes (no auth required)
 app.use('/api/v1/public/admission', publicAdmissionRoutes); // Public Admission routes (no auth required)
+app.use('/api/v1/public/contact', publicContactMessagesRoutes); // Public Contact Messages routes (no auth required)
 app.use('/api/v1/public/gallery', publicGalleryRoutes); // Public Gallery routes (no auth required)
 app.use('/api/v1/public/news-events', publicNewsEventsRoutes); // Public News & Events routes (no auth required)
 

@@ -11,9 +11,6 @@ import { checkPermission } from '../middleware/permissions';
 
 const router = express.Router();
 
-// Public route for creating contact messages (no auth required)
-router.post('/', createContactMessage);
-
 // Admin routes - require authentication and admin/superadmin role
 router.use(authenticate);
 router.use(authorize('superadmin', 'admin'));
