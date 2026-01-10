@@ -2,6 +2,7 @@ import { useAuth } from '../contexts/AuthContext';
 import { useQuery } from 'react-query';
 import { dashboardService } from '../services/api/dashboardService';
 import { contactMessagesService } from '../services/api/contactMessagesService';
+import { admissionManagementService } from '../services/api/admissionManagementService';
 import { Link } from 'react-router-dom';
 import './Dashboard.css';
 
@@ -12,6 +13,12 @@ const Dashboard = () => {
     select: (data) => ({
       total: data.length,
       pending: data.filter((msg: any) => msg.status === 'new').length,
+    }),
+  });
+  const { data: admissionInquiriesData } = useQuery('admission-inquiries-count', () => admissionManagementService.getInquiries(), {
+    select: (data) => ({
+      total: data.length,
+      pending: data.filter((inq: any) => inq.status === 'pending').length,
     }),
   });
 
@@ -73,6 +80,22 @@ const Dashboard = () => {
                 </a>
               </div>
             </div>
+            <Link to="/admission-inquiries" className="dashboard-card admission-inquiry-card">
+              <div className="card-header">
+                <h3>Admission Inquiry</h3>
+                {admissionInquiriesData?.pending && admissionInquiriesData.pending > 0 && (
+                  <span className="badge pending-badge">{admissionInquiriesData.pending} Pending</span>
+                )}
+              </div>
+              <div className="card-content">
+                <div className="stat-value">{admissionInquiriesData?.total || 0}</div>
+                <p>Total Inquiries</p>
+                <p className="card-description">View and manage admission inquiries from the public portal</p>
+              </div>
+              <div className="card-footer">
+                <span className="view-link">View All →</span>
+              </div>
+            </Link>
             <Link to="/contact-messages" className="dashboard-card admission-inquiry-card">
               <div className="card-header">
                 <h3>Contact Message Enquiry</h3>
