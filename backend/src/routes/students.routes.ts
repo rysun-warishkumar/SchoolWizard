@@ -20,6 +20,7 @@ import {
   getStudentsForPromotion,
   promoteStudents,
   uploadStudentPhoto,
+  bulkImportStudents,
 } from '../controllers/students.controller';
 import { authenticate } from '../middleware/auth';
 import { checkPermission } from '../middleware/permissions';
@@ -44,11 +45,6 @@ router.post('/disable-reasons', checkPermission('students', 'add'), createDisabl
 router.get('/', checkPermission('students', 'view'), getStudents);
 router.get('/my-profile', getMyStudentProfile); // Student/Parent access - no permission check
 router.get('/my-children', getMyChildren); // Parent access - no permission check
-router.get('/:id', checkPermission('students', 'view'), getStudentById);
-router.post('/', checkPermission('students', 'add'), uploadStudentPhoto.single('photo'), createStudent);
-router.put('/:id', checkPermission('students', 'edit'), uploadStudentPhoto.single('photo'), updateStudent);
-router.delete('/:id', checkPermission('students', 'delete'), deleteStudent);
-router.patch('/:id/disable', checkPermission('students', 'edit'), disableStudent);
 
 // Online Admissions
 router.get('/online-admissions', checkPermission('students', 'view'), getOnlineAdmissions);
@@ -58,6 +54,16 @@ router.post('/online-admissions/:id/reject', checkPermission('students', 'edit')
 // Promote Students
 router.get('/promote', checkPermission('students', 'view'), getStudentsForPromotion);
 router.post('/promote', checkPermission('students', 'edit'), promoteStudents);
+
+// Bulk Import Students - MUST be before /:id route
+router.post('/bulk-import', checkPermission('students', 'add'), bulkImportStudents);
+
+// Parameterized routes - MUST be last to avoid matching specific routes
+router.get('/:id', checkPermission('students', 'view'), getStudentById);
+router.post('/', checkPermission('students', 'add'), uploadStudentPhoto.single('photo'), createStudent);
+router.put('/:id', checkPermission('students', 'edit'), uploadStudentPhoto.single('photo'), updateStudent);
+router.delete('/:id', checkPermission('students', 'delete'), deleteStudent);
+router.patch('/:id/disable', checkPermission('students', 'edit'), disableStudent);
 
 export default router;
 

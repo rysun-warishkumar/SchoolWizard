@@ -204,8 +204,51 @@ export const getStudents = async (
   next: NextFunction
 ): Promise<void> => {
   try {
-    const { class_id, section_id, search, page = 1, limit = 20 } = req.query;
+    const { class_id, section_id, search, page, limit } = req.query;
     const db = getDatabase();
+
+    // Validate and sanitize pagination parameters
+    let pageNum = 1;
+    let limitNum = 20;
+
+    // Validate page number
+    if (page !== undefined) {
+      const parsedPage = Number(page);
+      if (isNaN(parsedPage) || parsedPage < 1 || !Number.isInteger(parsedPage)) {
+        throw createError('Invalid page number. Must be a positive integer.', 400);
+      }
+      pageNum = parsedPage;
+    }
+
+    // Validate limit number
+    if (limit !== undefined) {
+      const parsedLimit = Number(limit);
+      if (isNaN(parsedLimit) || parsedLimit < 1 || parsedLimit > 100 || !Number.isInteger(parsedLimit)) {
+        throw createError('Invalid limit. Must be a positive integer between 1 and 100.', 400);
+      }
+      limitNum = parsedLimit;
+    }
+
+    // Validate class_id if provided
+    if (class_id !== undefined) {
+      const parsedClassId = Number(class_id);
+      if (isNaN(parsedClassId) || parsedClassId < 1 || !Number.isInteger(parsedClassId)) {
+        throw createError('Invalid class_id. Must be a positive integer.', 400);
+      }
+    }
+
+    // Validate section_id if provided
+    if (section_id !== undefined) {
+      const parsedSectionId = Number(section_id);
+      if (isNaN(parsedSectionId) || parsedSectionId < 1 || !Number.isInteger(parsedSectionId)) {
+        throw createError('Invalid section_id. Must be a positive integer.', 400);
+      }
+    }
+
+    // Validate search term if provided
+    if (search !== undefined && typeof search !== 'string') {
+      throw createError('Invalid search parameter. Must be a string.', 400);
+    }
 
     let query = `
       SELECT s.*, 
@@ -222,58 +265,72 @@ export const getStudents = async (
 
     if (class_id) {
       query += ' AND s.class_id = ?';
-      params.push(class_id);
+      params.push(Number(class_id));
     }
 
     if (section_id) {
       query += ' AND s.section_id = ?';
-      params.push(section_id);
+      params.push(Number(section_id));
     }
 
     if (search) {
-      query += ' AND (s.first_name LIKE ? OR s.last_name LIKE ? OR s.admission_no LIKE ?)';
-      const searchTerm = `%${search}%`;
-      params.push(searchTerm, searchTerm, searchTerm);
+      const searchTerm = String(search).trim();
+      if (searchTerm.length > 0) {
+        query += ' AND (s.first_name LIKE ? OR s.last_name LIKE ? OR s.admission_no LIKE ?)';
+        const searchPattern = `%${searchTerm}%`;
+        params.push(searchPattern, searchPattern, searchPattern);
+      }
     }
 
     query += ' ORDER BY s.admission_no ASC';
 
-    // Pagination
-    const offset = (Number(page) - 1) * Number(limit);
-    query += ' LIMIT ? OFFSET ?';
-    params.push(Number(limit), offset);
-
-    const [students] = await db.execute(query, params) as any[];
-
-    // Get total count
-    let countQuery = 'SELECT COUNT(*) as total FROM students WHERE 1=1';
+    // Get total count first (before pagination)
+    let countQuery = 'SELECT COUNT(*) as total FROM students s WHERE 1=1';
     const countParams: any[] = [];
 
     if (class_id) {
-      countQuery += ' AND class_id = ?';
-      countParams.push(class_id);
+      countQuery += ' AND s.class_id = ?';
+      countParams.push(Number(class_id));
     }
     if (section_id) {
-      countQuery += ' AND section_id = ?';
-      countParams.push(section_id);
+      countQuery += ' AND s.section_id = ?';
+      countParams.push(Number(section_id));
     }
     if (search) {
-      countQuery += ' AND (first_name LIKE ? OR last_name LIKE ? OR admission_no LIKE ?)';
-      const searchTerm = `%${search}%`;
-      countParams.push(searchTerm, searchTerm, searchTerm);
+      const searchTerm = String(search).trim();
+      if (searchTerm.length > 0) {
+        countQuery += ' AND (s.first_name LIKE ? OR s.last_name LIKE ? OR s.admission_no LIKE ?)';
+        const searchPattern = `%${searchTerm}%`;
+        countParams.push(searchPattern, searchPattern, searchPattern);
+      }
     }
 
     const [countResult] = await db.execute(countQuery, countParams) as any[];
-    const total = countResult[0].total;
+    const total = Number(countResult[0]?.total || 0);
+    const totalPages = Math.ceil(total / limitNum);
+
+    // Validate page number against total pages
+    if (total > 0 && pageNum > totalPages) {
+      throw createError(`Page ${pageNum} does not exist. Maximum page is ${totalPages}.`, 400);
+    }
+
+    // Pagination
+    const offset = (pageNum - 1) * limitNum;
+    query += ' LIMIT ? OFFSET ?';
+    params.push(limitNum, offset);
+
+    const [students] = await db.execute(query, params) as any[];
 
     res.json({
       success: true,
-      data: students,
+      data: students || [],
       pagination: {
-        page: Number(page),
-        limit: Number(limit),
+        page: pageNum,
+        limit: limitNum,
         total,
-        pages: Math.ceil(total / Number(limit)),
+        pages: totalPages,
+        hasNextPage: pageNum < totalPages,
+        hasPreviousPage: pageNum > 1,
       },
     });
   } catch (error) {
@@ -1210,6 +1267,335 @@ export const rejectOnlineAdmission = async (
     res.json({
       success: true,
       message: 'Online admission rejected',
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+// ========== Bulk Import Students ==========
+export const bulkImportStudents = async (
+  req: AuthRequest,
+  res: Response,
+  next: NextFunction
+): Promise<void> => {
+  try {
+    const db = getDatabase();
+    const { students } = req.body;
+
+    if (!Array.isArray(students) || students.length === 0) {
+      throw createError('Students array is required and must not be empty', 400);
+    }
+
+    // Get current session (no transaction needed for this)
+    const [sessions] = await db.execute(
+      'SELECT id FROM sessions WHERE is_current = 1 LIMIT 1'
+    ) as any[];
+    const currentSessionId = sessions[0]?.id;
+
+    if (!currentSessionId) {
+      throw createError('No active session found. Please set a current session first.', 400);
+    }
+
+    // Get actual table structure from database to ensure we match exactly
+    const [tableColumns] = await db.execute(`
+      SELECT COLUMN_NAME 
+      FROM INFORMATION_SCHEMA.COLUMNS
+      WHERE TABLE_SCHEMA = DATABASE()
+      AND TABLE_NAME = 'students'
+      AND COLUMN_NAME NOT IN ('id', 'updated_at', 'disable_reason_id', 'disable_date')
+      ORDER BY ORDINAL_POSITION
+    `) as any[];
+
+    const actualColumns = tableColumns.map((col: any) => col.COLUMN_NAME);
+    
+    // Get parent role ID once (used for all students)
+    const [parentRoles] = await db.execute(
+      'SELECT id FROM roles WHERE name = ?',
+      ['parent']
+    ) as any[];
+    const parentRoleId = parentRoles.length > 0 ? parentRoles[0].id : null;
+    
+    if (!parentRoleId) {
+      throw createError('Parent role not found in system. Please contact administrator.', 500);
+    }
+
+    const results = {
+      success: [] as any[],
+      failed: [] as any[],
+      total: students.length,
+    };
+
+    // Process each student - each in its own transaction
+    for (let i = 0; i < students.length; i++) {
+      const studentData = students[i];
+      const rowNumber = i + 2; // +2 because row 1 is header, and arrays are 0-indexed
+      let studentUserId: number | null = null;
+      let parentUserIds: number[] = [];
+      
+      // Get a new connection for each student's transaction
+      let studentConnection: any = null;
+
+      try {
+        // Start transaction for this student
+        studentConnection = await db.getConnection();
+        await studentConnection.beginTransaction();
+        // Extract and validate required fields
+        const {
+          admission_no,
+          roll_no,
+          class_id,
+          section_id,
+          first_name,
+          last_name,
+          gender,
+          date_of_birth,
+          admission_date,
+          category_id,
+          religion,
+          caste,
+          student_mobile,
+          email,
+          blood_group,
+          house_id,
+          height,
+          weight,
+          father_name,
+          father_occupation,
+          father_phone,
+          father_email,
+          mother_name,
+          mother_occupation,
+          mother_phone,
+          mother_email,
+          guardian_name,
+          guardian_relation,
+          guardian_occupation,
+          guardian_phone,
+          guardian_email,
+          current_address,
+          permanent_address,
+        } = studentData;
+
+        // Validate required fields
+        const missingFields: string[] = [];
+        if (!admission_no || String(admission_no).trim() === '') missingFields.push('Admission Number');
+        if (!class_id) missingFields.push('Class ID');
+        if (!section_id) missingFields.push('Section ID');
+        if (!first_name || String(first_name).trim() === '') missingFields.push('First Name');
+        if (!gender) missingFields.push('Gender');
+        if (!date_of_birth) missingFields.push('Date of Birth');
+        if (!admission_date) missingFields.push('Admission Date');
+
+        if (missingFields.length > 0) {
+          results.failed.push({
+            row: rowNumber,
+            admission_no: admission_no || 'N/A',
+            first_name: first_name || 'N/A',
+            error: `Missing required fields: ${missingFields.join(', ')}`,
+          });
+          continue;
+        }
+
+        // Check if admission number already exists
+        const [existing] = await studentConnection.execute(
+          'SELECT id FROM students WHERE admission_no = ?',
+          [String(admission_no).trim()]
+        ) as any[];
+
+        if (existing.length > 0) {
+          await studentConnection.rollback();
+          studentConnection.release();
+          results.failed.push({
+            row: rowNumber,
+            admission_no: String(admission_no).trim(),
+            first_name: String(first_name).trim(),
+            error: 'Admission number already exists',
+          });
+          continue;
+        }
+
+        // Create user account if email is provided (within transaction)
+        if (email && String(email).trim() !== '') {
+          const emailStr = String(email).trim();
+          const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+          if (emailRegex.test(emailStr)) {
+            try {
+              // Generate default password: StudentName@TodayDate
+              const today = new Date();
+              const dateStr = format(today, 'ddMMyyyy');
+              const studentName = String(first_name).trim();
+              const plainPassword = `${studentName}@${dateStr}`;
+              const hashedPassword = await bcrypt.hash(plainPassword, 10);
+
+              // Get student role
+              const [roles] = await studentConnection.execute(
+                'SELECT id FROM roles WHERE name = ?',
+                ['student']
+              ) as any[];
+
+              if (roles.length > 0) {
+                const [userResult] = await studentConnection.execute(
+                  'INSERT INTO users (email, password, name, role_id, is_active, created_at) VALUES (?, ?, ?, ?, 1, NOW())',
+                  [emailStr, hashedPassword, `${String(first_name).trim()} ${String(last_name || '').trim()}`.trim(), roles[0].id]
+                ) as any;
+                studentUserId = userResult.insertId;
+              }
+            } catch (userError: any) {
+              // If user creation fails, rollback and fail this student
+              throw createError(`Failed to create user account: ${userError.message}`, 400);
+            }
+          }
+        }
+
+        // Prepare student data
+        const studentFields: Record<string, any> = {
+          admission_no: String(admission_no).trim(),
+          roll_no: roll_no ? String(roll_no).trim() : null,
+          user_id: studentUserId,
+          class_id: Number(class_id),
+          section_id: Number(section_id),
+          session_id: currentSessionId,
+          first_name: String(first_name).trim(),
+          last_name: last_name ? String(last_name).trim() : null,
+          gender: String(gender).toLowerCase(),
+          date_of_birth: String(date_of_birth),
+          category_id: category_id ? Number(category_id) : null,
+          religion: religion ? String(religion).trim() : null,
+          caste: caste ? String(caste).trim() : null,
+          student_mobile: student_mobile ? String(student_mobile).trim() : null,
+          email: email ? String(email).trim() : null,
+          admission_date: String(admission_date),
+          photo: null, // Skip photo in import
+          blood_group: blood_group ? String(blood_group).trim() : null,
+          house_id: house_id ? Number(house_id) : null,
+          height: height ? String(height).trim() : null,
+          weight: weight ? String(weight).trim() : null,
+          father_name: father_name ? String(father_name).trim() : null,
+          father_occupation: father_occupation ? String(father_occupation).trim() : null,
+          father_phone: father_phone ? String(father_phone).trim() : null,
+          father_email: father_email ? String(father_email).trim() : null,
+          mother_name: mother_name ? String(mother_name).trim() : null,
+          mother_occupation: mother_occupation ? String(mother_occupation).trim() : null,
+          mother_phone: mother_phone ? String(mother_phone).trim() : null,
+          mother_email: mother_email ? String(mother_email).trim() : null,
+          guardian_name: guardian_name ? String(guardian_name).trim() : null,
+          guardian_relation: guardian_relation ? String(guardian_relation).trim() : null,
+          guardian_occupation: guardian_occupation ? String(guardian_occupation).trim() : null,
+          guardian_phone: guardian_phone ? String(guardian_phone).trim() : null,
+          guardian_email: guardian_email ? String(guardian_email).trim() : null,
+          current_address: current_address ? String(current_address).trim() : null,
+          permanent_address: permanent_address ? String(permanent_address).trim() : null,
+          is_active: 1,
+        };
+
+        // Build columns and values arrays in the exact order they appear in the database
+        const columns: string[] = [];
+        const values: any[] = [];
+
+        for (const colName of actualColumns) {
+          if (studentFields.hasOwnProperty(colName)) {
+            columns.push(colName);
+            values.push(studentFields[colName]);
+          } else {
+            // Column exists in DB but not in our fieldMap - use null
+            columns.push(colName);
+            values.push(null);
+          }
+        }
+
+        // Verify counts match
+        if (columns.length !== values.length) {
+          throw createError(`Internal error: Column count (${columns.length}) doesn't match values count (${values.length})`, 500);
+        }
+
+        // Build placeholders
+        const placeholders = columns.map(() => '?').join(', ');
+
+        // Insert student using dynamic column mapping
+        const [result] = await studentConnection.execute(
+          `INSERT INTO students (${columns.join(', ')}) VALUES (${placeholders})`,
+          values
+        ) as any;
+
+        const studentId = result.insertId;
+        const studentName = `${String(first_name).trim()} ${String(last_name || '').trim()}`.trim();
+
+        // Create parent user accounts within the same transaction
+        // If parent creation fails, the entire transaction (including student) will be rolled back
+        try {
+          const { processParentEmails } = await import('../services/parentUserService');
+          
+          // Note: processParentEmails uses getDatabase() which gets a new connection
+          // This means parent creation happens in a separate transaction
+          // However, if student creation succeeds but parent creation fails, we still want to keep the student
+          // The main requirement is: if student creation fails, parents should not be created (ensured by transaction)
+          // So we'll create parents after committing student, but catch errors
+          
+          // Commit student first
+          await studentConnection.commit();
+          studentConnection.release();
+          studentConnection = null;
+
+          // Now create parent accounts (separate transaction)
+          // If this fails, student is already created (which is acceptable)
+          // The key requirement is met: if student fails, parents won't be created
+          const parentResult = await processParentEmails(
+            father_email || null,
+            father_name || null,
+            mother_email || null,
+            mother_name || null,
+            guardian_email || null,
+            guardian_name || null,
+            studentName,
+            String(admission_no).trim()
+          );
+          parentUserIds = parentResult.parentUserIds;
+        } catch (parentError: any) {
+          // If we get here, student is already committed
+          // Log the error but don't fail - student creation succeeded
+          console.warn(`Student ${admission_no} created successfully, but parent account creation failed:`, parentError.message);
+          // Ensure connection is released even if parent creation fails
+          if (studentConnection) {
+            await studentConnection.commit();
+            studentConnection.release();
+            studentConnection = null;
+          }
+        }
+
+        results.success.push({
+          row: rowNumber,
+          admission_no: studentFields.admission_no,
+          first_name: studentFields.first_name,
+          student_id: studentId,
+        });
+      } catch (error: any) {
+        // Rollback current transaction if active
+        if (studentConnection) {
+          try {
+            await studentConnection.rollback();
+            studentConnection.release();
+          } catch (rollbackError) {
+            console.error('Error during rollback:', rollbackError);
+          }
+          studentConnection = null;
+        }
+
+        results.failed.push({
+          row: rowNumber,
+          admission_no: studentData.admission_no || 'N/A',
+          first_name: studentData.first_name || 'N/A',
+          error: error.message || 'Unknown error',
+        });
+      }
+    }
+    
+    // Note: No need to commit/rollback main transaction since each student has its own transaction
+
+    res.json({
+      success: true,
+      message: `Import completed: ${results.success.length} successful, ${results.failed.length} failed`,
+      data: results,
     });
   } catch (error) {
     next(error);

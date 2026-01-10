@@ -199,5 +199,27 @@ export const studentsService = {
     const response = await apiClient.post<{ success: boolean; message: string }>('/students/promote', data);
     return response.data;
   },
+
+  // Bulk Import Students
+  async importStudents(students: any[]): Promise<{
+    success: boolean;
+    message: string;
+    data: {
+      success: Array<{ row: number; admission_no: string; first_name: string; student_id: number }>;
+      failed: Array<{ row: number; admission_no: string; first_name: string; error: string }>;
+      total: number;
+    };
+  }> {
+    const response = await apiClient.post<{
+      success: boolean;
+      message: string;
+      data: {
+        success: Array<{ row: number; admission_no: string; first_name: string; student_id: number }>;
+        failed: Array<{ row: number; admission_no: string; first_name: string; error: string }>;
+        total: number;
+      };
+    }>('/students/bulk-import', { students });
+    return response.data;
+  },
 };
 
