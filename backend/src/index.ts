@@ -81,17 +81,21 @@ const corsOptions = {
     const allowedOrigins: string[] = [];
     
     if (env.cors.origin) {
-      allowedOrigins.push(env.cors.origin);
+      allowedOrigins.push(env.cors.origin.trim());
     }
     
     if (env.cors.origins) {
-      // Split comma-separated origins
-      allowedOrigins.push(...env.cors.origins.split(',').map(o => o.trim()));
+      // Split comma-separated origins and trim each one
+      const origins = env.cors.origins.split(',').map(o => o.trim()).filter(o => o.length > 0);
+      allowedOrigins.push(...origins);
     }
     
+    // Remove duplicates
+    const uniqueOrigins = [...new Set(allowedOrigins)];
+    
     // Default origins for development (fallback)
-    if (allowedOrigins.length === 0) {
-      allowedOrigins.push('http://localhost:5173', 'http://localhost:5174', 'http://localhost:3000');
+    if (uniqueOrigins.length === 0) {
+      uniqueOrigins.push('http://localhost:5173', 'http://localhost:5174', 'http://localhost:3000');
     }
     
     // Always allow localhost origins in development
@@ -99,7 +103,14 @@ const corsOptions = {
       return callback(null, true);
     }
     
-    if (allowedOrigins.includes(origin)) {
+    // Check if origin matches (case-insensitive, with/without trailing slash)
+    const normalizedOrigin = origin.toLowerCase().replace(/\/$/, '');
+    const isAllowed = uniqueOrigins.some(allowed => {
+      const normalizedAllowed = allowed.toLowerCase().replace(/\/$/, '');
+      return normalizedOrigin === normalizedAllowed;
+    });
+    
+    if (isAllowed) {
       callback(null, true);
     } else {
       // In development, log the origin for debugging but still allow it
@@ -107,7 +118,7 @@ const corsOptions = {
         console.warn(`CORS: Allowing origin ${origin} in development mode`);
         return callback(null, true);
       }
-      console.warn(`CORS: Blocked origin ${origin}. Allowed origins: ${allowedOrigins.join(', ')}`);
+      console.warn(`CORS: Blocked origin ${origin}. Allowed origins: ${uniqueOrigins.join(', ')}`);
       callback(new Error('Not allowed by CORS'));
     }
   },
@@ -144,17 +155,30 @@ app.use('/uploads', (req, res, next) => {
     const allowedOrigins: string[] = [];
     
     if (env.cors.origin) {
-      allowedOrigins.push(env.cors.origin);
+      allowedOrigins.push(env.cors.origin.trim());
     }
     
     if (env.cors.origins) {
-      allowedOrigins.push(...env.cors.origins.split(',').map(o => o.trim()));
+      const origins = env.cors.origins.split(',').map(o => o.trim()).filter(o => o.length > 0);
+      allowedOrigins.push(...origins);
     }
     
-    if (origin && allowedOrigins.includes(origin)) {
+    // Remove duplicates
+    const uniqueOrigins = [...new Set(allowedOrigins)];
+    
+    // Normalize origin for comparison (remove trailing slash, lowercase)
+    const normalizedOrigin = origin ? origin.toLowerCase().replace(/\/$/, '') : '';
+    
+    // Find matching origin
+    const matchingOrigin = uniqueOrigins.find(allowed => {
+      const normalizedAllowed = allowed.toLowerCase().replace(/\/$/, '');
+      return normalizedOrigin === normalizedAllowed;
+    });
+    
+    if (origin && matchingOrigin) {
       res.header('Access-Control-Allow-Origin', origin);
-    } else if (allowedOrigins.length > 0) {
-      res.header('Access-Control-Allow-Origin', allowedOrigins[0]);
+    } else if (uniqueOrigins.length > 0) {
+      res.header('Access-Control-Allow-Origin', uniqueOrigins[0]);
     } else {
       res.header('Access-Control-Allow-Origin', '*');
     }

@@ -75,15 +75,26 @@ export const errorHandler = (
     const allowedOrigins: string[] = [];
     
     if (env.cors.origin) {
-      allowedOrigins.push(env.cors.origin);
+      allowedOrigins.push(env.cors.origin.trim());
     }
     
     if (env.cors.origins) {
-      allowedOrigins.push(...env.cors.origins.split(',').map((o: string) => o.trim()));
+      const origins = env.cors.origins.split(',').map((o: string) => o.trim()).filter((o: string) => o.length > 0);
+      allowedOrigins.push(...origins);
     }
     
+    // Remove duplicates
+    const uniqueOrigins = [...new Set(allowedOrigins)];
+    
+    // Normalize origin for comparison
+    const normalizedOrigin = origin.toLowerCase().replace(/\/$/, '');
+    const isAllowed = uniqueOrigins.some(allowed => {
+      const normalizedAllowed = allowed.toLowerCase().replace(/\/$/, '');
+      return normalizedOrigin === normalizedAllowed;
+    });
+    
     // In development, allow all origins
-    if (isDevelopment() || allowedOrigins.includes(origin)) {
+    if (isDevelopment() || isAllowed) {
       res.header('Access-Control-Allow-Origin', origin);
       res.header('Access-Control-Allow-Credentials', 'true');
       res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, PATCH, OPTIONS');
