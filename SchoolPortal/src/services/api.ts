@@ -250,6 +250,23 @@ export const websiteService = {
     }
   },
 
+  // Contact Messages Services
+  submitContactMessage: async (data: {
+    name: string;
+    email: string;
+    phone?: string;
+    subject?: string;
+    message: string;
+  }): Promise<any> => {
+    try {
+      const response = await apiClient.post('/public/contact', data);
+      return response.data;
+    } catch (error: any) {
+      console.error('Error submitting contact message:', error);
+      throw error;
+    }
+  },
+
   // Gallery Services
   getGalleryCategories: async (): Promise<any[]> => {
     try {

@@ -44,6 +44,8 @@ import aboutUsPageRoutes from './routes/aboutUsPage.routes';
 import publicAboutUsPageRoutes from './routes/publicAboutUsPage.routes';
 import admissionManagementRoutes from './routes/admissionManagement.routes';
 import publicAdmissionRoutes from './routes/publicAdmission.routes';
+import contactMessagesRoutes from './routes/contactMessages.routes';
+import publicContactMessagesRoutes from './routes/publicContactMessages.routes';
 import galleryManagementRoutes from './routes/galleryManagement.routes';
 import publicGalleryRoutes from './routes/publicGallery.routes';
 import newsEventsManagementRoutes from './routes/newsEventsManagement.routes';
@@ -273,6 +275,7 @@ app.use('/api/v1/front-cms', frontCmsRoutes);
 app.use('/api/v1/front-cms-website', frontCmsWebsiteRoutes);
 app.use('/api/v1/about-us-page', aboutUsPageRoutes); // Admin About Us page management
 app.use('/api/v1/admission', admissionManagementRoutes); // Admin Admission management
+app.use('/api/v1/contact-messages', contactMessagesRoutes); // Admin Contact Messages management
 app.use('/api/v1/gallery', galleryManagementRoutes); // Admin Gallery management
 app.use('/api/v1/news-events', newsEventsManagementRoutes); // Admin News & Events management
 app.use('/api/v1/alumni', alumniRoutes);

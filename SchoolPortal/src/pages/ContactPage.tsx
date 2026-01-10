@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { websiteService } from '../services/api';
 import './ContactPage.css';
 
 const ContactPage: React.FC = () => {
@@ -9,6 +10,7 @@ const ContactPage: React.FC = () => {
     subject: '',
     message: '',
   });
+  const [submitting, setSubmitting] = useState(false);
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
     setFormData({
@@ -17,17 +19,32 @@ const ContactPage: React.FC = () => {
     });
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    console.log('Form submitted:', formData);
-    alert('Thank you for contacting us! We will get back to you soon.');
-    setFormData({
-      name: '',
-      email: '',
-      phone: '',
-      subject: '',
-      message: '',
-    });
+    setSubmitting(true);
+    
+    try {
+      await websiteService.submitContactMessage({
+        name: formData.name,
+        email: formData.email,
+        phone: formData.phone || undefined,
+        subject: formData.subject || undefined,
+        message: formData.message,
+      });
+      
+      alert('Thank you for contacting us! We will get back to you soon.');
+      setFormData({
+        name: '',
+        email: '',
+        phone: '',
+        subject: '',
+        message: '',
+      });
+    } catch (error: any) {
+      alert(error.response?.data?.message || 'Failed to send message. Please try again.');
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   const contactInfo = [
@@ -192,9 +209,9 @@ const ContactPage: React.FC = () => {
                   />
                 </div>
 
-                <button type="submit" className="submit-btn">
+                <button type="submit" className="submit-btn" disabled={submitting}>
                   <i className="fas fa-paper-plane"></i>
-                  Send Message
+                  {submitting ? 'Sending...' : 'Send Message'}
                 </button>
               </form>
             </div>

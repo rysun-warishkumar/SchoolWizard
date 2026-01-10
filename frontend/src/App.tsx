@@ -34,6 +34,7 @@ import Reports from './pages/reports/Reports';
 import LessonPlan from './pages/lessonPlan/LessonPlan';
 import FrontCmsWebsite from './pages/frontCmsWebsite/FrontCmsWebsite';
 import AdmissionInquiries from './pages/admissionInquiries/AdmissionInquiries';
+import ContactMessages from './pages/contactMessages/ContactMessages';
 import ProtectedRoute from './components/auth/ProtectedRoute';
 import StudentRoute from './components/auth/StudentRoute';
 import ParentRoute from './components/auth/ParentRoute';
@@ -142,6 +143,7 @@ function App() {
                         <Route path="/lesson-plan" element={<LessonPlan />} />
                         <Route path="/front-cms-website" element={<FrontCmsWebsite />} />
                         <Route path="/admission-inquiries" element={<AdmissionInquiries />} />
+                        <Route path="/contact-messages" element={<ContactMessages />} />
                         {/* More routes will be added as modules are developed */}
                       </Routes>
                     </Layout>
