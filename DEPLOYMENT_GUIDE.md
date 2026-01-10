@@ -574,12 +574,47 @@ The **SchoolPortal** is a separate public-facing website that displays your scho
 - Status code must be `200`, not `301` or `302`
 
 **Issue: API Calls Failing / 401 Unauthorized**
-- **Solution**: 
-  - Verify `VITE_API_BASE_URL` environment variable is set correctly: `https://your-backend-url.onrender.com/api/v1`
-  - Check backend CORS settings include SchoolPortal URL in `CORS_ORIGINS`
-  - Ensure public routes are accessible (they should not require authentication)
-  - Check browser console for specific error messages
-  - Verify backend routes are registered at `/api/v1/public/...` (not `/api/public/...`)
+
+**Symptoms**:
+- Console shows `401 (Unauthorized)` errors for public API endpoints
+- Error message: "No token provided"
+- API calls to `/api/v1/public/...` are failing
+
+**Root Causes & Solutions**:
+
+1. **SchoolPortal Not Rebuilt After Code Changes**:
+   - **Symptom**: Error shows `/api/v1/api/public/...` (double `/api/`)
+   - **Solution**: 
+     - Commit and push all code changes to GitHub
+     - Render will automatically rebuild SchoolPortal
+     - Wait for deployment to complete (2-3 minutes)
+     - Clear browser cache and test again
+
+2. **Backend Routes Not Updated**:
+   - **Symptom**: Routes registered at `/api/public/...` instead of `/api/v1/public/...`
+   - **Solution**: 
+     - Verify backend routes in `backend/src/index.ts` are registered as `/api/v1/public/...`
+     - Backend should auto-redeploy after code push
+     - Check backend logs to ensure routes are registered correctly
+
+3. **CORS Configuration Missing Portal URL**:
+   - **Symptom**: CORS errors in console
+   - **Solution**: 
+     - Add SchoolPortal URL to backend `CORS_ORIGINS` environment variable
+     - Format: `https://schoolwizard-frontend.onrender.com,https://schoolwizard-portal.onrender.com`
+     - Wait for backend to redeploy
+
+4. **Route Order Issue** (if routes are being matched incorrectly):
+   - **Solution**: Public routes should be registered in `backend/src/index.ts` and should NOT have authentication middleware
+   - Verify `publicAdmissionRoutes`, `publicCmsWebsiteRoutes`, etc. don't use `router.use(authenticate)`
+
+**Quick Fix Checklist**:
+- [ ] All API paths in `SchoolPortal/src/services/api.ts` use `/public/...` (not `/api/public/...`)
+- [ ] Backend routes registered at `/api/v1/public/...` in `backend/src/index.ts`
+- [ ] SchoolPortal rebuilt and redeployed on Render
+- [ ] Backend CORS_ORIGINS includes SchoolPortal URL
+- [ ] Browser cache cleared
+- [ ] Test in incognito/private window
 
 **Issue: Content Not Loading**
 - **Solution**: 

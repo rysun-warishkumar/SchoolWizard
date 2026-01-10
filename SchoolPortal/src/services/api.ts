@@ -171,7 +171,7 @@ export const websiteService = {
 
   getValues: async (): Promise<CoreValue[]> => {
     try {
-      const response = await apiClient.get('/api/public/about-us/values');
+      const response = await apiClient.get('/public/about-us/values');
       const data = response.data.data || [];
       return Array.isArray(data) ? data.filter((v: CoreValue) => v.is_active).sort((a, b) => a.sort_order - b.sort_order) : [];
     } catch (error: any) {
@@ -214,7 +214,7 @@ export const websiteService = {
     message?: string;
   }): Promise<any> => {
     try {
-      const response = await apiClient.post('/api/public/admission/inquiries', data);
+      const response = await apiClient.post('/public/admission/inquiries', data);
       return response.data;
     } catch (error: any) {
       console.error('Error submitting admission inquiry:', error);
@@ -235,7 +235,7 @@ export const websiteService = {
 
   getContactDetails: async (): Promise<any> => {
     try {
-      const response = await apiClient.get('/api/public/admission/contact-details');
+      const response = await apiClient.get('/public/admission/contact-details');
       return response.data.data;
     } catch (error: any) {
       console.error('Error fetching contact details:', error);
@@ -306,7 +306,7 @@ export const websiteService = {
       if (category) params.category = category;
       if (featured !== undefined) params.featured = featured;
       if (upcoming !== undefined) params.upcoming = upcoming;
-      const response = await apiClient.get('/api/public/news-events/events', { params });
+      const response = await apiClient.get('/public/news-events/events', { params });
       const data = response.data.data || [];
       return Array.isArray(data) ? data.filter((event: any) => event.is_active) : [];
     } catch (error: any) {
