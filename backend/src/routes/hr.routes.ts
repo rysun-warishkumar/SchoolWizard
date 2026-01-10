@@ -30,6 +30,7 @@ import {
   getMyClasses,
   getMyStudents,
   getMyTimetable,
+  bulkImportStaff,
 } from '../controllers/hr.controller';
 import { authenticate } from '../middleware/auth';
 import { checkPermission } from '../middleware/permissions';
@@ -56,6 +57,7 @@ router.get('/staff/my-profile', getMyStaffProfile); // Staff can view their own 
 router.get('/staff/my-classes', getMyClasses); // Staff can view their own - no permission check
 router.get('/staff/my-students', getMyStudents); // Staff can view their own - no permission check
 router.get('/staff/my-timetable', getMyTimetable); // Staff can view their own - no permission check
+router.post('/staff/bulk-import', checkPermission('hr', 'add'), bulkImportStaff); // Bulk import - must be before /staff/:id
 router.get('/staff/:id', checkPermission('hr', 'view'), getStaffById);
 router.post('/staff', checkPermission('hr', 'add'), createStaff);
 router.put('/staff/:id', checkPermission('hr', 'edit'), updateStaff);

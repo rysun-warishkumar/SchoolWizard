@@ -1934,3 +1934,275 @@ export const rejectTeacherRating = async (
   }
 };
 
+// ========== Bulk Import Staff ==========
+export const bulkImportStaff = async (
+  req: AuthRequest,
+  res: Response,
+  next: NextFunction
+): Promise<void> => {
+  try {
+    const db = getDatabase();
+    const { staff } = req.body;
+
+    if (!Array.isArray(staff) || staff.length === 0) {
+      throw createError('Staff array is required and must not be empty', 400);
+    }
+
+    // Get actual table structure from database to ensure we match exactly
+    const [tableColumns] = await db.execute(`
+      SELECT COLUMN_NAME 
+      FROM INFORMATION_SCHEMA.COLUMNS
+      WHERE TABLE_SCHEMA = DATABASE()
+      AND TABLE_NAME = 'staff'
+      AND COLUMN_NAME NOT IN ('id', 'created_at', 'updated_at', 'leaving_date', 'resignation_letter')
+      ORDER BY ORDINAL_POSITION
+    `) as any[];
+
+    const actualColumns = tableColumns.map((col: any) => col.COLUMN_NAME);
+
+    const results = {
+      success: [] as any[],
+      failed: [] as any[],
+      total: staff.length,
+    };
+
+    // Process each staff member - each in its own transaction
+    for (let i = 0; i < staff.length; i++) {
+      const staffData = staff[i];
+      const rowNumber = i + 2; // +2 because row 1 is header, and arrays are 0-indexed
+      let staffUserId: number | null = null;
+      
+      // Get a new connection for each staff member's transaction
+      let staffConnection: any = null;
+
+      try {
+        // Start transaction for this staff member
+        staffConnection = await db.getConnection();
+        await staffConnection.beginTransaction();
+
+        // Extract and validate required fields
+        const {
+          staff_id,
+          role_id,
+          designation_id,
+          department_id,
+          first_name,
+          last_name,
+          father_name,
+          mother_name,
+          gender,
+          marital_status,
+          date_of_birth,
+          date_of_joining,
+          phone,
+          emergency_contact,
+          email,
+          current_address,
+          permanent_address,
+          qualification,
+          work_experience,
+          note,
+          epf_no,
+          basic_salary,
+          contract_type,
+          work_shift,
+          location,
+          number_of_leaves,
+          bank_account_title,
+          bank_account_number,
+          bank_name,
+          ifsc_code,
+          bank_branch_name,
+          facebook_url,
+          twitter_url,
+          linkedin_url,
+          instagram_url,
+        } = staffData;
+
+        // Validate required fields
+        const missingFields: string[] = [];
+        if (!staff_id || String(staff_id).trim() === '') missingFields.push('Staff ID');
+        if (!role_id) missingFields.push('Role ID');
+        if (!first_name || String(first_name).trim() === '') missingFields.push('First Name');
+        if (!date_of_joining) missingFields.push('Date of Joining');
+
+        if (missingFields.length > 0) {
+          results.failed.push({
+            row: rowNumber,
+            staff_id: staff_id || 'N/A',
+            first_name: first_name || 'N/A',
+            error: `Missing required fields: ${missingFields.join(', ')}`,
+          });
+          await staffConnection.rollback();
+          staffConnection.release();
+          continue;
+        }
+
+        // Check if staff_id already exists
+        const [existing] = await staffConnection.execute(
+          'SELECT id FROM staff WHERE staff_id = ?',
+          [String(staff_id).trim()]
+        ) as any[];
+
+        if (existing.length > 0) {
+          await staffConnection.rollback();
+          staffConnection.release();
+          results.failed.push({
+            row: rowNumber,
+            staff_id: String(staff_id).trim(),
+            first_name: String(first_name).trim(),
+            error: 'Staff ID already exists',
+          });
+          continue;
+        }
+
+        // Create user account if email is provided (within transaction)
+        if (email && String(email).trim() !== '') {
+          const emailStr = String(email).trim();
+          const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+          if (emailRegex.test(emailStr)) {
+            try {
+              // Generate default password: staff123 (same as manual creation)
+              const defaultPassword = 'staff123';
+              const hashedPassword = await bcrypt.hash(defaultPassword, 10);
+
+              const [userResult] = await staffConnection.execute(
+                'INSERT INTO users (email, password, name, role_id, is_active, created_at) VALUES (?, ?, ?, ?, 1, NOW())',
+                [emailStr, hashedPassword, `${String(first_name).trim()} ${String(last_name || '').trim()}`.trim(), Number(role_id)]
+              ) as any;
+              staffUserId = userResult.insertId;
+            } catch (userError: any) {
+              // If user creation fails, rollback and fail this staff
+              if (userError.code === 'ER_DUP_ENTRY' && userError.message.includes('email')) {
+                await staffConnection.rollback();
+                staffConnection.release();
+                results.failed.push({
+                  row: rowNumber,
+                  staff_id: String(staff_id).trim(),
+                  first_name: String(first_name).trim(),
+                  error: `Email "${emailStr}" already exists`,
+                });
+                continue;
+              }
+              throw createError(`Failed to create user account: ${userError.message}`, 400);
+            }
+          }
+        }
+
+        // Prepare staff data
+        const staffFields: Record<string, any> = {
+          staff_id: String(staff_id).trim(),
+          user_id: staffUserId,
+          role_id: Number(role_id),
+          designation_id: designation_id ? Number(designation_id) : null,
+          department_id: department_id ? Number(department_id) : null,
+          first_name: String(first_name).trim(),
+          last_name: last_name ? String(last_name).trim() : null,
+          father_name: father_name ? String(father_name).trim() : null,
+          mother_name: mother_name ? String(mother_name).trim() : null,
+          gender: gender ? String(gender).toLowerCase() : 'male',
+          marital_status: marital_status ? String(marital_status).toLowerCase() : 'single',
+          date_of_birth: date_of_birth ? String(date_of_birth) : null,
+          date_of_joining: String(date_of_joining),
+          phone: phone ? String(phone).trim() : null,
+          emergency_contact: emergency_contact ? String(emergency_contact).trim() : null,
+          email: email ? String(email).trim() : null,
+          photo: null, // Skip photo in import
+          current_address: current_address ? String(current_address).trim() : null,
+          permanent_address: permanent_address ? String(permanent_address).trim() : null,
+          qualification: qualification ? String(qualification).trim() : null,
+          work_experience: work_experience ? String(work_experience).trim() : null,
+          note: note ? String(note).trim() : null,
+          epf_no: epf_no ? String(epf_no).trim() : null,
+          basic_salary: basic_salary ? Number(basic_salary) : 0,
+          contract_type: contract_type ? String(contract_type).toLowerCase() : 'permanent',
+          work_shift: work_shift ? String(work_shift).toLowerCase() : 'morning',
+          location: location ? String(location).trim() : null,
+          number_of_leaves: number_of_leaves ? Number(number_of_leaves) : 0,
+          bank_account_title: bank_account_title ? String(bank_account_title).trim() : null,
+          bank_account_number: bank_account_number ? String(bank_account_number).trim() : null,
+          bank_name: bank_name ? String(bank_name).trim() : null,
+          ifsc_code: ifsc_code ? String(ifsc_code).trim() : null,
+          bank_branch_name: bank_branch_name ? String(bank_branch_name).trim() : null,
+          facebook_url: facebook_url ? String(facebook_url).trim() : null,
+          twitter_url: twitter_url ? String(twitter_url).trim() : null,
+          linkedin_url: linkedin_url ? String(linkedin_url).trim() : null,
+          instagram_url: instagram_url ? String(instagram_url).trim() : null,
+          is_active: 1,
+        };
+
+        // Build columns and values arrays in the exact order they appear in the database
+        const columns: string[] = [];
+        const values: any[] = [];
+
+        for (const colName of actualColumns) {
+          if (staffFields.hasOwnProperty(colName)) {
+            columns.push(colName);
+            values.push(staffFields[colName]);
+          } else {
+            // Column exists in DB but not in our fieldMap - use null
+            columns.push(colName);
+            values.push(null);
+          }
+        }
+
+        // Verify counts match
+        if (columns.length !== values.length) {
+          throw createError(`Internal error: Column count (${columns.length}) doesn't match values count (${values.length})`, 500);
+        }
+
+        // Build placeholders
+        const placeholders = columns.map(() => '?').join(', ');
+
+        // Insert staff using dynamic column mapping
+        const [result] = await staffConnection.execute(
+          `INSERT INTO staff (${columns.join(', ')}) VALUES (${placeholders})`,
+          values
+        ) as any;
+
+        const staffId = result.insertId;
+
+        // Commit transaction
+        await staffConnection.commit();
+        staffConnection.release();
+        staffConnection = null;
+
+        results.success.push({
+          row: rowNumber,
+          staff_id: staffFields.staff_id,
+          first_name: staffFields.first_name,
+          staff_id_db: staffId,
+        });
+      } catch (error: any) {
+        // Rollback current transaction if active
+        if (staffConnection) {
+          try {
+            await staffConnection.rollback();
+            staffConnection.release();
+          } catch (rollbackError) {
+            console.error('Error during rollback:', rollbackError);
+          }
+          staffConnection = null;
+        }
+
+        results.failed.push({
+          row: rowNumber,
+          staff_id: staffData.staff_id || 'N/A',
+          first_name: staffData.first_name || 'N/A',
+          error: error.message || 'Unknown error',
+        });
+      }
+    }
+    
+    // Note: No need to commit/rollback main transaction since each staff member has its own transaction
+
+    res.json({
+      success: true,
+      message: `Import completed: ${results.success.length} successful, ${results.failed.length} failed`,
+      data: results,
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+

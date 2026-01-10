@@ -155,6 +155,11 @@ export const hrService = {
     return response.data;
   },
 
+  async importStaff(staff: any[]): Promise<{ success: boolean; message: string; data: any }> {
+    const response = await apiClient.post<{ success: boolean; message: string; data: any }>('/hr/staff/bulk-import', { staff });
+    return response.data;
+  },
+
   async updateStaff(id: string, data: Partial<Staff>): Promise<{ success: boolean; message: string; data: Staff }> {
     const response = await apiClient.put<{ success: boolean; message: string; data: Staff }>(`/hr/staff/${id}`, data);
     return response.data;

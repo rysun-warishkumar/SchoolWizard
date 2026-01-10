@@ -7,6 +7,7 @@ import { useToast } from '../../contexts/ToastContext';
 import { useAuth } from '../../contexts/AuthContext';
 import Modal from '../../components/common/Modal';
 import ConfirmationModal from '../../components/common/ConfirmationModal';
+import ImportStaffModal from './components/ImportStaffModal';
 import './HR.css';
 
 type TabType = 'staff' | 'add-staff' | 'departments' | 'designations' | 'leave-types' | 'staff-attendance' | 'attendance-report' | 'apply-leave' | 'approve-leave' | 'disabled-staff' | 'payroll' | 'teachers-rating';
@@ -26,6 +27,7 @@ const HR = () => {
   const [departmentFilter, setDepartmentFilter] = useState('');
   const [searchTerm, setSearchTerm] = useState('');
   const [page, setPage] = useState(1);
+  const [showImportModal, setShowImportModal] = useState(false);
   const [confirmationModal, setConfirmationModal] = useState<{
     isOpen: boolean;
     title: string;
@@ -248,9 +250,14 @@ const HR = () => {
     <div className="hr-page">
       <div className="page-header">
         <h1>Human Resource</h1>
-        <button className="btn-primary" onClick={() => handleTabChange('add-staff')}>
-          + Add Staff
-        </button>
+        <div style={{ display: 'flex', gap: '10px' }}>
+          <button className="btn-secondary" onClick={() => setShowImportModal(true)}>
+            📥 Import Staff
+          </button>
+          <button className="btn-primary" onClick={() => handleTabChange('add-staff')}>
+            + Add Staff
+          </button>
+        </div>
       </div>
 
       <div className="hr-tabs-wrapper">
@@ -4394,6 +4401,18 @@ const TeachersRatingTab = () => {
           <p style={{ color: 'var(--gray-500)', fontStyle: 'italic' }}>No ratings statistics available yet.</p>
         )}
       </div>
+
+      {/* Import Staff Modal */}
+      <ImportStaffModal
+        isOpen={showImportModal}
+        onClose={() => {
+          setShowImportModal(false);
+        }}
+        onImportSuccess={() => {
+          queryClient.invalidateQueries('staff');
+          setShowImportModal(false);
+        }}
+      />
     </div>
   );
 };
