@@ -438,6 +438,18 @@ const HR = () => {
           <TeachersRatingTab />
         )}
       </div>
+
+      {/* Import Staff Modal */}
+      <ImportStaffModal
+        isOpen={showImportModal}
+        onClose={() => {
+          setShowImportModal(false);
+        }}
+        onImportSuccess={() => {
+          queryClient.invalidateQueries('staff');
+          setShowImportModal(false);
+        }}
+      />
     </div>
   );
 };
@@ -4401,18 +4413,6 @@ const TeachersRatingTab = () => {
           <p style={{ color: 'var(--gray-500)', fontStyle: 'italic' }}>No ratings statistics available yet.</p>
         )}
       </div>
-
-      {/* Import Staff Modal */}
-      <ImportStaffModal
-        isOpen={showImportModal}
-        onClose={() => {
-          setShowImportModal(false);
-        }}
-        onImportSuccess={() => {
-          queryClient.invalidateQueries('staff');
-          setShowImportModal(false);
-        }}
-      />
     </div>
   );
 };
