@@ -594,9 +594,29 @@ The backend already has a health check endpoint at `/health`. Configure it in Re
 - **After deploying**, refresh should work correctly
 
 **If you still see 404 after deployment**:
+
+**Option 1: Configure Redirects in Render Dashboard (Recommended)**
+1. Go to Render Dashboard → Your Static Site → Settings
+2. Scroll down to **"Redirects/Rewrites"** section
+3. Click **"Add Redirect"** or **"Add Rewrite"**
+4. Configure:
+   - **Source Path**: `/*`
+   - **Destination Path**: `/index.html`
+   - If using "Redirect", set status to `200` (not 301/302)
+   - If using "Rewrite", it will internally serve index.html
+5. Save and wait for redeployment
+6. Test by refreshing a route like `/students`
+
+**Option 2: Verify _redirects File**
 1. Verify `frontend/public/_redirects` exists with content: `/*    /index.html   200`
-2. Rebuild and redeploy the frontend
-3. Clear browser cache and try again
+2. The file should be automatically copied to `dist/_redirects` during build
+3. Rebuild and redeploy the frontend
+4. Clear browser cache and try again
+
+**Option 3: Manual Verification**
+1. After build completes, check if `dist/_redirects` exists
+2. If not, the Vite plugin should copy it automatically
+3. If still not working, use Option 1 (Render Dashboard configuration)
 
 ---
 
