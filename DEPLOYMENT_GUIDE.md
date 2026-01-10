@@ -573,10 +573,13 @@ The **SchoolPortal** is a separate public-facing website that displays your scho
 - **Solution**: Ensure redirects are configured (Step 2, point 5)
 - Status code must be `200`, not `301` or `302`
 
-**Issue: API Calls Failing**
-- **Solution**: Verify `VITE_API_BASE_URL` environment variable
-- Check backend CORS settings include SchoolPortal URL
-- Check browser console for CORS errors
+**Issue: API Calls Failing / 401 Unauthorized**
+- **Solution**: 
+  - Verify `VITE_API_BASE_URL` environment variable is set correctly: `https://your-backend-url.onrender.com/api/v1`
+  - Check backend CORS settings include SchoolPortal URL in `CORS_ORIGINS`
+  - Ensure public routes are accessible (they should not require authentication)
+  - Check browser console for specific error messages
+  - Verify backend routes are registered at `/api/v1/public/...` (not `/api/public/...`)
 
 **Issue: Content Not Loading**
 - **Solution**: 

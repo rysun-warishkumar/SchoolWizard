@@ -239,16 +239,16 @@ app.use('/api/v1/calendar', calendarRoutes);
 app.use('/api/v1/chat', chatRoutes);
 app.use('/api/v1/front-cms', frontCmsRoutes);
 app.use('/api/v1/front-cms-website', frontCmsWebsiteRoutes);
-app.use('/api/public/website', publicCmsWebsiteRoutes); // Public website routes (no auth required)
-app.use('/api/public/cms', publicCmsRoutes); // Public CMS routes (no auth required)
+app.use('/api/v1/public/website', publicCmsWebsiteRoutes); // Public website routes (no auth required)
+app.use('/api/v1/public/cms', publicCmsRoutes); // Public CMS routes (no auth required)
 app.use('/api/v1/about-us-page', aboutUsPageRoutes); // Admin About Us page management
-app.use('/api/public/about-us', publicAboutUsPageRoutes); // Public About Us page routes (no auth required)
+app.use('/api/v1/public/about-us', publicAboutUsPageRoutes); // Public About Us page routes (no auth required)
 app.use('/api/v1/admission', admissionManagementRoutes); // Admin Admission management
-app.use('/api/public/admission', publicAdmissionRoutes); // Public Admission routes (no auth required)
+app.use('/api/v1/public/admission', publicAdmissionRoutes); // Public Admission routes (no auth required)
 app.use('/api/v1/gallery', galleryManagementRoutes); // Admin Gallery management
-app.use('/api/public/gallery', publicGalleryRoutes); // Public Gallery routes (no auth required)
+app.use('/api/v1/public/gallery', publicGalleryRoutes); // Public Gallery routes (no auth required)
 app.use('/api/v1/news-events', newsEventsManagementRoutes); // Admin News & Events management
-app.use('/api/public/news-events', publicNewsEventsRoutes); // Public News & Events routes (no auth required)
+app.use('/api/v1/public/news-events', publicNewsEventsRoutes); // Public News & Events routes (no auth required)
 app.use('/api/v1/alumni', alumniRoutes);
 app.use('/api/v1/reports', reportsRoutes);
 app.use('/api/v1/lesson-plan', lessonPlanRoutes);
