@@ -235,6 +235,16 @@ app.get('/health', (req, res) => {
 });
 
 // Routes
+// ⚠️ IMPORTANT: Public routes MUST be registered BEFORE protected routes
+// This ensures Express matches public routes first and doesn't apply authentication middleware
+app.use('/api/v1/public/website', publicCmsWebsiteRoutes); // Public website routes (no auth required)
+app.use('/api/v1/public/cms', publicCmsRoutes); // Public CMS routes (no auth required)
+app.use('/api/v1/public/about-us', publicAboutUsPageRoutes); // Public About Us page routes (no auth required)
+app.use('/api/v1/public/admission', publicAdmissionRoutes); // Public Admission routes (no auth required)
+app.use('/api/v1/public/gallery', publicGalleryRoutes); // Public Gallery routes (no auth required)
+app.use('/api/v1/public/news-events', publicNewsEventsRoutes); // Public News & Events routes (no auth required)
+
+// Protected routes (require authentication)
 app.use('/api/v1/auth', authRoutes);
 app.use('/api/v1/users', usersRoutes);
 app.use('/api/v1/roles', rolesRoutes);
@@ -246,8 +256,6 @@ app.use('/api/v1/students', studentsRoutes);
 app.use('/api/v1/front-office', frontofficeRoutes);
 app.use('/api/v1/hr', hrRoutes);
 app.use('/api/v1/fees', feesRoutes);
-app.use('/api/v1', incomeRoutes);
-app.use('/api/v1', expensesRoutes);
 app.use('/api/v1/attendance', attendanceRoutes);
 app.use('/api/v1/examinations', examinationsRoutes);
 app.use('/api/v1/online-examinations', onlineExaminationsRoutes);
@@ -263,19 +271,16 @@ app.use('/api/v1/calendar', calendarRoutes);
 app.use('/api/v1/chat', chatRoutes);
 app.use('/api/v1/front-cms', frontCmsRoutes);
 app.use('/api/v1/front-cms-website', frontCmsWebsiteRoutes);
-app.use('/api/v1/public/website', publicCmsWebsiteRoutes); // Public website routes (no auth required)
-app.use('/api/v1/public/cms', publicCmsRoutes); // Public CMS routes (no auth required)
 app.use('/api/v1/about-us-page', aboutUsPageRoutes); // Admin About Us page management
-app.use('/api/v1/public/about-us', publicAboutUsPageRoutes); // Public About Us page routes (no auth required)
 app.use('/api/v1/admission', admissionManagementRoutes); // Admin Admission management
-app.use('/api/v1/public/admission', publicAdmissionRoutes); // Public Admission routes (no auth required)
 app.use('/api/v1/gallery', galleryManagementRoutes); // Admin Gallery management
-app.use('/api/v1/public/gallery', publicGalleryRoutes); // Public Gallery routes (no auth required)
 app.use('/api/v1/news-events', newsEventsManagementRoutes); // Admin News & Events management
-app.use('/api/v1/public/news-events', publicNewsEventsRoutes); // Public News & Events routes (no auth required)
 app.use('/api/v1/alumni', alumniRoutes);
 app.use('/api/v1/reports', reportsRoutes);
 app.use('/api/v1/lesson-plan', lessonPlanRoutes);
+// Routes registered at /api/v1 root level (must be last to avoid matching public routes)
+app.use('/api/v1', incomeRoutes);
+app.use('/api/v1', expensesRoutes);
 
 // 404 handler
 app.use((req, res) => {

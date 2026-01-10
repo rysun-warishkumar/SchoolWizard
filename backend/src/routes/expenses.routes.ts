@@ -11,7 +11,15 @@ import { checkPermission } from '../middleware/permissions';
 
 const router = express.Router();
 
-router.use(authenticate);
+// Skip authentication for public routes - check path before applying auth
+router.use((req, res, next) => {
+  // If this is a public route, skip authentication middleware
+  if (req.path && req.path.startsWith('/public/')) {
+    return next(); // Continue without authentication
+  }
+  // Otherwise, apply authentication
+  authenticate(req, res, next);
+});
 
 // Expense Heads
 router.get('/expense-heads', checkPermission('expenses', 'view'), getExpenseHeads);
