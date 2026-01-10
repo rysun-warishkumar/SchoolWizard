@@ -273,7 +273,7 @@
 }
 
 .toggle-switch input:checked + .slider {
-  background-color: var(--primary-blue);
+  background-color: green;
 }
 
 .toggle-switch input:checked + .slider:before {
