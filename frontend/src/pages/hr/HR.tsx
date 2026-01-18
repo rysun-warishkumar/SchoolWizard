@@ -7,6 +7,7 @@ import { useToast } from '../../contexts/ToastContext';
 import { useAuth } from '../../contexts/AuthContext';
 import Modal from '../../components/common/Modal';
 import ConfirmationModal from '../../components/common/ConfirmationModal';
+import Pagination from '../../components/common/Pagination';
 import ImportStaffModal from './components/ImportStaffModal';
 import './HR.css';
 
@@ -27,6 +28,7 @@ const HR = () => {
   const [departmentFilter, setDepartmentFilter] = useState('');
   const [searchTerm, setSearchTerm] = useState('');
   const [page, setPage] = useState(1);
+  const [limit] = useState(20); // Fixed limit to match students (20 per page)
   const [showImportModal, setShowImportModal] = useState(false);
   const [confirmationModal, setConfirmationModal] = useState<{
     isOpen: boolean;
@@ -45,15 +47,22 @@ const HR = () => {
   const queryClient = useQueryClient();
   const { showToast } = useToast();
 
-  const { data: staffData, isLoading } = useQuery(
+  const { data: staffData, isLoading, error: staffError } = useQuery(
     ['staff', page, roleFilter, departmentFilter, searchTerm],
     () => hrService.getStaff({
       page,
-      limit: 20,
+      limit,
       role_id: roleFilter ? Number(roleFilter) : undefined,
       department_id: departmentFilter ? Number(departmentFilter) : undefined,
       search: searchTerm || undefined,
-    })
+    }),
+    {
+      retry: 1,
+      onError: (err: any) => {
+        const errorMessage = err.response?.data?.message || err.message || 'Failed to load staff list';
+        showToast(errorMessage, 'error');
+      },
+    }
   );
 
   const { data: departmentsData } = useQuery('departments', () => hrService.getDepartments());
@@ -378,16 +387,36 @@ const HR = () => {
             roleFilter={roleFilter}
             departmentFilter={departmentFilter}
             searchTerm={searchTerm}
-            onRoleFilterChange={setRoleFilter}
-            onDepartmentFilterChange={setDepartmentFilter}
-            onSearchChange={setSearchTerm}
-            onPageChange={setPage}
+            onRoleFilterChange={(value: string) => {
+              setRoleFilter(value);
+              setPage(1); // Reset to first page when filter changes
+            }}
+            onDepartmentFilterChange={(value: string) => {
+              setDepartmentFilter(value);
+              setPage(1); // Reset to first page when filter changes
+            }}
+            onSearchChange={(value: string) => {
+              setSearchTerm(value);
+              setPage(1); // Reset to first page when search changes
+            }}
+            onPageChange={(newPage: number) => {
+              // Validate page number
+              if (staffData?.pagination) {
+                const validPage = Math.max(1, Math.min(newPage, staffData.pagination.pages || 1));
+                setPage(validPage);
+                window.scrollTo({ top: 0, behavior: 'smooth' });
+              } else {
+                setPage(newPage);
+                window.scrollTo({ top: 0, behavior: 'smooth' });
+              }
+            }}
             onDelete={handleDelete}
             onDisable={handleDisable}
             onEnable={handleEnable}
             isDisabling={disableMutation.isLoading}
             isEnabling={enableMutation.isLoading}
             isLoading={isLoading}
+            error={staffError}
           />
         )}
 
@@ -472,25 +501,64 @@ const StaffDirectoryTab = ({
   isDisabling,
   isEnabling,
   isLoading,
+  error,
 }: any) => {
   const [viewStaffId, setViewStaffId] = useState<number | null>(null);
   const [editStaffId, setEditStaffId] = useState<number | null>(null);
+  const [pageInput, setPageInput] = useState<string>('');
+  const [pageInputError, setPageInputError] = useState<string>('');
   
   const { data: designationsData } = useQuery('designations', () => hrService.getDesignations());
+
+  // Keep page input in sync with pagination page
+  useEffect(() => {
+    if (pagination?.page) {
+      setPageInput(String(pagination.page));
+      setPageInputError('');
+    }
+  }, [pagination?.page]);
+
+  // Scroll to top when page changes
+  useEffect(() => {
+    if (pagination?.page) {
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+  }, [pagination?.page]);
+
+  // Handle error state
+  if (error) {
+    const errorMessage = (error as any)?.response?.data?.message || (error as any)?.message || 'Failed to load staff list';
+    return (
+      <div className="tab-content">
+        <div className="error-message" style={{ padding: 'var(--spacing-xl)', textAlign: 'center' }}>
+          <p style={{ color: 'var(--danger-color)', marginBottom: 'var(--spacing-md)' }}>
+            {errorMessage}
+          </p>
+          <button 
+            onClick={() => window.location.reload()} 
+            className="btn-primary"
+          >
+            Reload Page
+          </button>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="tab-content">
       <div className="filters">
         <input
           type="text"
-          placeholder="Search staff..."
+          placeholder="Search staff by name, ID, or email..."
           value={searchTerm}
-          onChange={(e) => { onSearchChange(e.target.value); onPageChange(1); }}
+          onChange={(e) => onSearchChange(e.target.value)}
           className="search-input"
+          maxLength={100}
         />
         <select
           value={departmentFilter}
-          onChange={(e) => { onDepartmentFilterChange(e.target.value); onPageChange(1); }}
+          onChange={(e) => onDepartmentFilterChange(e.target.value)}
           className="filter-select"
         >
           <option value="">All Departments</option>
@@ -504,82 +572,338 @@ const StaffDirectoryTab = ({
         <div className="loading">Loading staff...</div>
       ) : (
         <>
-          <div className="table-container">
-            <table>
-              <thead>
-                <tr>
-                  <th>Staff ID</th>
-                  <th>Name</th>
-                  <th>Role</th>
-                  <th>Department</th>
-                  <th>Designation</th>
-                  <th>Phone</th>
-                  <th>Status</th>
-                  <th>Actions</th>
-                </tr>
-              </thead>
-              <tbody>
-                {staff.map((member: Staff) => (
-                  <tr key={member.id}>
-                    <td>{member.staff_id}</td>
-                    <td>{member.first_name} {member.last_name || ''}</td>
-                    <td>{member.role_name || '-'}</td>
-                    <td>{member.department_name || '-'}</td>
-                    <td>{member.designation_name || '-'}</td>
-                    <td>{member.phone || '-'}</td>
-                    <td>
-                      <span className={`status-badge ${member.is_active ? 'active' : 'inactive'}`}>
-                        {member.is_active ? 'Active' : 'Inactive'}
-                      </span>
-                    </td>
-                    <td>
-                      <div className="action-buttons">
-                        <button onClick={() => setViewStaffId(member.id)} className="btn-view">View</button>
-                        <button onClick={() => setEditStaffId(member.id)} className="btn-edit">Edit</button>
-                        {member.is_active ? (
-                          <button 
-                            onClick={() => onDisable(member.id)} 
-                            className="btn-warning"
-                            disabled={isDisabling}
-                            title="Disable staff member"
-                          >
-                            {isDisabling ? 'Disabling...' : 'Disable'}
-                          </button>
-                        ) : (
-                          <button 
-                            onClick={() => onEnable(member.id)} 
-                            className="btn-success"
-                            disabled={isEnabling}
-                            title="Enable staff member"
-                          >
-                            {isEnabling ? 'Enabling...' : 'Enable'}
-                          </button>
-                        )}
-                        <button 
-                          onClick={() => onDelete(member.id)} 
-                          className="btn-delete"
-                          disabled={member.is_active}
-                          title={member.is_active ? 'Disable staff member first before deleting' : 'Delete staff member'}
-                        >
-                          Delete
-                        </button>
-                      </div>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+          {/* Empty state */}
+          {!isLoading && staff.length === 0 && (
+            <div className="empty-state" style={{ 
+              padding: 'var(--spacing-2xl)', 
+              textAlign: 'center',
+              color: 'var(--gray-500)'
+            }}>
+              <p style={{ fontSize: 'var(--font-size-lg)', marginBottom: 'var(--spacing-sm)' }}>
+                No staff members found
+              </p>
+              <p style={{ fontSize: 'var(--font-size-sm)' }}>
+                {searchTerm || departmentFilter || roleFilter
+                  ? 'Try adjusting your search or filters'
+                  : 'Get started by adding a new staff member'}
+              </p>
+            </div>
+          )}
 
-          {pagination && pagination.pages > 1 && (
-            <div className="pagination">
-              <button onClick={() => onPageChange((p: number) => Math.max(1, p - 1))} disabled={pagination.page === 1}>
-                Previous
-              </button>
-              <span>Page {pagination.page} of {pagination.pages}</span>
-              <button onClick={() => onPageChange((p: number) => Math.min(pagination.pages, p + 1))} disabled={pagination.page === pagination.pages}>
-                Next
-              </button>
+          {/* Staff table */}
+          {staff.length > 0 && (
+            <div className="table-responsive-container">
+              <table>
+                <thead>
+                  <tr>
+                    <th>Staff ID</th>
+                    <th>Name</th>
+                    <th>Role</th>
+                    <th>Department</th>
+                    <th>Designation</th>
+                    <th>Phone</th>
+                    <th>Status</th>
+                    <th>Actions</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {staff.map((member: Staff) => (
+                    <tr key={member.id}>
+                      <td>{member.staff_id}</td>
+                      <td>{member.first_name} {member.last_name || ''}</td>
+                      <td>{member.role_name || '-'}</td>
+                      <td>{member.department_name || '-'}</td>
+                      <td>{member.designation_name || '-'}</td>
+                      <td>{member.phone || '-'}</td>
+                      <td>
+                        <span className={`status-badge ${member.is_active ? 'active' : 'inactive'}`}>
+                          {member.is_active ? 'Active' : 'Inactive'}
+                        </span>
+                      </td>
+                      <td>
+                        <div className="action-buttons">
+                          <button onClick={() => setViewStaffId(member.id)} className="btn-view">View</button>
+                          <button onClick={() => setEditStaffId(member.id)} className="btn-edit">Edit</button>
+                          {member.is_active ? (
+                            <button 
+                              onClick={() => onDisable(member.id)} 
+                              className="btn-warning"
+                              disabled={isDisabling}
+                              title="Disable staff member"
+                            >
+                              {isDisabling ? 'Disabling...' : 'Disable'}
+                            </button>
+                          ) : (
+                            <button 
+                              onClick={() => onEnable(member.id)} 
+                              className="btn-success"
+                              disabled={isEnabling}
+                              title="Enable staff member"
+                            >
+                              {isEnabling ? 'Enabling...' : 'Enable'}
+                            </button>
+                          )}
+                          <button 
+                            onClick={() => onDelete(member.id)} 
+                            className="btn-delete"
+                            disabled={member.is_active}
+                            title={member.is_active ? 'Disable staff member first before deleting' : 'Delete staff member'}
+                          >
+                            Delete
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+
+          {/* Enhanced Pagination - Matching Student List Style */}
+          {pagination && pagination.total > 0 && (
+            <div className="pagination" style={{ 
+              display: 'flex', 
+              justifyContent: 'space-between', 
+              alignItems: 'center',
+              marginTop: '20px',
+              padding: '15px',
+              borderTop: '1px solid #e0e0e0'
+            }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                <span style={{ fontSize: '14px', color: '#666' }}>
+                  Showing {((pagination.page - 1) * pagination.limit) + 1} to {Math.min(pagination.page * pagination.limit, pagination.total)} of {pagination.total} {pagination.total === 1 ? 'staff member' : 'staff members'}
+                </span>
+              </div>
+
+              {/* Show pagination controls when total > limit (more than 20 staff) */}
+              {pagination.total > pagination.limit && (
+                <div style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
+                  {/* First Page Button */}
+                  <button
+                    onClick={() => {
+                      onPageChange(1);
+                      window.scrollTo({ top: 0, behavior: 'smooth' });
+                    }}
+                    disabled={!pagination.hasPreviousPage}
+                    style={{
+                      padding: '6px 12px',
+                      border: '1px solid #ddd',
+                      borderRadius: '4px',
+                      backgroundColor: pagination.hasPreviousPage ? '#fff' : '#f5f5f5',
+                      cursor: pagination.hasPreviousPage ? 'pointer' : 'not-allowed',
+                      opacity: pagination.hasPreviousPage ? 1 : 0.5
+                    }}
+                    title="First page"
+                  >
+                    ««
+                  </button>
+
+                  {/* Previous Button */}
+                  <button
+                    onClick={() => {
+                      onPageChange(pagination.page - 1);
+                      window.scrollTo({ top: 0, behavior: 'smooth' });
+                    }}
+                    disabled={!pagination.hasPreviousPage}
+                    style={{
+                      padding: '6px 12px',
+                      border: '1px solid #ddd',
+                      borderRadius: '4px',
+                      backgroundColor: pagination.hasPreviousPage ? '#fff' : '#f5f5f5',
+                      cursor: pagination.hasPreviousPage ? 'pointer' : 'not-allowed',
+                      opacity: pagination.hasPreviousPage ? 1 : 0.5
+                    }}
+                    title="Previous page"
+                  >
+                    « Previous
+                  </button>
+
+                  {/* Page Numbers */}
+                  <div style={{ display: 'flex', gap: '2px', alignItems: 'center' }}>
+                    {(() => {
+                      const pages: (number | string)[] = [];
+                      const currentPage = pagination.page;
+                      const totalPages = pagination.pages;
+                      
+                      if (totalPages <= 1) return null;
+
+                      // For small number of pages, show all
+                      if (totalPages <= 7) {
+                        for (let i = 1; i <= totalPages; i++) {
+                          pages.push(i);
+                        }
+                      } else {
+                        // Always show first page
+                        if (currentPage > 3) {
+                          pages.push(1);
+                          if (currentPage > 4) pages.push('...'); // Ellipsis
+                        }
+
+                        // Show pages around current page
+                        const start = Math.max(1, currentPage - 2);
+                        const end = Math.min(totalPages, currentPage + 2);
+                        
+                        for (let i = start; i <= end; i++) {
+                          pages.push(i);
+                        }
+
+                        // Always show last page
+                        if (currentPage < totalPages - 2) {
+                          if (currentPage < totalPages - 3) pages.push('...'); // Ellipsis
+                          pages.push(totalPages);
+                        }
+                      }
+
+                      return pages.map((pageNum, index) => (
+                        pageNum === '...' ? (
+                          <span key={`ellipsis-${index}`} style={{ padding: '0 8px', color: '#666' }}>...</span>
+                        ) : (
+                          <button
+                            key={pageNum}
+                            onClick={() => {
+                              onPageChange(Number(pageNum));
+                              window.scrollTo({ top: 0, behavior: 'smooth' });
+                            }}
+                            disabled={pageNum === pagination.page}
+                            style={{
+                              padding: '6px 12px',
+                              border: '1px solid #ddd',
+                              borderRadius: '4px',
+                              backgroundColor: pageNum === pagination.page ? '#007bff' : '#fff',
+                              color: pageNum === pagination.page ? '#fff' : '#333',
+                              cursor: pageNum === pagination.page ? 'default' : 'pointer',
+                              fontWeight: pageNum === pagination.page ? 'bold' : 'normal',
+                              minWidth: '40px'
+                            }}
+                          >
+                            {pageNum}
+                          </button>
+                        )
+                      ));
+                    })()}
+                  </div>
+
+                  {/* Page Input */}
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '5px', marginLeft: '10px' }}>
+                    <span style={{ fontSize: '14px', color: '#666' }}>Go to:</span>
+                    <input
+                      type="text"
+                      value={pageInput}
+                      onChange={(e) => {
+                        const value = e.target.value;
+                        setPageInput(value);
+                        setPageInputError('');
+
+                        if (value.trim() === '') return;
+
+                        const pageNum = parseInt(value, 10);
+                        
+                        if (isNaN(pageNum)) {
+                          setPageInputError('Please enter a valid number');
+                          return;
+                        }
+
+                        if (pageNum < 1) {
+                          setPageInputError('Page number must be at least 1');
+                          return;
+                        }
+
+                        if (pagination && pageNum > pagination.pages) {
+                          setPageInputError(`Maximum page is ${pagination.pages}`);
+                          return;
+                        }
+                      }}
+                      onBlur={() => {
+                        if (pageInput.trim() === '') {
+                          setPageInput(pagination?.page ? String(pagination.page) : '1');
+                          return;
+                        }
+
+                        const pageNum = parseInt(pageInput, 10);
+                        
+                        if (isNaN(pageNum) || pageNum < 1) {
+                          setPageInput(pagination?.page ? String(pagination.page) : '1');
+                          setPageInputError('');
+                          return;
+                        }
+
+                        if (pagination && pageNum > pagination.pages) {
+                          setPageInput(String(pagination.pages));
+                          onPageChange(pagination.pages);
+                          window.scrollTo({ top: 0, behavior: 'smooth' });
+                          setPageInputError('');
+                          return;
+                        }
+
+                        if (pageNum !== pagination?.page) {
+                          onPageChange(pageNum);
+                          window.scrollTo({ top: 0, behavior: 'smooth' });
+                        }
+                        setPageInputError('');
+                      }}
+                      onKeyPress={(e) => {
+                        if (e.key === 'Enter') {
+                          e.currentTarget.blur();
+                        }
+                      }}
+                      style={{
+                        width: '50px',
+                        padding: '4px 8px',
+                        border: pageInputError ? '1px solid #d32f2f' : '1px solid #ddd',
+                        borderRadius: '4px',
+                        textAlign: 'center'
+                      }}
+                      title="Enter page number"
+                    />
+                    {pageInputError && (
+                      <span style={{ fontSize: '12px', color: '#d32f2f', marginLeft: '5px' }}>
+                        {pageInputError}
+                      </span>
+                    )}
+                  </div>
+
+                  {/* Next Button */}
+                  <button
+                    onClick={() => {
+                      onPageChange(pagination.page + 1);
+                      window.scrollTo({ top: 0, behavior: 'smooth' });
+                    }}
+                    disabled={!pagination.hasNextPage}
+                    style={{
+                      padding: '6px 12px',
+                      border: '1px solid #ddd',
+                      borderRadius: '4px',
+                      backgroundColor: pagination.hasNextPage ? '#fff' : '#f5f5f5',
+                      cursor: pagination.hasNextPage ? 'pointer' : 'not-allowed',
+                      opacity: pagination.hasNextPage ? 1 : 0.5
+                    }}
+                    title="Next page"
+                  >
+                    Next »
+                  </button>
+
+                  {/* Last Page Button */}
+                  <button
+                    onClick={() => {
+                      onPageChange(pagination.pages);
+                      window.scrollTo({ top: 0, behavior: 'smooth' });
+                    }}
+                    disabled={!pagination.hasNextPage}
+                    style={{
+                      padding: '6px 12px',
+                      border: '1px solid #ddd',
+                      borderRadius: '4px',
+                      backgroundColor: pagination.hasNextPage ? '#fff' : '#f5f5f5',
+                      cursor: pagination.hasNextPage ? 'pointer' : 'not-allowed',
+                      opacity: pagination.hasNextPage ? 1 : 0.5
+                    }}
+                    title="Last page"
+                  >
+                    »»
+                  </button>
+                </div>
+              )}
             </div>
           )}
         </>
@@ -888,6 +1212,20 @@ const ViewStaffModal = ({ staffId, onClose }: { staffId: number; onClose: () => 
 const EditStaffModal = ({ staffId, departments, designations, onClose }: { staffId: number; departments: Department[]; designations: Designation[]; onClose: () => void }) => {
   const { showToast } = useToast();
   const queryClient = useQueryClient();
+  const toDateInputValue = (value?: string | null) => {
+    if (!value) return '';
+    if (typeof value === 'string') {
+      const trimmed = value.trim();
+      if (!trimmed) return '';
+      if (/^\d{4}-\d{2}-\d{2}$/.test(trimmed)) return trimmed;
+      const parsed = new Date(trimmed);
+      if (!Number.isNaN(parsed.getTime())) return parsed.toISOString().split('T')[0];
+      return '';
+    }
+    const parsed = new Date(value);
+    if (Number.isNaN(parsed.getTime())) return '';
+    return parsed.toISOString().split('T')[0];
+  };
 
   const { data: staffData, isLoading } = useQuery(
     ['staff', staffId],
@@ -914,8 +1252,8 @@ const EditStaffModal = ({ staffId, departments, designations, onClose }: { staff
         mother_name: staff.mother_name || '',
         gender: staff.gender || 'male',
         marital_status: staff.marital_status || 'single',
-        date_of_birth: staff.date_of_birth || '',
-        date_of_joining: staff.date_of_joining || '',
+        date_of_birth: toDateInputValue(staff.date_of_birth),
+        date_of_joining: toDateInputValue(staff.date_of_joining),
         phone: staff.phone || '',
         emergency_contact: staff.emergency_contact || '',
         email: staff.email || '',
@@ -1423,7 +1761,8 @@ const EditStaffModal = ({ staffId, departments, designations, onClose }: { staff
 
 // Add Staff Tab
 const AddStaffTab = ({ departments, designations }: any) => {
-  const [formData, setFormData] = useState({
+  const [, setSearchParams] = useSearchParams();
+  const initialFormData = {
     staff_id: '',
     role_id: '',
     designation_id: '',
@@ -1460,10 +1799,13 @@ const AddStaffTab = ({ departments, designations }: any) => {
     twitter_url: '',
     linkedin_url: '',
     instagram_url: '',
-  });
+  };
+
+  const [formData, setFormData] = useState(initialFormData);
 
   const [error, setError] = useState<string | null>(null);
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
+  const [showSuccessModal, setShowSuccessModal] = useState(false);
 
   const queryClient = useQueryClient();
   const { showToast } = useToast();
@@ -1523,46 +1865,7 @@ const AddStaffTab = ({ departments, designations }: any) => {
       setError(null);
       setFieldErrors({});
       showToast(response.message || 'Staff member added successfully', 'success');
-      
-      // Reset form
-      setFormData({
-        staff_id: '',
-        role_id: '',
-        designation_id: '',
-        department_id: '',
-        first_name: '',
-        last_name: '',
-        father_name: '',
-        mother_name: '',
-        gender: 'male',
-        marital_status: 'single',
-        date_of_birth: '',
-        date_of_joining: new Date().toISOString().split('T')[0],
-        phone: '',
-        emergency_contact: '',
-        email: '',
-        photo: '',
-        current_address: '',
-        permanent_address: '',
-        qualification: '',
-        work_experience: '',
-        note: '',
-        epf_no: '',
-        basic_salary: '',
-        contract_type: 'permanent',
-        work_shift: 'morning',
-        location: '',
-        number_of_leaves: '0',
-        bank_account_title: '',
-        bank_account_number: '',
-        bank_name: '',
-        ifsc_code: '',
-        bank_branch_name: '',
-        facebook_url: '',
-        twitter_url: '',
-        linkedin_url: '',
-        instagram_url: '',
-      });
+      setShowSuccessModal(true);
     },
     onError: (err: any) => {
       let errorMessage = 'Failed to add staff member. Please try again.';
@@ -1599,6 +1902,23 @@ const AddStaffTab = ({ departments, designations }: any) => {
       number_of_leaves: Number(formData.number_of_leaves),
       gender: formData.gender as 'male' | 'female' | 'other',
     });
+  };
+
+  const handleAddAnother = () => {
+    setShowSuccessModal(false);
+    setFormData({
+      ...initialFormData,
+      date_of_joining: new Date().toISOString().split('T')[0],
+    });
+    setError(null);
+    setFieldErrors({});
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
+  const handleViewStaffList = () => {
+    setShowSuccessModal(false);
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+    setSearchParams({ tab: 'staff' });
   };
 
   return (
@@ -2077,6 +2397,34 @@ const AddStaffTab = ({ departments, designations }: any) => {
           )}
         </div>
       </form>
+
+      <Modal
+        isOpen={showSuccessModal}
+        onClose={() => setShowSuccessModal(false)}
+        title="Success"
+        size="small"
+        disableBackdropClose
+      >
+        <p style={{ marginBottom: 'var(--spacing-lg)' }}>
+          Staff added successfully.
+        </p>
+        <div className="modal-actions">
+          <button
+            type="button"
+            className="btn-secondary"
+            onClick={handleViewStaffList}
+          >
+            View Staff List
+          </button>
+          <button
+            type="button"
+            className="btn-success"
+            onClick={handleAddAnother}
+          >
+            Add Another Staff
+          </button>
+        </div>
+      </Modal>
     </div>
   );
 };
@@ -3396,6 +3744,7 @@ const PayrollTab = () => {
   const [year, setYear] = useState(new Date().getFullYear());
   const [statusFilter, setStatusFilter] = useState<'not_generated' | 'generated' | 'paid' | ''>('');
   const [page, setPage] = useState(1);
+  const [showGenerateSelectModal, setShowGenerateSelectModal] = useState(false);
   const [generateModal, setGenerateModal] = useState<{ staffId: number; month: number; year: number } | null>(null);
   const [payModal, setPayModal] = useState<number | null>(null);
   const [viewPayslipId, setViewPayslipId] = useState<number | null>(null);
@@ -3470,6 +3819,9 @@ const PayrollTab = () => {
         </div>
         <button type="button" onClick={handleSearch} className="btn-primary">
           Search
+        </button>
+        <button type="button" onClick={() => setShowGenerateSelectModal(true)} className="btn-success">
+          Generate Payroll
         </button>
       </div>
 
@@ -3619,6 +3971,18 @@ const PayrollTab = () => {
         />
       )}
 
+      {showGenerateSelectModal && (
+        <GeneratePayrollSelectModal
+          defaultMonth={month}
+          defaultYear={year}
+          onClose={() => setShowGenerateSelectModal(false)}
+          onContinue={({ staffId, month: selectedMonth, year: selectedYear }) => {
+            setShowGenerateSelectModal(false);
+            setGenerateModal({ staffId, month: selectedMonth, year: selectedYear });
+          }}
+        />
+      )}
+
       {payModal && (
         <PayPayrollModal
           payrollId={payModal}
@@ -3633,6 +3997,96 @@ const PayrollTab = () => {
         />
       )}
     </div>
+  );
+};
+
+// Generate Payroll Select Modal
+const GeneratePayrollSelectModal = ({
+  defaultMonth,
+  defaultYear,
+  onClose,
+  onContinue,
+}: {
+  defaultMonth: number;
+  defaultYear: number;
+  onClose: () => void;
+  onContinue: (data: { staffId: number; month: number; year: number }) => void;
+}) => {
+  const { showToast } = useToast();
+  const [staffId, setStaffId] = useState('');
+  const [month, setMonth] = useState(defaultMonth);
+  const [year, setYear] = useState(defaultYear);
+
+  const { data: staffData, isLoading } = useQuery(
+    ['payroll-staff-list'],
+    () =>
+      hrService.getStaff({
+        page: 1,
+        limit: 100,
+        is_active: true,
+      }),
+    { refetchOnWindowFocus: false }
+  );
+
+  const staffList = staffData?.data || [];
+
+  const handleContinue = () => {
+    if (!staffId) {
+      showToast('Please select a staff member', 'error');
+      return;
+    }
+    onContinue({ staffId: Number(staffId), month, year });
+  };
+
+  return (
+    <Modal isOpen={true} onClose={onClose} title="Generate Payroll" size="small">
+      <div className="form-group">
+        <label>Staff *</label>
+        <select
+          value={staffId}
+          onChange={(e) => setStaffId(e.target.value)}
+          disabled={isLoading}
+          required
+        >
+          <option value="">{isLoading ? 'Loading staff...' : 'Select Staff'}</option>
+          {staffList.map((staff: Staff) => (
+            <option key={staff.id} value={staff.id}>
+              {staff.first_name} {staff.last_name || ''} ({staff.staff_id})
+            </option>
+          ))}
+        </select>
+      </div>
+      <div className="form-row">
+        <div className="form-group">
+          <label>Month *</label>
+          <select value={month} onChange={(e) => setMonth(Number(e.target.value))}>
+            {Array.from({ length: 12 }, (_, i) => i + 1).map((m) => (
+              <option key={m} value={m}>
+                {new Date(2000, m - 1).toLocaleString('default', { month: 'long' })}
+              </option>
+            ))}
+          </select>
+        </div>
+        <div className="form-group">
+          <label>Year *</label>
+          <input
+            type="number"
+            value={year}
+            onChange={(e) => setYear(Number(e.target.value))}
+            min="2000"
+            max="2100"
+          />
+        </div>
+      </div>
+      <div className="modal-actions">
+        <button type="button" onClick={onClose} className="btn-secondary">
+          Cancel
+        </button>
+        <button type="button" onClick={handleContinue} className="btn-success">
+          Continue
+        </button>
+      </div>
+    </Modal>
   );
 };
 

@@ -67,12 +67,12 @@ const HomePage: React.FC = () => {
   };
 
   const services = [
-    {
-      icon: 'fas fa-flag',
-      title: 'Admission Enquiry',
-      color: 'var(--accent-green)',
-      link: '#',
-    },
+    // {
+    //   icon: 'fas fa-flag',
+    //   title: 'Admission Enquiry',
+    //   color: 'var(--accent-green)',
+    //   link: '#',
+    // },
     {
       icon: 'fas fa-headset',
       title: 'ONLINE INQUIRY',
@@ -90,6 +90,12 @@ const HomePage: React.FC = () => {
       title: 'ACADEMIC CIRCULAR',
       color: 'var(--accent-orange)',
       link: '/news',
+    },
+    {
+      icon: 'fas fa-chart-bar',
+      title: 'CHECK RESULTS',
+      color: '#ef4444',
+      link: '/results',
     },
   ];
 

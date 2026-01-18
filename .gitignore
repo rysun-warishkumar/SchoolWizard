@@ -18,6 +18,7 @@ backend/build/
 .env.test.local
 .env.production.local
 
+
 # IDE
 .vscode/
 .idea/
@@ -55,3 +56,14 @@ Thumbs.db
 # XAMPP MySQL data (if local)
 xampp/mysql/data/
 
+#OTHER FILES AND DIRECTORIES TO IGNORE
+pricingplan.html
+/backend/backups
+/frontend/Readme.md
+MULTI_TENANT_CODE_ANALYSIS.md
+MULTI_TENANT_DEPLOYMENT_GUIDE.md
+MARKETING_STRATEGY_AND_PRICING.md
+IMPLEMENTATION_CHECKLIST.md
+AWS_MULTI_TENANT_DEPLOYMENT_GUIDE.md
+.cursor
+.cursorignore

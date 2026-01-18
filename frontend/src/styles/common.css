@@ -1,0 +1,109 @@
+/* Shared common styles for pages to avoid duplication across module CSS files */
+
+/* Page Header */
+.page-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: var(--spacing-lg);
+}
+
+.page-header h1 {
+  margin: 0;
+  color: var(--gray-800);
+}
+
+/* Tab header (title + actions) */
+.tab-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: var(--spacing-lg);
+  flex-wrap: wrap;
+  gap: var(--spacing-md);
+}
+
+/* Filters area used across many modules */
+.filters-section {
+  display: flex;
+  gap: var(--spacing-md);
+  flex-wrap: wrap;
+  flex: 1;
+}
+
+@media (max-width: 768px) {
+  .filters-section {
+    flex-wrap: wrap;
+    flex-direction: column;
+    align-items: flex-start;
+  }
+}
+
+.filter-select {
+  padding: var(--spacing-sm) var(--spacing-md);
+  border: 1px solid var(--gray-300);
+  border-radius: var(--radius-md);
+  background-color: var(--white);
+  font-size: var(--font-size-base);
+  cursor: pointer;
+  max-width: fit-content !important;
+}
+
+/* Empty state / loading common styles */
+.empty-state {
+  text-align: center;
+  padding: var(--spacing-lg);
+  color: var(--gray-600);
+}
+
+.empty-state i {
+  display: block;
+  font-size: 2rem;
+  color: var(--gray-400);
+  margin-bottom: var(--spacing-md);
+}
+
+.empty-state p {
+  margin: 0;
+}
+
+.loading {
+  display: block;
+  text-align: center;
+  padding: var(--spacing-lg);
+}
+
+/* Table container commonly used with responsive tables */
+.table-responsive-container {
+  overflow-x: auto;
+  background: var(--white);
+  border: 1px solid var(--gray-100);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-sm);
+}
+
+.table-responsive-container .table-container {
+  min-width: 700px; /* prevents very small tables from collapsing */
+}
+
+.table-responsive-container table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.table-responsive-container th,
+.table-responsive-container td {
+  padding: 0.75rem 1rem;
+  border-bottom: 1px solid var(--gray-100);
+  text-align: left;
+}
+
+/* Small utility to hide scrollbars on horizontal tabs */
+.hide-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+
+.hide-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}

@@ -8,16 +8,14 @@ import './Students.css';
 // Import all tab components
 import StudentListTab from './components/StudentListTab';
 import StudentAdmissionTab from './components/StudentAdmissionTab';
-import OnlineAdmissionsTab from './components/OnlineAdmissionsTab';
 import CategoriesTab from './components/CategoriesTab';
 import HousesTab from './components/HousesTab';
 import DisableReasonsTab from './components/DisableReasonsTab';
 import PromoteStudentsTab from './components/PromoteStudentsTab';
 import ImportStudentsModal from './components/ImportStudentsModal';
-import StudentsTabs from './components/StudentsTabs';
 
 const Students = () => {
-  const [activeTab, setActiveTab] = useState<'list' | 'admission' | 'online-admissions' | 'categories' | 'houses' | 'disable-reasons' | 'promote'>('list');
+  const [activeTab, setActiveTab] = useState<'list' | 'admission' | 'categories' | 'houses' | 'disable-reasons' | 'promote'>('list');
   const [classFilter, setClassFilter] = useState('');
   const [sectionFilter, setSectionFilter] = useState('');
   const [searchTerm, setSearchTerm] = useState('');
@@ -27,6 +25,15 @@ const Students = () => {
   useEffect(() => {
     setPage(1);
   }, [classFilter, sectionFilter, searchTerm]);
+
+  // Scroll to top when page changes
+  useEffect(() => {
+    // Small delay to ensure content is loaded
+    const timer = setTimeout(() => {
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    }, 150);
+    return () => clearTimeout(timer);
+  }, [page]);
   const tabsContainerRef = useRef<HTMLDivElement>(null);
   const activeTabRef = useRef<HTMLButtonElement>(null);
   const [showLeftArrow, setShowLeftArrow] = useState(false);
@@ -170,13 +177,6 @@ const Students = () => {
               Student Admission
             </button>
             <button
-              ref={activeTab === 'online-admissions' ? activeTabRef : null}
-              className={activeTab === 'online-admissions' ? 'active' : ''}
-              onClick={() => setActiveTab('online-admissions')}
-            >
-              Online Admissions
-            </button>
-            <button
               ref={activeTab === 'categories' ? activeTabRef : null}
               className={activeTab === 'categories' ? 'active' : ''}
               onClick={() => setActiveTab('categories')}
@@ -227,10 +227,29 @@ const Students = () => {
             classFilter={classFilter}
             sectionFilter={sectionFilter}
             searchTerm={searchTerm}
-            onClassFilterChange={setClassFilter}
-            onSectionFilterChange={setSectionFilter}
-            onSearchChange={setSearchTerm}
-            onPageChange={setPage}
+            onClassFilterChange={(value: string) => {
+              setClassFilter(value);
+              setPage(1); // Reset to first page when filter changes
+            }}
+            onSectionFilterChange={(value: string) => {
+              setSectionFilter(value);
+              setPage(1); // Reset to first page when filter changes
+            }}
+            onSearchChange={(value: string) => {
+              setSearchTerm(value);
+              setPage(1); // Reset to first page when search changes
+            }}
+            onPageChange={(newPage: number) => {
+              // Validate page number
+              if (studentsData?.pagination) {
+                const validPage = Math.max(1, Math.min(newPage, studentsData.pagination.pages || 1));
+                setPage(validPage);
+                window.scrollTo({ top: 0, behavior: 'smooth' });
+              } else {
+                setPage(newPage);
+                window.scrollTo({ top: 0, behavior: 'smooth' });
+              }
+            }}
             onDelete={handleDelete}
             isLoading={isLoading}
             error={error}
@@ -242,9 +261,6 @@ const Students = () => {
             classes={classesData?.data || []}
             sections={sectionsData?.data || []}
           />
-        )}
-        {activeTab === 'online-admissions' && (
-          <OnlineAdmissionsTab />
         )}
         {activeTab === 'categories' && (
           <CategoriesTab />

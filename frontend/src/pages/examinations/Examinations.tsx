@@ -1487,12 +1487,12 @@ const ExamResultTab = () => {
     const response = await academicsService.getClasses();
     return response.data;
   });
-  const classes = classesResponse || [];
+  const classes = Array.isArray(classesResponse) ? classesResponse : [];
   const { data: sectionsResponse } = useQuery('sections', async () => {
     const response = await academicsService.getSections();
     return response.data;
   });
-  const sections = sectionsResponse || [];
+  const sections = Array.isArray(sectionsResponse) ? sectionsResponse : [];
 
   // Get exams for selected exam group
   const { data: exams } = useQuery(

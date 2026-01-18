@@ -438,7 +438,8 @@ export const getSubjectGroups = async (
 
     let query = `
       SELECT sg.*, c.name as class_name, s.name as section_name,
-       GROUP_CONCAT(DISTINCT sub.name ORDER BY sub.name SEPARATOR ', ') as subjects
+       GROUP_CONCAT(DISTINCT sub.name ORDER BY sub.name SEPARATOR ', ') as subjects,
+       GROUP_CONCAT(DISTINCT sgs.subject_id ORDER BY sgs.subject_id SEPARATOR ',') as subject_ids
        FROM subject_groups sg
        LEFT JOIN classes c ON sg.class_id = c.id
        LEFT JOIN sections s ON sg.section_id = s.id

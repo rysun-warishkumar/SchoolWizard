@@ -341,5 +341,31 @@ export const websiteService = {
       return null;
     }
   },
+
+  // Exam Results Services
+  getPublishedExams: async (): Promise<any[]> => {
+    try {
+      const response = await apiClient.get('/public/examinations/published-exams');
+      const data = response.data.data || [];
+      return Array.isArray(data) ? data : [];
+    } catch (error: any) {
+      console.error('Error fetching published exams:', error);
+      return [];
+    }
+  },
+
+  getStudentResult: async (params: {
+    exam_id: number;
+    roll_number: string;
+    date_of_birth: string;
+  }): Promise<any> => {
+    try {
+      const response = await apiClient.post('/public/examinations/student-result', params);
+      return response.data.data;
+    } catch (error: any) {
+      console.error('Error fetching student result:', error);
+      throw error;
+    }
+  },
 };
 

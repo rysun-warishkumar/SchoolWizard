@@ -161,8 +161,55 @@ export const getStaff = async (
   next: NextFunction
 ): Promise<void> => {
   try {
-    const { role_id, department_id, search, is_active, page = 1, limit = 20 } = req.query;
+    const { role_id, department_id, search, is_active, page, limit } = req.query;
     const db = getDatabase();
+
+    // Validate and sanitize pagination parameters
+    let pageNumber = 1;
+    let limitNumber = 20;
+
+    // Validate page parameter
+    if (page !== undefined) {
+      const parsedPage = Number(page);
+      if (isNaN(parsedPage) || parsedPage < 1 || !Number.isInteger(parsedPage)) {
+        throw createError('Invalid page number. Page must be a positive integer.', 400);
+      }
+      pageNumber = parsedPage;
+    }
+
+    // Validate limit parameter
+    if (limit !== undefined) {
+      const parsedLimit = Number(limit);
+      if (isNaN(parsedLimit) || parsedLimit < 1 || !Number.isInteger(parsedLimit)) {
+        throw createError('Invalid limit value. Limit must be a positive integer.', 400);
+      }
+      // Set maximum limit to prevent performance issues
+      if (parsedLimit > 100) {
+        throw createError('Limit cannot exceed 100 records per page. Please use a smaller limit.', 400);
+      }
+      limitNumber = parsedLimit;
+    }
+
+    // Validate role_id if provided
+    if (role_id !== undefined) {
+      const parsedRoleId = Number(role_id);
+      if (isNaN(parsedRoleId) || parsedRoleId < 1 || !Number.isInteger(parsedRoleId)) {
+        throw createError('Invalid role ID. Role ID must be a positive integer.', 400);
+      }
+    }
+
+    // Validate department_id if provided
+    if (department_id !== undefined) {
+      const parsedDepartmentId = Number(department_id);
+      if (isNaN(parsedDepartmentId) || parsedDepartmentId < 1 || !Number.isInteger(parsedDepartmentId)) {
+        throw createError('Invalid department ID. Department ID must be a positive integer.', 400);
+      }
+    }
+
+    // Validate search term length
+    if (search && typeof search === 'string' && search.length > 100) {
+      throw createError('Search term is too long. Maximum 100 characters allowed.', 400);
+    }
 
     let query = `
       SELECT s.*, 
@@ -184,37 +231,47 @@ export const getStaff = async (
 
     if (role_id) {
       query += ' AND s.role_id = ?';
-      params.push(role_id);
+      params.push(Number(role_id));
     }
 
     if (department_id) {
       query += ' AND s.department_id = ?';
-      params.push(department_id);
+      params.push(Number(department_id));
     }
 
-    if (search) {
+    if (search && typeof search === 'string' && search.trim() !== '') {
       query += ' AND (s.first_name LIKE ? OR s.last_name LIKE ? OR s.staff_id LIKE ? OR s.email LIKE ?)';
-      const searchTerm = `%${search}%`;
+      const searchTerm = `%${search.trim()}%`;
       params.push(searchTerm, searchTerm, searchTerm, searchTerm);
     }
 
     // Support filtering by user_id for staff panel
     const user_id = (req as any).query?.user_id;
     if (user_id) {
+      const parsedUserId = Number(user_id);
+      if (isNaN(parsedUserId) || parsedUserId < 1 || !Number.isInteger(parsedUserId)) {
+        throw createError('Invalid user ID. User ID must be a positive integer.', 400);
+      }
       query += ' AND s.user_id = ?';
-      params.push(user_id);
+      params.push(parsedUserId);
     }
 
     query += ' ORDER BY s.first_name ASC';
 
-    // Pagination
-    const offset = (Number(page) - 1) * Number(limit);
+    // Calculate pagination offset
+    const offset = (pageNumber - 1) * limitNumber;
+    
+    // Validate offset is not negative
+    if (offset < 0) {
+      throw createError('Invalid pagination offset. Please check page and limit values.', 400);
+    }
+
     query += ' LIMIT ? OFFSET ?';
-    params.push(Number(limit), offset);
+    params.push(limitNumber, offset);
 
     const [staff] = await db.execute(query, params) as any[];
 
-    // Get total count
+    // Get total count with same filters
     let countQuery = 'SELECT COUNT(*) as total FROM staff WHERE 1=1';
     const countParams: any[] = [];
 
@@ -224,34 +281,56 @@ export const getStaff = async (
     }
     if (role_id) {
       countQuery += ' AND role_id = ?';
-      countParams.push(role_id);
+      countParams.push(Number(role_id));
     }
     if (department_id) {
       countQuery += ' AND department_id = ?';
-      countParams.push(department_id);
+      countParams.push(Number(department_id));
     }
-    if (search) {
+    if (search && typeof search === 'string' && search.trim() !== '') {
       countQuery += ' AND (first_name LIKE ? OR last_name LIKE ? OR staff_id LIKE ? OR email LIKE ?)';
-      const searchTerm = `%${search}%`;
+      const searchTerm = `%${search.trim()}%`;
       countParams.push(searchTerm, searchTerm, searchTerm, searchTerm);
+    }
+    if (user_id) {
+      countQuery += ' AND user_id = ?';
+      countParams.push(Number(user_id));
     }
 
     const [countResult] = await db.execute(countQuery, countParams) as any[];
-    const total = countResult[0].total;
-    const pages = Math.ceil(total / Number(limit));
+    const total = Number(countResult[0].total);
+    
+    // Calculate total pages
+    const pages = total > 0 ? Math.ceil(total / limitNumber) : 0;
+
+    // Validate that requested page exists - auto-correct instead of throwing error
+    if (pageNumber > pages && pages > 0) {
+      pageNumber = pages;
+    } else if (total === 0 && pageNumber > 1) {
+      // If no results, reset to page 1
+      pageNumber = 1;
+    }
 
     res.json({
       success: true,
-      data: staff,
+      data: staff || [],
       pagination: {
-        page: Number(page),
-        limit: Number(limit),
+        page: pageNumber,
+        limit: limitNumber,
         total,
         pages,
+        hasNextPage: pageNumber < pages,
+        hasPreviousPage: pageNumber > 1,
       },
     });
-  } catch (error) {
-    next(error);
+  } catch (error: any) {
+    // If it's already a createError, pass it through
+    if (error.statusCode) {
+      next(error);
+    } else {
+      // Otherwise, wrap it
+      next(createError(error.message || 'Failed to fetch staff list', 500));
+    }
   }
 };
 

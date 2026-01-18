@@ -72,6 +72,19 @@ export const errorHandler = (
   // Ensure CORS headers are set even on errors
   const origin = req.headers.origin;
   if (origin) {
+    // Always allow localhost origins (any port) - for both development and production flexibility
+    const isLocalhostOrigin = /^https?:\/\/(localhost|127\.0\.0\.1|0\.0\.0\.0|\[::1\])(:\d+)?$/i.test(origin) ||
+                              origin.toLowerCase().includes('localhost') ||
+                              origin.includes('127.0.0.1');
+    
+    if (isLocalhostOrigin || isDevelopment()) {
+      res.header('Access-Control-Allow-Origin', origin);
+      res.header('Access-Control-Allow-Credentials', 'true');
+      res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, PATCH, OPTIONS');
+      res.header('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Requested-With, Accept, Origin');
+    }
+    
+    // In production, check configured origins
     const allowedOrigins: string[] = [];
     
     if (env.cors.origin) {
@@ -93,8 +106,7 @@ export const errorHandler = (
       return normalizedOrigin === normalizedAllowed;
     });
     
-    // In development, allow all origins
-    if (isDevelopment() || isAllowed) {
+    if (isAllowed) {
       res.header('Access-Control-Allow-Origin', origin);
       res.header('Access-Control-Allow-Credentials', 'true');
       res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, PATCH, OPTIONS');

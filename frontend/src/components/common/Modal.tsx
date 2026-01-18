@@ -8,9 +8,18 @@ interface ModalProps {
   children: ReactNode;
   size?: 'small' | 'medium' | 'large' | 'xlarge';
   headerActions?: ReactNode;
+  disableBackdropClose?: boolean;
 }
 
-const Modal = ({ isOpen, onClose, title, children, size = 'medium', headerActions }: ModalProps) => {
+const Modal = ({
+  isOpen,
+  onClose,
+  title,
+  children,
+  size = 'medium',
+  headerActions,
+  disableBackdropClose = false,
+}: ModalProps) => {
   useEffect(() => {
     if (isOpen) {
       document.body.style.overflow = 'hidden';
@@ -41,8 +50,14 @@ const Modal = ({ isOpen, onClose, title, children, size = 'medium', headerAction
 
   if (!isOpen) return null;
 
+  const handleOverlayClick = () => {
+    if (!disableBackdropClose) {
+      onClose();
+    }
+  };
+
   return (
-    <div className="modal-overlay" onClick={onClose}>
+    <div className="modal-overlay" onClick={handleOverlayClick}>
       <div className={`modal-content modal-${size}`} onClick={(e) => e.stopPropagation()}>
         <div className="modal-header">
           <h2>{title}</h2>

@@ -536,6 +536,21 @@ const OnlineExamsTab = () => {
     class_id: '',
     is_published: '',
   });
+  const [createFormData, setCreateFormData] = useState({
+    name: '',
+    subject_id: '',
+    session_id: '',
+    class_id: '',
+    section_id: '',
+    exam_date: '',
+    exam_time_from: '',
+    exam_time_to: '',
+    duration_minutes: '60',
+    total_marks: '0',
+    passing_marks: '0',
+    instructions: '',
+    is_published: false,
+  });
 
   const queryClient = useQueryClient();
   const { showToast } = useToast();
@@ -549,6 +564,11 @@ const OnlineExamsTab = () => {
     ['sections', filters.class_id],
     () => academicsService.getSections(filters.class_id ? Number(filters.class_id) : undefined).then(res => res.data),
     { enabled: !!filters.class_id }
+  );
+  const { data: createSections = [] } = useQuery(
+    ['create-sections', createFormData.class_id],
+    () => academicsService.getSections(createFormData.class_id ? Number(createFormData.class_id) : undefined).then(res => res.data),
+    { enabled: !!createFormData.class_id }
   );
 
   const { data: exams = [], isLoading } = useQuery(
@@ -566,22 +586,6 @@ const OnlineExamsTab = () => {
       },
     }
   );
-
-  const [createFormData, setCreateFormData] = useState({
-    name: '',
-    subject_id: '',
-    session_id: '',
-    class_id: '',
-    section_id: '',
-    exam_date: '',
-    exam_time_from: '',
-    exam_time_to: '',
-    duration_minutes: '60',
-    total_marks: '0',
-    passing_marks: '0',
-    instructions: '',
-    is_published: false,
-  });
 
   const createMutation = useMutation(onlineExaminationsService.createOnlineExam, {
     onSuccess: () => {
@@ -913,7 +917,7 @@ const OnlineExamsTab = () => {
                 disabled={!createFormData.class_id}
               >
                 <option value="">All Sections</option>
-                {sections.map((sec: any) => (
+                {createSections.map((sec: any) => (
                   <option key={sec.id} value={sec.id}>
                     {sec.name}
                   </option>

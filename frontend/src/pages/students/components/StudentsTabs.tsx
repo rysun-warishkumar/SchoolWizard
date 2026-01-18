@@ -1,8 +1,8 @@
 import React, { useRef, useEffect, useState } from 'react';
 
 interface StudentsTabsProps {
-  activeTab: 'list' | 'admission' | 'online-admissions' | 'categories' | 'houses' | 'disable-reasons' | 'promote';
-  onTabChange: (tab: 'list' | 'admission' | 'online-admissions' | 'categories' | 'houses' | 'disable-reasons' | 'promote') => void;
+  activeTab: 'list' | 'admission' | 'categories' | 'houses' | 'disable-reasons' | 'promote';
+  onTabChange: (tab: 'list' | 'admission' | 'categories' | 'houses' | 'disable-reasons' | 'promote') => void;
 }
 
 const StudentsTabs: React.FC<StudentsTabsProps> = ({ activeTab, onTabChange }) => {
@@ -130,13 +130,6 @@ const StudentsTabs: React.FC<StudentsTabsProps> = ({ activeTab, onTabChange }) =
             onClick={() => onTabChange('admission')}
           >
             Student Admission
-          </button>
-          <button
-            ref={activeTab === 'online-admissions' ? activeTabRef : null}
-            className={activeTab === 'online-admissions' ? 'active' : ''}
-            onClick={() => onTabChange('online-admissions')}
-          >
-            Online Admissions
           </button>
           <button
             ref={activeTab === 'categories' ? activeTabRef : null}

@@ -285,7 +285,12 @@ export const getStudents = async (
     query += ' ORDER BY s.admission_no ASC';
 
     // Get total count first (before pagination)
-    let countQuery = 'SELECT COUNT(*) as total FROM students s WHERE 1=1';
+    // IMPORTANT: Count query must match the main query exactly (same WHERE conditions)
+    let countQuery = `
+      SELECT COUNT(*) as total 
+      FROM students s
+      WHERE 1=1
+    `;
     const countParams: any[] = [];
 
     if (class_id) {
@@ -307,11 +312,15 @@ export const getStudents = async (
 
     const [countResult] = await db.execute(countQuery, countParams) as any[];
     const total = Number(countResult[0]?.total || 0);
-    const totalPages = Math.ceil(total / limitNum);
+    const totalPages = total > 0 ? Math.ceil(total / limitNum) : 0;
 
     // Validate page number against total pages
     if (total > 0 && pageNum > totalPages) {
-      throw createError(`Page ${pageNum} does not exist. Maximum page is ${totalPages}.`, 400);
+      // Auto-correct to last valid page instead of throwing error
+      pageNum = totalPages;
+    } else if (total === 0 && pageNum > 1) {
+      // If no results, reset to page 1
+      pageNum = 1;
     }
 
     // Pagination
@@ -729,17 +738,20 @@ export const createStudent = async (
 
     // Create student
     try {
-      // Get actual table structure from database to ensure we match exactly
-      const [tableColumns] = await db.execute(`
-        SELECT COLUMN_NAME 
-        FROM INFORMATION_SCHEMA.COLUMNS
-        WHERE TABLE_SCHEMA = DATABASE()
-        AND TABLE_NAME = 'students'
-        AND COLUMN_NAME NOT IN ('id', 'created_at', 'updated_at', 'disable_reason_id', 'disable_date')
-        ORDER BY ORDINAL_POSITION
-      `) as any[];
-
-      const actualColumns = tableColumns.map((col: any) => col.COLUMN_NAME);
+      // Static list of columns in the correct order (excluding auto-generated columns)
+      // This avoids slow INFORMATION_SCHEMA queries on every request
+      const actualColumns = [
+        'admission_no', 'roll_no', 'user_id', 'class_id', 'section_id', 'session_id',
+        'first_name', 'last_name', 'gender', 'date_of_birth', 'category_id', 'religion', 'caste',
+        'student_mobile', 'email', 'admission_date', 'photo', 'blood_group', 'house_id',
+        'height', 'weight', 'as_on_date', 'sibling_id',
+        'father_name', 'father_occupation', 'father_phone', 'father_email', 'father_photo',
+        'mother_name', 'mother_occupation', 'mother_phone', 'mother_email', 'mother_photo',
+        'guardian_name', 'guardian_relation', 'guardian_occupation', 'guardian_phone', 'guardian_email', 'guardian_photo',
+        'current_address', 'permanent_address',
+        'transport_route_id', 'hostel_id', 'hostel_room_id',
+        'is_rte', 'rte_details', 'is_active'
+      ];
 
       // Create a map of field values
       const fieldMap: Record<string, any> = {
@@ -792,7 +804,7 @@ export const createStudent = async (
         is_active: 1, // default to active
       };
 
-      // Build columns and values arrays in the exact order they appear in the database
+      // Build columns and values arrays in the exact order
       const columns: string[] = [];
       const values: any[] = [];
 
@@ -805,21 +817,6 @@ export const createStudent = async (
           columns.push(colName);
           values.push(null);
         }
-      }
-
-      // Log for debugging (only in development)
-      if (process.env.NODE_ENV === 'development') {
-        console.log(`\n=== INSERT Statement Debug ===`);
-        console.log(`Actual table columns count: ${actualColumns.length}`);
-        console.log(`Columns to insert: ${columns.length}`);
-        console.log(`Values count: ${values.length}`);
-        console.log(`Columns:`, columns);
-      }
-
-      // Verify counts match
-      if (columns.length !== values.length) {
-        console.error(`Column count (${columns.length}) doesn't match values count (${values.length})`);
-        throw createError(`Internal error: Column count mismatch. Please contact support.`, 500);
       }
 
       // Build placeholders
@@ -848,54 +845,48 @@ export const createStudent = async (
 
       const studentName = `${first_name} ${last_name || ''}`.trim();
       
-      // Send email to student if email is provided
-      if (email && email.trim() !== '' && plainPassword) {
-        try {
-          const loginUrl = process.env.FRONTEND_URL || 'http://localhost:5173/login';
-          await sendStudentAdmissionEmail(
-            email.trim(),
-            studentName,
-            admission_no,
-            plainPassword,
-            loginUrl
-          );
-        } catch (emailError: any) {
-          // Log email error but don't fail the student creation
-          console.error('Failed to send admission email:', emailError);
-          // Continue with success response even if email fails
-        }
-      }
-
-      // Process parent emails and create/get parent accounts
-      let parentAccountsCreated = 0;
-      try {
-        const { processParentEmails } = await import('../services/parentUserService');
-        const parentResult = await processParentEmails(
-          father_email || null,
-          father_name || null,
-          mother_email || null,
-          mother_name || null,
-          guardian_email || null,
-          guardian_name || null,
-          studentName,
-          admission_no
-        );
-        parentAccountsCreated = parentResult.createdAccounts;
-      } catch (parentError: any) {
-        // Log parent account creation error but don't fail the student creation
-        console.error('Failed to create parent accounts:', parentError);
-        // Continue with success response even if parent account creation fails
-      }
-      
-      // Send success response
-      const parentMessage = parentAccountsCreated > 0 
-        ? ` ${parentAccountsCreated} parent account(s) created and login credentials sent.`
-        : '';
+      // Send success response immediately (don't wait for emails)
       res.status(201).json({
         success: true,
-        message: `Student "${studentName}" has been admitted successfully with Admission No: ${admission_no}${email && email.trim() !== '' ? '. Login credentials have been sent to the student\'s email.' : ''}${parentMessage}`,
+        message: `Student "${studentName}" has been admitted successfully with Admission No: ${admission_no}`,
         data: newStudents[0],
       });
+
+      // Send email to student if email is provided (async, non-blocking)
+      if (email && email.trim() !== '' && plainPassword) {
+        // Don't await - send in background
+        sendStudentAdmissionEmail(
+          email.trim(),
+          studentName,
+          admission_no,
+          plainPassword,
+          process.env.FRONTEND_URL || 'http://localhost:5173/login'
+        ).catch((emailError: any) => {
+          // Log email error but don't fail the student creation
+          console.error('Failed to send admission email:', emailError);
+        });
+      }
+
+      // Process parent emails and create/get parent accounts (async, non-blocking)
+      // Don't await - process in background
+      if (father_email || mother_email || guardian_email) {
+        import('../services/parentUserService').then(({ processParentEmails }) => {
+          return processParentEmails(
+            father_email || null,
+            father_name || null,
+            mother_email || null,
+            mother_name || null,
+            guardian_email || null,
+            guardian_name || null,
+            studentName,
+            admission_no
+          );
+        }).catch((parentError: any) => {
+          // Log parent account creation error but don't fail the student creation
+          console.error('Failed to create parent accounts:', parentError);
+        });
+      }
+      
       return;
     } catch (dbError: any) {
       // Log the actual error for debugging

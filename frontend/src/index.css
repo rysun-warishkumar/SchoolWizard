@@ -77,6 +77,9 @@
   --sidebar-width-collapsed: 70px;
 }
 
+/* Shared styles for pages (moved from module imports) */
+@import "./styles/common.css";
+
 body {
   font-family: var(--font-family);
   font-size: var(--font-size-base);
@@ -443,7 +446,7 @@ textarea.error:focus {
   gap: var(--spacing-md);
   margin-top: var(--spacing-xl);
   padding-top: var(--spacing-lg);
-  border-top: 1px solid var(--gray-200);
+  /* border-top: 1px solid var(--gray-200); */
 }
 
 /* Required Field Indicator */

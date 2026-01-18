@@ -143,9 +143,8 @@
   font-weight: 600;
   font-size: var(--font-size-xs);
 }
-
+/* Base loading/empty-state styles are provided by src/styles/common.css; keep module-specific overrides below */
 .empty-state {
-  text-align: center;
   padding: var(--spacing-xl);
   color: var(--gray-500);
   background: white;
@@ -160,7 +159,6 @@
 }
 
 .loading {
-  text-align: center;
   padding: var(--spacing-xl);
   color: var(--gray-500);
 }

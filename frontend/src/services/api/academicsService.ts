@@ -34,6 +34,7 @@ export interface SubjectGroup {
   class_name?: string;
   section_name?: string;
   subjects?: string;
+  subject_ids?: string;
   created_at: string;
   updated_at: string;
 }

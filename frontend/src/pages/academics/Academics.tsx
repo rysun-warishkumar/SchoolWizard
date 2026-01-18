@@ -1,18 +1,20 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { useQuery, useMutation, useQueryClient } from 'react-query';
 import { useSearchParams } from 'react-router-dom';
 import { academicsService, Class, Section, Subject, SubjectGroup, TimetableEntry } from '../../services/api/academicsService';
+import { rolesService } from '../../services/api/rolesService';
 import { hrService } from '../../services/api/hrService';
+import { profileService } from '../../services/api/profileService';
 import { useToast } from '../../contexts/ToastContext';
 import Modal from '../../components/common/Modal';
 import './Academics.css';
 
-type TabType = 'classes' | 'sections' | 'subjects' | 'subject-groups' | 'class-teachers' | 'timetable' | 'teachers-timetable';
+type TabType = 'classes' | 'sections' | 'subjects' | 'subject-groups' | 'class-teachers' | 'timetable' | 'class-timetable' | 'teachers-timetable';
 
 const Academics = () => {
   const [searchParams, setSearchParams] = useSearchParams();
   const tabFromUrl = searchParams.get('tab') as TabType;
-  const validTabs: TabType[] = ['classes', 'sections', 'subjects', 'subject-groups', 'class-teachers', 'timetable', 'teachers-timetable'];
+  const validTabs: TabType[] = ['classes', 'sections', 'subjects', 'subject-groups', 'class-teachers', 'timetable', 'class-timetable', 'teachers-timetable'];
   const defaultTab: TabType = validTabs.includes(tabFromUrl) ? tabFromUrl : 'classes';
 
   const [activeTab, setActiveTab] = useState<TabType>(defaultTab);
@@ -223,6 +225,13 @@ const Academics = () => {
               Timetable
             </button>
             <button
+              ref={activeTab === 'class-timetable' ? activeTabRef : null}
+              className={activeTab === 'class-timetable' ? 'active' : ''}
+              onClick={() => handleTabChange('class-timetable')}
+            >
+              Class Timetable
+            </button>
+            <button
               ref={activeTab === 'teachers-timetable' ? activeTabRef : null}
               className={activeTab === 'teachers-timetable' ? 'active' : ''}
               onClick={() => handleTabChange('teachers-timetable')}
@@ -281,6 +290,13 @@ const Academics = () => {
             classes={classesData?.data || []}
             sections={sectionsData?.data || []}
             subjectGroups={subjectGroupsData?.data || []}
+            subjects={subjectsData?.data || []}
+          />
+        )}
+        {activeTab === 'class-timetable' && (
+          <ClassTimetableTab
+            classes={classesData?.data || []}
+            sections={sectionsData?.data || []}
             subjects={subjectsData?.data || []}
           />
         )}
@@ -755,11 +771,15 @@ const SubjectGroupsTab = ({
 
   const handleEdit = (group: SubjectGroup) => {
     setEditingGroup(group);
+    const subjectIds = (group.subject_ids || '')
+      .split(',')
+      .map((id) => Number(id.trim()))
+      .filter((id) => !isNaN(id));
     setFormData({
       name: group.name,
       class_id: String(group.class_id),
       section_id: String(group.section_id),
-      subject_ids: group.subjects ? group.subjects.split(',').map(id => Number(id.trim())).filter(id => !isNaN(id)) : [],
+      subject_ids: subjectIds,
     });
     setShowModal(true);
   };
@@ -931,15 +951,29 @@ const SubjectGroupsTab = ({
 const ClassTeachersTab = ({ classes, sections }: { classes: Class[]; sections: Section[] }) => {
   const [selectedClassId, setSelectedClassId] = useState<number | ''>('');
   const [selectedSectionId, setSelectedSectionId] = useState<number | ''>('');
-  const [selectedTeacherIds, setSelectedTeacherIds] = useState<number[]>([]);
+  const [selectedTeacherId, setSelectedTeacherId] = useState<number | ''>('');
   const [showAssignModal, setShowAssignModal] = useState(false);
 
   const queryClient = useQueryClient();
   const { showToast } = useToast();
 
+  const { data: rolesData } = useQuery('roles', rolesService.getRoles, {
+    refetchOnWindowFocus: false,
+  });
+
+  const teacherRoleId = rolesData?.data?.find(
+    (role) => role.name?.toLowerCase() === 'teacher'
+  )?.id;
+
   const { data: teachersData } = useQuery(
-    'teachers-for-assignment',
-    () => hrService.getStaff({ role_id: 3, is_active: true, limit: 1000 }),
+    ['teachers-for-assignment', teacherRoleId],
+    () =>
+      hrService.getStaff({
+        role_id: teacherRoleId,
+        is_active: true,
+        page: 1,
+        limit: 100,
+      }),
     { refetchOnWindowFocus: false }
   );
 
@@ -960,7 +994,7 @@ const ClassTeachersTab = ({ classes, sections }: { classes: Class[]; sections: S
       queryClient.invalidateQueries('class-teachers');
       refetchClassTeachers();
       setShowAssignModal(false);
-      setSelectedTeacherIds([]);
+      setSelectedTeacherId('');
       showToast('Teacher assigned successfully', 'success');
     },
     onError: (error: any) => {
@@ -989,66 +1023,41 @@ const ClassTeachersTab = ({ classes, sections }: { classes: Class[]; sections: S
   };
 
   const handleAssign = () => {
-    if (!selectedClassId || !selectedSectionId || selectedTeacherIds.length === 0) {
-      showToast('Please select class, section, and at least one teacher', 'error');
+    if (!selectedClassId || !selectedSectionId || !selectedTeacherId) {
+      showToast('Please select class, section, and a teacher', 'error');
       return;
     }
     setShowAssignModal(true);
   };
 
   const handleConfirmAssign = () => {
-    if (selectedTeacherIds.length === 0) {
-      showToast('Please select at least one teacher', 'error');
+    if (!selectedTeacherId) {
+      showToast('Please select a teacher', 'error');
       return;
     }
 
-    // Get user_id for each selected teacher (staff.id -> staff.user_id)
-    const teacherUserIds = selectedTeacherIds
-      .map(staffId => {
-        const teacher = teachers.find(t => t.id === staffId);
-        return teacher?.user_id;
-      })
-      .filter((userId): userId is number => userId !== undefined && userId !== null);
+    const selectedTeacher = teachers.find(t => t.id === Number(selectedTeacherId));
+    const teacherUserId = selectedTeacher?.user_id;
 
-    if (teacherUserIds.length === 0) {
-      showToast('Selected teachers do not have user accounts. Please select teachers with user accounts.', 'error');
+    if (!teacherUserId) {
+      showToast('Selected teacher does not have a user account. Please select a teacher with a user account.', 'error');
       return;
     }
 
-    if (teacherUserIds.length !== selectedTeacherIds.length) {
-      showToast('Some selected teachers do not have user accounts. Only teachers with user accounts will be assigned.', 'warning');
-    }
-
-    // Check if any selected teacher is already assigned
-    const alreadyAssigned: string[] = [];
-    teacherUserIds.forEach(userId => {
-      const teacher = teachers.find(t => t.user_id === userId);
-      const isAssigned = classTeachers.some(ct => ct.teacher_id === userId);
-      if (isAssigned && teacher) {
-        alreadyAssigned.push(`${teacher.first_name} ${teacher.last_name || ''}`.trim() || teacher.email || 'Teacher');
-      }
-    });
-
-    if (alreadyAssigned.length > 0) {
+    const isAssigned = classTeachers.some(ct => ct.teacher_id === teacherUserId);
+    if (isAssigned) {
       showToast(
-        `The following teacher(s) are already assigned: ${alreadyAssigned.join(', ')}. Please check the Class Teachers List below.`,
+        'This teacher is already assigned to this class-section. Please check the Class Teachers List below.',
         'error'
       );
       setShowAssignModal(false);
       return;
     }
 
-    // Assign each selected teacher using their user_id
-    const assignments = teacherUserIds.map(userId =>
-      assignMutation.mutateAsync({
-        class_id: Number(selectedClassId),
-        section_id: Number(selectedSectionId),
-        teacher_id: userId, // Use user_id, not staff.id
-      })
-    );
-
-    Promise.all(assignments).catch(() => {
-      // Errors are handled in mutation onError
+    assignMutation.mutate({
+      class_id: Number(selectedClassId),
+      section_id: Number(selectedSectionId),
+      teacher_id: teacherUserId, // Use user_id, not staff.id
     });
   };
 
@@ -1058,7 +1067,10 @@ const ClassTeachersTab = ({ classes, sections }: { classes: Class[]; sections: S
     }
   };
 
-  const teachers = teachersData?.data || [];
+  const teachers = (teachersData?.data || []).filter((staff) => {
+    if (teacherRoleId) return true;
+    return staff.role_name?.toLowerCase() === 'teacher';
+  });
   const classTeachers = classTeachersData?.data || [];
 
   const availableSections = selectedClassId
@@ -1082,7 +1094,7 @@ const ClassTeachersTab = ({ classes, sections }: { classes: Class[]; sections: S
               onChange={(e) => {
                 setSelectedClassId(e.target.value ? Number(e.target.value) : '');
                 setSelectedSectionId('');
-                setSelectedTeacherIds([]);
+                setSelectedTeacherId('');
               }}
             >
               <option value="">Select Class</option>
@@ -1097,7 +1109,10 @@ const ClassTeachersTab = ({ classes, sections }: { classes: Class[]; sections: S
             <label>Section</label>
             <select
               value={selectedSectionId}
-              onChange={(e) => setSelectedSectionId(e.target.value ? Number(e.target.value) : '')}
+              onChange={(e) => {
+                setSelectedSectionId(e.target.value ? Number(e.target.value) : '');
+                setSelectedTeacherId('');
+              }}
               disabled={!selectedClassId}
             >
               <option value="">Select Section</option>
@@ -1124,34 +1139,32 @@ const ClassTeachersTab = ({ classes, sections }: { classes: Class[]; sections: S
         {selectedClassId && selectedSectionId && (
           <div className="form-row" style={{ marginTop: '20px' }}>
             <div className="form-group" style={{ flex: 1 }}>
-              <label>Select Teachers</label>
+              <label>Select Teacher</label>
               <select
-                multiple
-                value={selectedTeacherIds.map(String)}
-                onChange={(e) => {
-                  const values = Array.from(e.target.selectedOptions, option => Number(option.value));
-                  setSelectedTeacherIds(values);
-                }}
-                style={{ minHeight: '150px' }}
+                value={selectedTeacherId}
+                onChange={(e) => setSelectedTeacherId(e.target.value ? Number(e.target.value) : '')}
               >
+                <option value="">Select Teacher</option>
                 {teachers
                   .filter(teacher => teacher.user_id) // Only show teachers with user accounts
-                  .map((teacher) => (
-                    <option key={teacher.id} value={teacher.id}>
-                      {teacher.first_name} {teacher.last_name || ''} ({teacher.email || teacher.staff_id})
-                    </option>
-                  ))}
+                  .map((teacher) => {
+                    const name = `${teacher.first_name} ${teacher.last_name || ''}`.trim();
+                    return (
+                      <option key={teacher.id} value={teacher.id}>
+                        {`${teacher.staff_id || 'STAFF'} - ${name || teacher.email || 'Teacher'}`}
+                      </option>
+                    );
+                  })}
               </select>
-              <small>Hold Ctrl/Cmd to select multiple teachers</small>
             </div>
             <div className="form-group" style={{ marginLeft: '20px', display: 'flex', alignItems: 'flex-end' }}>
               <button
                 type="button"
                 className="btn-primary"
                 onClick={handleAssign}
-                disabled={selectedTeacherIds.length === 0}
+                disabled={!selectedTeacherId}
               >
-                Assign Teachers
+                Assign Teacher
               </button>
             </div>
           </div>
@@ -1204,38 +1217,17 @@ const ClassTeachersTab = ({ classes, sections }: { classes: Class[]; sections: S
           onClose={() => setShowAssignModal(false)}
         >
           <div>
-            <p>Are you sure you want to assign {selectedTeacherIds.length} teacher(s) to this class-section?</p>
-            {selectedTeacherIds.length > 0 && (
+            <p>Are you sure you want to assign this teacher to this class-section?</p>
+            {selectedTeacherId && (
               <div style={{ marginTop: '15px', marginBottom: '15px' }}>
-                <strong>Selected Teachers:</strong>
-                <ul style={{ marginTop: '8px', paddingLeft: '20px' }}>
-                  {selectedTeacherIds.map(staffId => {
-                    const teacher = teachers.find(t => t.id === staffId);
-                    const isAlreadyAssigned = teacher?.user_id 
-                      ? classTeachers.some(ct => ct.teacher_id === teacher.user_id)
-                      : false;
-                    return (
-                      <li key={staffId} style={{ color: isAlreadyAssigned ? '#d32f2f' : 'inherit' }}>
-                        {teacher ? `${teacher.first_name} ${teacher.last_name || ''}`.trim() || teacher.email || 'Unknown' : 'Unknown'}
-                        {isAlreadyAssigned && <span style={{ marginLeft: '8px', fontWeight: 'bold' }}>(Already Assigned)</span>}
-                      </li>
-                    );
-                  })}
-                </ul>
-              </div>
-            )}
-            {selectedTeacherIds.some(staffId => {
-              const teacher = teachers.find(t => t.id === staffId);
-              return teacher?.user_id && classTeachers.some(ct => ct.teacher_id === teacher.user_id);
-            }) && (
-              <div style={{ 
-                padding: '10px', 
-                backgroundColor: '#fff3cd', 
-                border: '1px solid #ffc107', 
-                borderRadius: '4px',
-                marginBottom: '15px'
-              }}>
-                <strong>⚠️ Warning:</strong> Some selected teachers are already assigned. They will be skipped.
+                <strong>Selected Teacher:</strong>
+                <div style={{ marginTop: '8px' }}>
+                  {(() => {
+                    const teacher = teachers.find(t => t.id === Number(selectedTeacherId));
+                    const name = teacher ? `${teacher.first_name} ${teacher.last_name || ''}`.trim() || teacher.email || 'Unknown' : 'Unknown';
+                    return `${teacher?.staff_id || 'STAFF'} - ${name}`;
+                  })()}
+                </div>
               </div>
             )}
           </div>
@@ -1278,13 +1270,28 @@ const TimetableTab = ({
   const [showEditModal, setShowEditModal] = useState(false);
   const [editingEntry, setEditingEntry] = useState<Partial<TimetableEntry> | null>(null);
   const [editingDay, setEditingDay] = useState<string>('');
+  const [selectedDay, setSelectedDay] = useState<string>('monday');
 
   const queryClient = useQueryClient();
   const { showToast } = useToast();
 
+  const { data: rolesData } = useQuery('roles', rolesService.getRoles, {
+    refetchOnWindowFocus: false,
+  });
+
+  const teacherRoleId = rolesData?.data?.find(
+    (role) => role.name?.toLowerCase() === 'teacher'
+  )?.id;
+
   const { data: teachersData } = useQuery(
-    'teachers-for-timetable',
-    () => hrService.getStaff({ role_id: 3, is_active: true, limit: 1000 }),
+    ['teachers-for-timetable', teacherRoleId],
+    () =>
+      hrService.getStaff({
+        role_id: teacherRoleId,
+        is_active: true,
+        page: 1,
+        limit: 100,
+      }),
     { refetchOnWindowFocus: false }
   );
 
@@ -1414,11 +1421,13 @@ const TimetableTab = ({
 
   // Extract teachers - handle different response structures
   // Filter out teachers without user_id (they can't be assigned to timetable)
-  const teachers = (Array.isArray(teachersData?.data) 
-    ? teachersData.data 
-    : Array.isArray(teachersData) 
-    ? teachersData 
-    : []).filter((teacher: any) => teacher.user_id != null);
+  const teachers = (Array.isArray(teachersData?.data)
+    ? teachersData.data
+    : Array.isArray(teachersData)
+    ? teachersData
+    : [])
+    .filter((teacher: any) => (teacherRoleId ? true : teacher.role_name?.toLowerCase() === 'teacher'))
+    .filter((teacher: any) => teacher.user_id != null);
 
   const timetable = timetableData?.data || [];
 
@@ -1491,33 +1500,32 @@ const TimetableTab = ({
 
   return (
     <div className="tab-content">
-      {/* Mode Selector */}
-      <div className="timetable-mode-selector">
-        <button
-          className={`mode-button ${viewMode === 'view' ? 'active' : ''}`}
-          onClick={() => {
-            setViewMode('view');
-            setTimetableEntries({});
-          }}
-        >
-          <span className="mode-icon">👁️</span>
-          <span>View Timetable</span>
-        </button>
-        <button
-          className={`mode-button ${viewMode === 'add' ? 'active' : ''}`}
-          onClick={() => {
-            setViewMode('add');
-            setTimetableEntries({});
-          }}
-        >
-          <span className="mode-icon">➕</span>
-          <span>Add/Edit Timetable</span>
-        </button>
+      {/* Mode Toggle Header */}
+      <div className="timetable-mode-header">
+        <h3>Select Criteria</h3>
+        <div className="toggle-switch-container">
+          <label className="toggle-switch-label left">View Timetable</label>
+          <button
+            className={`toggle-switch ${viewMode === 'add' ? 'active' : ''}`}
+            onClick={() => {
+              const newMode = viewMode === 'view' ? 'add' : 'view';
+              setViewMode(newMode);
+              setTimetableEntries({});
+              setSelectedDay('monday');
+            }}
+            title={viewMode === 'view' ? 'Switch to Add/Edit mode' : 'Switch to View mode'}
+            aria-label={`Toggle between View and Add/Edit mode (currently ${viewMode})`}
+          >
+            <div className="toggle-switch-thumb">
+              <span className="toggle-switch-icon">{viewMode === 'view' ? '👁️' : '✏️'}</span>
+            </div>
+          </button>
+          <label className="toggle-switch-label right">Add/Edit Timetable</label>
+        </div>
       </div>
 
-      {/* Selection Form */}
-      <div className="timetable-selection-form">
-        <h3>{viewMode === 'view' ? 'Select Class & Section to View Timetable' : 'Select Class, Section & Subject Group to Add Timetable'}</h3>
+      {/* Selection Criteria Section */}
+      <div className="timetable-criteria-section">
         <div className="form-row">
           <div className="form-group">
             <label>Class <span className="required">*</span></label>
@@ -1527,6 +1535,7 @@ const TimetableTab = ({
                 setSelectedClassId(e.target.value ? Number(e.target.value) : '');
                 setSelectedSectionId('');
                 setSelectedSubjectGroupId('');
+                setSelectedDay('monday');
               }}
             >
               <option value="">Select Class</option>
@@ -1555,93 +1564,110 @@ const TimetableTab = ({
               ))}
             </select>
           </div>
-          {viewMode === 'add' && (
-            <div className="form-group">
-              <label>Subject Group <span className="required">*</span></label>
-              <select
-                value={selectedSubjectGroupId}
-                onChange={(e) => setSelectedSubjectGroupId(e.target.value ? Number(e.target.value) : '')}
+        </div>
+
+        {viewMode === 'add' && (
+          <div style={{ marginTop: '15px' }}>
+            <div className="form-row">
+              <div className="form-group">
+                <label>Subject Group <span className="required">*</span></label>
+                <select
+                  value={selectedSubjectGroupId}
+                  onChange={(e) => setSelectedSubjectGroupId(e.target.value ? Number(e.target.value) : '')}
+                  disabled={!selectedClassId || !selectedSectionId}
+                >
+                  <option value="">Select Subject Group</option>
+                  {availableSubjectGroups.map((sg) => (
+                    <option key={sg.id} value={sg.id}>
+                      {sg.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <div className="form-actions" style={{ display: 'flex', gap: '10px', alignItems: 'flex-end' }}>
+                <button
+                  type="button"
+                  className="btn-primary"
+                  onClick={handleAddTimetable}
+                  disabled={!selectedClassId || !selectedSectionId || !selectedSubjectGroupId}
+                >
+                  Start Adding
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {viewMode === 'view' && (
+          <div style={{ marginTop: '15px' }}>
+            <div className="form-actions" style={{ display: 'flex', gap: '10px' }}>
+              <button
+                type="button"
+                className="btn-primary"
+                onClick={handleViewTimetable}
                 disabled={!selectedClassId || !selectedSectionId}
               >
-                <option value="">Select Subject Group</option>
-                {availableSubjectGroups.map((sg) => (
-                  <option key={sg.id} value={sg.id}>
-                    {sg.name}
-                  </option>
-                ))}
-              </select>
+                Search
+              </button>
             </div>
-          )}
-        </div>
-        <div className="form-actions" style={{ marginTop: '20px' }}>
-          <button
-            type="button"
-            className="btn-primary"
-            onClick={viewMode === 'view' ? handleViewTimetable : handleAddTimetable}
-            disabled={!selectedClassId || !selectedSectionId || (viewMode === 'add' && !selectedSubjectGroupId)}
-          >
-            {viewMode === 'view' ? '🔍 View Timetable' : '➕ Start Adding Entries'}
-          </button>
-          {(selectedClassId || selectedSectionId) && (
-            <button
-              type="button"
-              className="btn-secondary"
-              onClick={() => {
-                setSelectedClassId('');
-                setSelectedSectionId('');
-                setSelectedSubjectGroupId('');
-                setTimetableEntries({});
-              }}
-              style={{ marginLeft: '10px' }}
-            >
-              Clear Selection
-            </button>
-          )}
-        </div>
+          </div>
+        )}
       </div>
 
+      {/* Viewing Mode */}
       {viewMode === 'view' && selectedClassId && selectedSectionId && (
-        <div className="timetable-view">
-          <div className="timetable-view-header">
-            <h2>
-              Class Timetable - {classes.find(c => c.id === Number(selectedClassId))?.name} 
-              ({sections.find(s => s.id === Number(selectedSectionId))?.name})
-            </h2>
-            {timetable.length === 0 && (
-              <p className="timetable-empty-message">
-                No timetable entries found for this class and section. Click "Add/Edit Timetable" to create entries.
-              </p>
-            )}
-          </div>
-          {timetable.length > 0 && (
-          <div className="timetable-grid">
-            {daysOfWeek.map((day) => (
-              <div key={day} className="timetable-day">
-                <h3 style={{ textTransform: 'capitalize', marginBottom: '10px' }}>{day}</h3>
-                {timetableByDay[day]?.length > 0 ? (
-                  <table className="timetable-table">
+        <div className="timetable-view-section">
+          {timetable.length === 0 ? (
+            <div className="empty-state">
+              No timetable entries found for {classes.find(c => c.id === Number(selectedClassId))?.name} - {sections.find(s => s.id === Number(selectedSectionId))?.name}
+            </div>
+          ) : (
+            <>
+              {/* Days Tabs */}
+              <div className="timetable-days-tabs">
+                {daysOfWeek.map((day) => (
+                  <button
+                    key={day}
+                    className={`day-tab ${selectedDay === day ? 'active' : ''} ${timetableByDay[day]?.length > 0 ? 'has-entries' : ''}`}
+                    onClick={() => setSelectedDay(day)}
+                  >
+                    {day.charAt(0).toUpperCase() + day.slice(1)}
+                  </button>
+                ))}
+              </div>
+
+              {/* Timetable Grid */}
+              <div className="timetable-entries-section">
+                {timetableByDay[selectedDay]?.length > 0 ? (
+                  <table className="timetable-table-view">
                     <thead>
                       <tr>
-                        <th>Time</th>
+                        <th>Time From</th>
+                        <th>Time To</th>
                         <th>Subject</th>
                         <th>Teacher</th>
-                        <th>Room</th>
+                        <th>Room No</th>
                         <th>Actions</th>
                       </tr>
                     </thead>
                     <tbody>
-                      {timetableByDay[day]
+                      {timetableByDay[selectedDay]
                         .sort((a, b) => a.time_from.localeCompare(b.time_from))
                         .map((entry) => (
                           <tr key={entry.id}>
-                            <td>{entry.time_from} - {entry.time_to}</td>
-                            <td>{entry.subject_name} {entry.subject_code ? `(${entry.subject_code})` : ''}</td>
+                            <td>{entry.time_from}</td>
+                            <td>{entry.time_to}</td>
+                            <td>
+                              <strong>{entry.subject_name}</strong>
+                              {entry.subject_code && <span className="code"> ({entry.subject_code})</span>}
+                            </td>
                             <td>{entry.teacher_name || '-'}</td>
                             <td>{entry.room_no || '-'}</td>
                             <td>
                               <button
                                 className="btn-edit"
                                 onClick={() => handleEditEntry(entry)}
+                                style={{ marginRight: '5px' }}
                               >
                                 Edit
                               </button>
@@ -1657,69 +1683,172 @@ const TimetableTab = ({
                     </tbody>
                   </table>
                 ) : (
-                  <div className="empty-state">No classes scheduled</div>
+                  <div className="empty-day-state">
+                    <p>No classes scheduled for {selectedDay.charAt(0).toUpperCase() + selectedDay.slice(1)}</p>
+                  </div>
                 )}
               </div>
-            ))}
-          </div>
+            </>
           )}
         </div>
       )}
 
-      {viewMode === 'view' && (!selectedClassId || !selectedSectionId) && (
-        <div className="timetable-empty-state">
-          <p>Please select a class and section to view the timetable.</p>
-        </div>
-      )}
-
-      {viewMode === 'add' && selectedSubjectGroupId && (
-        <div className="timetable-add">
-          <div className="timetable-add-header">
-            <h2>Add Timetable Entries</h2>
-            <p className="timetable-add-subtitle">
-              Click on a day to add or edit timetable entries. Days with entries are highlighted.
-            </p>
-          </div>
-          <div className="timetable-days-tabs">
+      {/* Adding Mode */}
+      {viewMode === 'add' && selectedClassId && selectedSectionId && selectedSubjectGroupId && (
+        <div className="timetable-add-section">
+          {/* Days Tabs for Adding */}
+          <div className="timetable-days-tabs add-mode">
             {daysOfWeek.map((day) => (
               <button
                 key={day}
-                className={`day-tab ${timetableEntries[day] ? 'has-entry' : ''}`}
-                onClick={() => {
-                  const entry = timetableEntries[day] || {};
-                  setEditingEntry(entry);
-                  setEditingDay(day);
-                  setShowEditModal(true);
-                }}
+                className={`day-tab ${selectedDay === day ? 'active' : ''} ${timetableEntries[day] ? 'has-entry' : ''}`}
+                onClick={() => setSelectedDay(day)}
               >
-                <span className="day-name">{day.charAt(0).toUpperCase() + day.slice(1)}</span>
-                {timetableEntries[day] && (
-                  <span className="day-entry-indicator">✓</span>
-                )}
+                <span>{day.charAt(0).toUpperCase() + day.slice(1)}</span>
+                {timetableEntries[day] && <span className="entry-indicator">+</span>}
               </button>
             ))}
           </div>
-          <div className="timetable-add-actions">
-            <div className="timetable-add-info">
-              <span className="info-text">
-                {Object.keys(timetableEntries).length > 0 
-                  ? `${Object.keys(timetableEntries).length} day(s) have entries added`
-                  : 'No entries added yet. Click on a day to add entries.'}
-              </span>
+
+          {/* Add Entry Form */}
+          <div className="timetable-add-form-section">
+            <h4>Add Entry for {selectedDay.charAt(0).toUpperCase() + selectedDay.slice(1)}</h4>
+            <div className="add-entry-form">
+              <div className="form-group">
+                <label>Subject <span className="required">*</span></label>
+                <select
+                  value={timetableEntries[selectedDay]?.subject_id || ''}
+                  onChange={(e) =>
+                    setTimetableEntries({
+                      ...timetableEntries,
+                      [selectedDay]: { ...timetableEntries[selectedDay], subject_id: e.target.value ? Number(e.target.value) : undefined }
+                    })
+                  }
+                >
+                  <option value="">Select Subject</option>
+                  {availableSubjects?.map((subj) => (
+                    <option key={subj.id} value={subj.id}>
+                      {subj.name} {subj.code ? `(${subj.code})` : ''}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div className="form-group">
+                <label>Teacher</label>
+                <select
+                  value={timetableEntries[selectedDay]?.teacher_id || ''}
+                  onChange={(e) =>
+                    setTimetableEntries({
+                      ...timetableEntries,
+                      [selectedDay]: { ...timetableEntries[selectedDay], teacher_id: e.target.value ? Number(e.target.value) : undefined }
+                    })
+                  }
+                >
+                  <option value="">Select Teacher (Optional)</option>
+                  {teachers?.map((teacher: any) => (
+                    <option key={teacher.id} value={teacher.user_id}>
+                      {teacher.first_name} {teacher.last_name || ''}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div className="form-row">
+                <div className="form-group">
+                  <label>Time From <span className="required">*</span></label>
+                  <input
+                    type="time"
+                    value={timetableEntries[selectedDay]?.time_from || ''}
+                    onChange={(e) =>
+                      setTimetableEntries({
+                        ...timetableEntries,
+                        [selectedDay]: { ...timetableEntries[selectedDay], time_from: e.target.value }
+                      })
+                    }
+                  />
+                </div>
+
+                <div className="form-group">
+                  <label>Time To <span className="required">*</span></label>
+                  <input
+                    type="time"
+                    value={timetableEntries[selectedDay]?.time_to || ''}
+                    onChange={(e) =>
+                      setTimetableEntries({
+                        ...timetableEntries,
+                        [selectedDay]: { ...timetableEntries[selectedDay], time_to: e.target.value }
+                      })
+                    }
+                  />
+                </div>
+              </div>
+
+              <div className="form-group">
+                <label>Room No</label>
+                <input
+                  type="text"
+                  value={timetableEntries[selectedDay]?.room_no || ''}
+                  onChange={(e) =>
+                    setTimetableEntries({
+                      ...timetableEntries,
+                      [selectedDay]: { ...timetableEntries[selectedDay], room_no: e.target.value }
+                    })
+                  }
+                  placeholder="Optional"
+                />
+              </div>
+
+              <div className="form-actions" style={{ marginTop: '15px' }}>
+                <button
+                  className="btn-primary"
+                  onClick={() => {
+                    const entry = timetableEntries[selectedDay];
+                    if (entry?.subject_id && entry?.time_from && entry?.time_to) {
+                      showToast(`Entry added for ${selectedDay}`, 'success');
+                    } else {
+                      showToast('Please fill in required fields (Subject, Time From, Time To)', 'error');
+                    }
+                  }}
+                >
+                  + Add New
+                </button>
+              </div>
             </div>
-            <div className="form-actions">
-              <button 
-                className="btn-primary" 
-                onClick={handleSaveTimetable} 
+
+            {/* Entries Summary */}
+            <div className="timetable-entries-summary">
+              <h4>Added Entries</h4>
+              {Object.keys(timetableEntries).length === 0 ? (
+                <p className="empty-summary">No entries added yet</p>
+              ) : (
+                <ul className="entries-list">
+                  {Object.entries(timetableEntries).map(([day, entry]) => (
+                    entry.subject_id && entry.time_from && entry.time_to && (
+                      <li key={day}>
+                        <strong>{day.charAt(0).toUpperCase() + day.slice(1)}</strong>: {entry.time_from} - {entry.time_to}
+                      </li>
+                    )
+                  ))}
+                </ul>
+              )}
+            </div>
+
+            {/* Save Actions */}
+            <div className="form-actions" style={{ marginTop: '20px' }}>
+              <button
+                className="btn-primary"
+                onClick={handleSaveTimetable}
                 disabled={createMutation.isLoading || Object.keys(timetableEntries).length === 0}
               >
-                {createMutation.isLoading ? '💾 Saving...' : '💾 Save Timetable'}
+                {createMutation.isLoading ? 'Saving...' : 'Save'}
               </button>
               <button
                 className="btn-secondary"
                 onClick={() => {
                   setViewMode('view');
                   setTimetableEntries({});
+                  setSelectedDay('monday');
                 }}
               >
                 Cancel
@@ -1747,15 +1876,11 @@ const TimetableTab = ({
               }
             >
               <option value="">Select Subject</option>
-              {availableSubjects && availableSubjects.length > 0 ? (
-                availableSubjects.map((subj) => (
-                  <option key={subj.id} value={subj.id}>
-                    {subj.name} {subj.code ? `(${subj.code})` : ''}
-                  </option>
-                ))
-              ) : (
-                <option value="" disabled>No subjects available</option>
-              )}
+              {availableSubjects?.map((subj) => (
+                <option key={subj.id} value={subj.id}>
+                  {subj.name} {subj.code ? `(${subj.code})` : ''}
+                </option>
+              ))}
             </select>
           </div>
           <div className="form-group">
@@ -1767,15 +1892,11 @@ const TimetableTab = ({
               }
             >
               <option value="">Select Teacher (Optional)</option>
-              {teachers && teachers.length > 0 ? (
-                teachers.map((teacher: any) => (
-                  <option key={teacher.id} value={teacher.user_id}>
-                    {teacher.first_name} {teacher.last_name || ''}
-                  </option>
-                ))
-              ) : (
-                <option value="" disabled>No teachers available</option>
-              )}
+              {teachers?.map((teacher: any) => (
+                <option key={teacher.id} value={teacher.user_id}>
+                  {teacher.first_name} {teacher.last_name || ''}
+                </option>
+              ))}
             </select>
           </div>
           <div className="form-row">
@@ -1819,12 +1940,10 @@ const TimetableTab = ({
               className="btn-primary"
               onClick={() => {
                 if (viewMode === 'add') {
-                  // Update local state for add mode
                   setTimetableEntries({ ...timetableEntries, [editingDay]: editingEntry });
                   setShowEditModal(false);
                   setEditingEntry(null);
                 } else {
-                  // Update existing entry
                   handleUpdateEntry();
                 }
               }}
@@ -1839,13 +1958,352 @@ const TimetableTab = ({
   );
 };
 
+// ========== Class Timetable Tab ==========
+const ClassTimetableTab = ({ classes, sections, subjects }: { classes: Class[]; sections: Section[]; subjects: Subject[] }) => {
+  const [selectedClassId, setSelectedClassId] = useState<number | ''>('');
+  const [selectedSectionId, setSelectedSectionId] = useState<number | ''>('');
+  const [showForm, setShowForm] = useState(false);
+  const [editing, setEditing] = useState<Partial<TimetableEntry> | null>(null);
+
+  const queryClient = useQueryClient();
+  const { showToast } = useToast();
+
+  const { data: rolesData } = useQuery('roles', rolesService.getRoles, {
+    refetchOnWindowFocus: false,
+  });
+
+  const teacherRoleId = rolesData?.data?.find(
+    (role) => role.name?.toLowerCase() === 'teacher'
+  )?.id;
+
+  const { data: staffData } = useQuery(
+    ['staff-for-class-timetable', teacherRoleId],
+    () =>
+      hrService.getStaff({
+        role_id: teacherRoleId,
+        is_active: true,
+        page: 1,
+        limit: 100,
+      }),
+    { refetchOnWindowFocus: false }
+  );
+
+  const { data: timetableData, refetch: refetchTimetable } = useQuery(
+    ['class-timetable', selectedClassId, selectedSectionId],
+    () => {
+      if (!selectedClassId || !selectedSectionId) return Promise.resolve({ success: true, data: [] as TimetableEntry[] });
+      return academicsService.getTimetable({ class_id: Number(selectedClassId), section_id: Number(selectedSectionId) });
+    },
+    { enabled: false }
+  );
+
+  const createMutation = useMutation(academicsService.createTimetableEntry, {
+    onSuccess: () => {
+      queryClient.invalidateQueries(['class-timetable']);
+      refetchTimetable();
+      setShowForm(false);
+      showToast('Timetable entry added successfully', 'success');
+    },
+    onError: (error: any) => {
+      showToast(error.response?.data?.message || 'Failed to add timetable entry', 'error');
+    },
+  });
+
+  const updateMutation = useMutation(
+    ({ id, data }: { id: string; data: Partial<TimetableEntry> }) => academicsService.updateTimetableEntry(id, data),
+    {
+      onSuccess: () => {
+        queryClient.invalidateQueries(['class-timetable']);
+        refetchTimetable();
+        setShowForm(false);
+        setEditing(null);
+        showToast('Timetable entry updated successfully', 'success');
+      },
+      onError: (error: any) => {
+        showToast(error.response?.data?.message || 'Failed to update timetable entry', 'error');
+      },
+    }
+  );
+
+  const deleteMutation = useMutation(academicsService.deleteTimetableEntry, {
+    onSuccess: () => {
+      queryClient.invalidateQueries(['class-timetable']);
+      refetchTimetable();
+      showToast('Timetable entry deleted successfully', 'success');
+    },
+    onError: (error: any) => {
+      showToast(error.response?.data?.message || 'Failed to delete timetable entry', 'error');
+    },
+  });
+
+  const { data: permsData } = useQuery('user-permissions', () => profileService.getUserPermissions());
+  const userPermissions = permsData?.data || {};
+  const modulePerms: string[] = userPermissions['academics'] || [];
+  const canAdd = modulePerms.includes('add');
+  const canEdit = modulePerms.includes('edit');
+  const canDelete = modulePerms.includes('delete');
+
+  const staff = (staffData?.data || []).filter((s: any) => s.user_id);
+  const timetable = timetableData?.data || [];
+
+  const daysOfWeek = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday'];
+
+  const grouped = useMemo(() => {
+    const g: Record<string, TimetableEntry[]> = {};
+    daysOfWeek.forEach((d) => { g[d] = timetable.filter((t) => t.day_of_week === d); });
+    return g;
+  }, [timetable]);
+
+  const availableSections = selectedClassId
+    ? sections.filter(s => {
+        const selectedClass = classes.find(c => c.id === Number(selectedClassId));
+        if (!selectedClass?.section_ids) return false;
+        const sectionIds = selectedClass.section_ids.split(',').map(id => Number(id.trim())).filter(id => !isNaN(id));
+        return sectionIds.includes(s.id);
+      })
+    : [];
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!selectedClassId || !selectedSectionId) {
+      showToast('Please select class and section first', 'error');
+      return;
+    }
+    const form = e.target as HTMLFormElement;
+    const formData = new FormData(form);
+    const payload: Partial<TimetableEntry> = {
+      class_id: Number(selectedClassId),
+      section_id: Number(selectedSectionId),
+      subject_id: Number(formData.get('subject_id')) || undefined,
+      teacher_id: Number(formData.get('teacher_id')) || undefined,
+      day_of_week: String(formData.get('day_of_week')) as any,
+      time_from: String(formData.get('time_from')),
+      time_to: String(formData.get('time_to')),
+      room_no: String(formData.get('room_no')) || undefined,
+    };
+
+    if (editing && editing.id) {
+      updateMutation.mutate({ id: String(editing.id), data: payload });
+    } else {
+      createMutation.mutate(payload);
+    }
+  };
+
+  return (
+    <div className="tab-content">
+      {/* Selection Criteria Section */}
+      <div className="timetable-criteria-section">
+        <h3>Select Criteria</h3>
+        <div className="form-row">
+          <div className="form-group">
+            <label>Class <span className="required">*</span></label>
+            <select
+              value={selectedClassId}
+              onChange={(e) => {
+                setSelectedClassId(e.target.value ? Number(e.target.value) : '');
+                setSelectedSectionId('');
+              }}
+            >
+              <option value="">Select Class</option>
+              {classes.map((cls) => (
+                <option key={cls.id} value={cls.id}>
+                  {cls.name}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          <div className="form-group">
+            <label>Section <span className="required">*</span></label>
+            <select
+              value={selectedSectionId}
+              onChange={(e) => setSelectedSectionId(e.target.value ? Number(e.target.value) : '')}
+              disabled={!selectedClassId}
+            >
+              <option value="">Select Section</option>
+              {availableSections.map((sec) => (
+                <option key={sec.id} value={sec.id}>
+                  {sec.name}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          <div className="form-actions" style={{ display: 'flex', gap: '10px' }}>
+            <button
+              type="button"
+              className="btn-primary"
+              onClick={() => refetchTimetable()}
+              disabled={!selectedClassId || !selectedSectionId}
+            >
+              Search
+            </button>
+            <button
+              type="button"
+              className="btn-primary"
+              onClick={() => { setShowForm((s) => !s); setEditing(null); }}
+              disabled={!selectedClassId || !selectedSectionId}
+            >
+              {showForm ? '✕ Close' : '+ Add New'}
+            </button>
+          </div>
+        </div>
+      </div>
+
+      {/* View Section */}
+      {selectedClassId && selectedSectionId && (
+        <>
+          {timetable.length === 0 && !showForm ? (
+            <div className="empty-state">
+              <p>No timetable entries found for {classes.find(c => c.id === Number(selectedClassId))?.name} - {sections.find(s => s.id === Number(selectedSectionId))?.name}</p>
+              {canAdd && <p style={{ fontSize: '0.95em', marginTop: '10px' }}>Click "+ Add New" button to add timetable entries.</p>}
+            </div>
+          ) : timetable.length > 0 ? (
+            <div className="timetable-view-section">
+              {/* Subject x Days Grid */}
+              <table className="class-timetable-grid">
+                <thead>
+                  <tr>
+                    <th>Subject</th>
+                    {daysOfWeek.map((day) => (
+                      <th key={day}>{day.charAt(0).toUpperCase() + day.slice(1)}</th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {subjects.map((subject) => (
+                    <tr key={subject.id}>
+                      <td>{subject.name}</td>
+                      {daysOfWeek.map((day) => {
+                        const entry = timetable.find(
+                          (e) => e.subject_id === subject.id && e.day_of_week === day
+                        );
+                        return (
+                          <td key={`${subject.id}-${day}`}>
+                            {entry ? (
+                              <div className="class-timetable-cell has-entry">
+                                <div className="class-timetable-time">{entry.time_from}</div>
+                                <div className="class-timetable-teacher">{entry.teacher_name || '-'}</div>
+                              </div>
+                            ) : (
+                              <div className="class-timetable-cell">
+                                <div className="class-timetable-empty">-</div>
+                              </div>
+                            )}
+                          </td>
+                        );
+                      })}
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          ) : null}
+        </>
+      )}
+
+      {/* Add/Edit Form */}
+      {showForm && selectedClassId && selectedSectionId && (
+        <div style={{ background: 'var(--panel-bg, #fff)', padding: '16px', borderRadius: '6px', marginTop: '20px', border: '1px solid var(--border-color, #e6e6e6)' }}>
+          <form onSubmit={handleSubmit}>
+            <h3 style={{ marginTop: 0, marginBottom: '15px' }}>{editing ? 'Edit Timetable Entry' : 'Add Timetable Entry'}</h3>
+
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+              <div className="form-group">
+                <label>Day <span className="required">*</span></label>
+                <select name="day_of_week" defaultValue={editing?.day_of_week || 'monday'} required>
+                  {daysOfWeek.map((d) => (
+                    <option key={d} value={d}>
+                      {d.charAt(0).toUpperCase() + d.slice(1)}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div className="form-group">
+                <label>Subject <span className="required">*</span></label>
+                <select name="subject_id" defaultValue={editing?.subject_id ?? ''} required>
+                  <option value="">Select Subject</option>
+                  {subjects.map((s) => (
+                    <option key={s.id} value={s.id}>
+                      {s.name} {s.code ? `(${s.code})` : ''}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div className="form-group">
+                <label>Teacher</label>
+                <select name="teacher_id" defaultValue={editing?.teacher_id ?? ''}>
+                  <option value="">Select Teacher</option>
+                  {staff.map((t: any) => (
+                    <option key={t.id} value={t.id}>
+                      {t.first_name} {t.last_name || ''}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div className="form-group">
+                <label>Room</label>
+                <input type="text" name="room_no" defaultValue={editing?.room_no ?? ''} />
+              </div>
+
+              <div className="form-group">
+                <label>From <span className="required">*</span></label>
+                <input type="time" name="time_from" defaultValue={editing?.time_from ?? ''} required />
+              </div>
+
+              <div className="form-group">
+                <label>To <span className="required">*</span></label>
+                <input type="time" name="time_to" defaultValue={editing?.time_to ?? ''} required />
+              </div>
+            </div>
+
+            <div style={{ display: 'flex', gap: '8px', marginTop: '16px' }}>
+              <button
+                type="submit"
+                className="btn-primary"
+                disabled={createMutation.isLoading || updateMutation.isLoading}
+              >
+                {createMutation.isLoading || updateMutation.isLoading ? 'Saving...' : 'Save'}
+              </button>
+              <button
+                type="button"
+                className="btn-secondary"
+                onClick={() => { setShowForm(false); setEditing(null); }}
+              >
+                Cancel
+              </button>
+            </div>
+          </form>
+        </div>
+      )}
+    </div>
+  );
+};
+
 // ========== Teachers Timetable Tab ==========
 const TeachersTimetableTab = () => {
   const [selectedTeacherId, setSelectedTeacherId] = useState<number | ''>('');
 
+  const { data: rolesData } = useQuery('roles', rolesService.getRoles, {
+    refetchOnWindowFocus: false,
+  });
+
+  const teacherRoleId = rolesData?.data?.find(
+    (role) => role.name?.toLowerCase() === 'teacher'
+  )?.id;
+
   const { data: teachersData } = useQuery(
-    'teachers-for-timetable-view',
-    () => hrService.getStaff({ role_id: 3, is_active: true, limit: 1000 }),
+    ['teachers-for-timetable-view', teacherRoleId],
+    () =>
+      hrService.getStaff({
+        role_id: teacherRoleId,
+        is_active: true,
+        page: 1,
+        limit: 100,
+      }),
     { refetchOnWindowFocus: false }
   );
 
@@ -1861,7 +2319,10 @@ const TeachersTimetableTab = () => {
     }
   }, [selectedTeacherId, refetchTimetable]);
 
-  const teachers = teachersData?.data || [];
+  const teachers = (teachersData?.data || []).filter((staff: any) => {
+    if (teacherRoleId) return true;
+    return staff.role_name?.toLowerCase() === 'teacher';
+  });
   const timetable = timetableData?.data || [];
 
   const daysOfWeek = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday'];
@@ -1887,15 +2348,12 @@ const TeachersTimetableTab = () => {
 
   return (
     <div className="tab-content">
-      <div className="section-header">
-        <h3>Teachers Timetable</h3>
-        <p>View timetable for selected teacher</p>
-      </div>
-
-      <div className="form-section" style={{ marginBottom: '30px' }}>
+      {/* Selection Criteria Section */}
+      <div className="timetable-criteria-section">
+        <h3>Select Teacher</h3>
         <div className="form-row">
-          <div className="form-group">
-            <label>Select Teacher</label>
+          <div className="form-group" style={{ flex: 1, maxWidth: '400px' }}>
+            <label>Teachers</label>
             <select
               value={selectedTeacherId}
               onChange={(e) => {
@@ -1914,80 +2372,69 @@ const TeachersTimetableTab = () => {
               )}
             </select>
           </div>
+
+          <div className="form-actions" style={{ display: 'flex' }}>
+            <button
+              type="button"
+              className="btn-primary"
+              onClick={() => {
+                if (selectedTeacherId) {
+                  refetchTimetable();
+                }
+              }}
+              disabled={!selectedTeacherId}
+            >
+              Search
+            </button>
+          </div>
         </div>
       </div>
 
-      {selectedTeacherId && timetable.length > 0 && (
-        <div className="table-section">
-          <h3>
-            Timetable for {selectedTeacher ? `${selectedTeacher.first_name} ${selectedTeacher.last_name || ''}`.trim() : 'Selected Teacher'}
-            {selectedTeacher?.email && <span style={{ fontSize: '0.9em', color: 'var(--gray-600)', fontWeight: 'normal' }}> ({selectedTeacher.email})</span>}
-          </h3>
-
-          <div className="timetable-grid" style={{ marginTop: '20px' }}>
-            <div className="timetable-header">Time</div>
-            {daysOfWeek.map((day) => (
-              <div key={day} className="timetable-day-header">
-                {day.charAt(0).toUpperCase() + day.slice(1)}
-              </div>
-            ))}
-
-            {timeSlots.length > 0 ? (
-              timeSlots.map((timeSlot) => {
-                const [timeFrom, timeTo] = timeSlot.split('-');
-                return (
-                  <React.Fragment key={timeSlot}>
-                    <div className="timetable-cell" style={{ fontWeight: 'bold', background: 'var(--gray-50)' }}>
-                      <div>{timeFrom}</div>
-                      <div style={{ fontSize: '0.85em', color: 'var(--gray-600)' }}>{timeTo}</div>
-                    </div>
-                    {daysOfWeek.map((day) => {
-                      const entry = timetableByDay[day]?.find(
-                        (e) => `${e.time_from}-${e.time_to}` === timeSlot
-                      );
-                      return (
-                        <div key={day} className="timetable-cell">
-                          {entry ? (
-                            <div className="timetable-entry">
-                              <div style={{ fontWeight: 'bold', marginBottom: '4px' }}>
-                                {entry.subject_name} {entry.subject_code ? `(${entry.subject_code})` : ''}
-                              </div>
-                              <div style={{ fontSize: '0.85em', color: 'var(--gray-700)', marginBottom: '2px' }}>
-                                {entry.class_name} - {entry.section_name}
-                              </div>
-                              {entry.room_no && (
-                                <div style={{ fontSize: '0.8em', color: 'var(--gray-600)' }}>
-                                  Room: {entry.room_no}
-                                </div>
-                              )}
-                            </div>
-                          ) : (
-                            <div className="timetable-cell empty">-</div>
-                          )}
-                        </div>
-                      );
-                    })}
-                  </React.Fragment>
-                );
-              })
-            ) : (
-              <div className="timetable-cell empty" style={{ gridColumn: '1 / -1', textAlign: 'center', padding: '20px' }}>
-                No timetable entries found
-              </div>
-            )}
-          </div>
-        </div>
-      )}
-
-      {selectedTeacherId && timetable.length === 0 && (
-        <div className="empty-state">
-          <p>No timetable entries found for the selected teacher.</p>
-        </div>
-      )}
-
-      {!selectedTeacherId && (
+      {/* View Section */}
+      {!selectedTeacherId ? (
         <div className="empty-state">
           <p>Please select a teacher to view their timetable.</p>
+        </div>
+      ) : timetable.length === 0 ? (
+        <div className="empty-state">
+          <p>No timetable entries found for {selectedTeacher ? `${selectedTeacher.first_name} ${selectedTeacher.last_name || ''}`.trim() : 'the selected teacher'}.</p>
+        </div>
+      ) : (
+        <div className="timetable-view-section">
+          {/* Days Layout View */}
+          <div className="teacher-days-grid">
+            {daysOfWeek.map((day) => (
+              <div key={day} className="teacher-day-column">
+                <div className="teacher-day-header">
+                  {day.charAt(0).toUpperCase() + day.slice(1)}
+                </div>
+                <div className="teacher-day-entries">
+                  {timetableByDay[day]?.length > 0 ? (
+                    timetableByDay[day].map((entry: TimetableEntry, index: number) => (
+                      <div key={`${day}-${index}`} className="teacher-entry-card">
+                        <div className="entry-class">
+                          <span className="entry-label">Class:</span> {entry.class_name}({entry.section_name})
+                        </div>
+                        <div className="entry-subject">
+                          <span className="entry-label">Subject:</span> {entry.subject_name} {entry.subject_code ? `(${entry.subject_code})` : ''}
+                        </div>
+                        <div className="entry-time">
+                          {entry.time_from} - {entry.time_to}
+                        </div>
+                        {entry.room_no && (
+                          <div className="entry-room">
+                            <span className="entry-label">Room:</span> {entry.room_no}
+                          </div>
+                        )}
+                      </div>
+                    ))
+                  ) : (
+                    <div className="teacher-day-empty">Not Scheduled</div>
+                  )}
+                </div>
+              </div>
+            ))}
+          </div>
         </div>
       )}
     </div>

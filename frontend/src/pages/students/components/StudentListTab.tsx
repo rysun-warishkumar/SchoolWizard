@@ -23,7 +23,7 @@ interface StudentListTabProps {
   onClassFilterChange: (value: string) => void;
   onSectionFilterChange: (value: string) => void;
   onSearchChange: (value: string) => void;
-  onPageChange: (value: number | ((prev: number) => number)) => void;
+  onPageChange: (value: number) => void;
   onDelete: (id: number) => void;
   isLoading: boolean;
   error?: any;
@@ -121,17 +121,25 @@ const StudentListTab: React.FC<StudentListTabProps> = ({
   };
 
   // Generate page numbers to display
-  const getPageNumbers = (): number[] => {
+  const getPageNumbers = (): (number | string)[] => {
     if (!pagination || pagination.pages <= 1) return [];
     
     const currentPage = pagination.page;
     const totalPages = pagination.pages;
-    const pages: number[] = [];
+    const pages: (number | string)[] = [];
+    
+    // For small number of pages, show all
+    if (totalPages <= 7) {
+      for (let i = 1; i <= totalPages; i++) {
+        pages.push(i);
+      }
+      return pages;
+    }
     
     // Always show first page
     if (currentPage > 3) {
       pages.push(1);
-      if (currentPage > 4) pages.push(-1); // Ellipsis
+      if (currentPage > 4) pages.push('...'); // Ellipsis
     }
     
     // Show pages around current page
@@ -144,40 +152,55 @@ const StudentListTab: React.FC<StudentListTabProps> = ({
     
     // Always show last page
     if (currentPage < totalPages - 2) {
-      if (currentPage < totalPages - 3) pages.push(-1); // Ellipsis
+      if (currentPage < totalPages - 3) pages.push('...'); // Ellipsis
       pages.push(totalPages);
     }
     
     return pages;
   };
 
+  // Scroll to top when page changes (handled in parent component, but keep as backup)
+  useEffect(() => {
+    if (pagination?.page) {
+      // Small delay to ensure DOM is updated
+      setTimeout(() => {
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+      }, 100);
+    }
+  }, [pagination?.page]);
+
   const handlePageClick = (page: number) => {
     if (page >= 1 && page <= (pagination?.pages || 1)) {
       onPageChange(page);
+      window.scrollTo({ top: 0, behavior: 'smooth' });
     }
   };
 
   const handleFirstPage = () => {
     if (pagination && pagination.page > 1) {
       onPageChange(1);
+      window.scrollTo({ top: 0, behavior: 'smooth' });
     }
   };
 
   const handleLastPage = () => {
     if (pagination && pagination.pages > 0) {
       onPageChange(pagination.pages);
+      window.scrollTo({ top: 0, behavior: 'smooth' });
     }
   };
 
   const handlePreviousPage = () => {
     if (pagination && pagination.page > 1) {
-      onPageChange((p: number) => Math.max(1, p - 1));
+      onPageChange(Math.max(1, pagination.page - 1));
+      window.scrollTo({ top: 0, behavior: 'smooth' });
     }
   };
 
   const handleNextPage = () => {
     if (pagination && pagination.page < pagination.pages) {
-      onPageChange((p: number) => Math.min(pagination.pages, p + 1));
+      onPageChange(Math.min(pagination.pages, pagination.page + 1));
+      window.scrollTo({ top: 0, behavior: 'smooth' });
     }
   };
 
@@ -186,14 +209,15 @@ const StudentListTab: React.FC<StudentListTabProps> = ({
       <div className="filters">
         <input
           type="text"
-          placeholder="Search students..."
+          placeholder="Search students by name or admission number..."
           value={searchTerm}
-          onChange={(e) => { onSearchChange(e.target.value); onPageChange(1); }}
+          onChange={(e) => onSearchChange(e.target.value)}
           className="search-input"
+          maxLength={100}
         />
         <select
           value={classFilter}
-          onChange={(e) => { onClassFilterChange(e.target.value); onPageChange(1); }}
+          onChange={(e) => onClassFilterChange(e.target.value)}
           className="filter-select"
         >
           <option value="">All Classes</option>
@@ -203,7 +227,7 @@ const StudentListTab: React.FC<StudentListTabProps> = ({
         </select>
         <select
           value={sectionFilter}
-          onChange={(e) => { onSectionFilterChange(e.target.value); onPageChange(1); }}
+          onChange={(e) => onSectionFilterChange(e.target.value)}
           className="filter-select"
         >
           <option value="">All Sections</option>
@@ -290,11 +314,12 @@ const StudentListTab: React.FC<StudentListTabProps> = ({
                 }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
                     <span style={{ fontSize: '14px', color: '#666' }}>
-                      Showing {((pagination.page - 1) * pagination.limit) + 1} to {Math.min(pagination.page * pagination.limit, pagination.total)} of {pagination.total} students
+                      Showing {((pagination.page - 1) * pagination.limit) + 1} to {Math.min(pagination.page * pagination.limit, pagination.total)} of {pagination.total} {pagination.total === 1 ? 'student' : 'students'}
                     </span>
                   </div>
 
-                  {pagination.pages > 1 && (
+                  {/* Show pagination controls when total > limit (more than 20 students) */}
+                  {pagination.total > pagination.limit && (
                     <div style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
                       {/* First Page Button */}
                       <button
@@ -333,12 +358,12 @@ const StudentListTab: React.FC<StudentListTabProps> = ({
                       {/* Page Numbers */}
                       <div style={{ display: 'flex', gap: '2px', alignItems: 'center' }}>
                         {getPageNumbers().map((pageNum, index) => (
-                          pageNum === -1 ? (
-                            <span key={`ellipsis-${index}`} style={{ padding: '0 8px' }}>...</span>
+                          pageNum === '...' ? (
+                            <span key={`ellipsis-${index}`} style={{ padding: '0 8px', color: '#666' }}>...</span>
                           ) : (
                             <button
                               key={pageNum}
-                              onClick={() => handlePageClick(pageNum)}
+                              onClick={() => handlePageClick(Number(pageNum))}
                               disabled={pageNum === pagination.page}
                               style={{
                                 padding: '6px 12px',
@@ -347,7 +372,8 @@ const StudentListTab: React.FC<StudentListTabProps> = ({
                                 backgroundColor: pageNum === pagination.page ? '#007bff' : '#fff',
                                 color: pageNum === pagination.page ? '#fff' : '#333',
                                 cursor: pageNum === pagination.page ? 'default' : 'pointer',
-                                fontWeight: pageNum === pagination.page ? 'bold' : 'normal'
+                                fontWeight: pageNum === pagination.page ? 'bold' : 'normal',
+                                minWidth: '40px'
                               }}
                             >
                               {pageNum}

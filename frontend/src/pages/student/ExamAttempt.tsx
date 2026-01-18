@@ -369,6 +369,13 @@ const ExamAttempt: React.FC<ExamAttemptProps> = ({
               {formatTime(remainingSeconds)}
             </span>
           </div>
+          <button
+            className="btn-submit btn-submit-header"
+            onClick={handleSubmit}
+            disabled={isSubmitting}
+          >
+            {isSubmitting ? 'SUBMITTING...' : 'SUBMIT'}
+          </button>
         </div>
       </div>
 
@@ -446,33 +453,32 @@ const ExamAttempt: React.FC<ExamAttemptProps> = ({
             )}
           </div>
 
-          {/* Action Buttons */}
-          <div className="question-actions">
-            <button className="btn-save-next" onClick={handleSaveAndNext} disabled={isLastQuestion}>
-              SAVE & NEXT
-            </button>
-            <button className="btn-clear" onClick={handleClear}>
-              CLEAR
-            </button>
-            <button className="btn-save-mark" onClick={handleSaveAndMarkForReview} disabled={isLastQuestion}>
-              SAVE & MARK FOR REVIEW
-            </button>
-            <button className="btn-mark-next" onClick={handleMarkForReviewAndNext} disabled={isLastQuestion}>
-              MARK FOR REVIEW & NEXT
-            </button>
-          </div>
+          <div className="question-footer">
+            {/* Navigation */}
+            <div className="question-navigation">
+              <button className="btn-nav" onClick={handlePrevious} disabled={isFirstQuestion}>
+              &lt;&lt; PREV
+              </button>
+              <button className="btn-nav" onClick={handleNext} disabled={isLastQuestion}>
+                NEXT &gt;&gt;
+              </button>
+            </div>
 
-          {/* Navigation */}
-          <div className="question-navigation">
-            <button className="btn-nav" onClick={handlePrevious} disabled={isFirstQuestion}>
-              &lt;&lt; BACK
-            </button>
-            <button className="btn-submit" onClick={handleSubmit} disabled={isSubmitting}>
-              {isSubmitting ? 'SUBMITTING...' : 'SUBMIT'}
-            </button>
-            <button className="btn-nav" onClick={handleNext} disabled={isLastQuestion}>
-              NEXT &gt;&gt;
-            </button>
+            {/* Action Buttons */}
+            <div className="question-actions">
+              <button className="btn-save-next" onClick={handleSaveAndNext} disabled={isLastQuestion}>
+                SAVE & NEXT
+              </button>
+              <button className="btn-clear" onClick={handleClear}>
+                CLEAR
+              </button>
+              <button className="btn-save-mark" onClick={handleSaveAndMarkForReview} disabled={isLastQuestion}>
+                SAVE & MARK FOR REVIEW
+              </button>
+              <button className="btn-mark-next" onClick={handleMarkForReviewAndNext} disabled={isLastQuestion}>
+                MARK FOR REVIEW & NEXT
+              </button>
+            </div>
           </div>
         </div>
 
