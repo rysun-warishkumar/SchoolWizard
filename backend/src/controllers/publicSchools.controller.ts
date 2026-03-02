@@ -2,6 +2,7 @@ import { Request, Response, NextFunction } from 'express';
 import bcrypt from 'bcryptjs';
 import { getDatabase } from '../config/database';
 import { createError } from '../middleware/errorHandler';
+import { sendSchoolOnboardingEmail } from '../utils/emailService';
 
 const TRIAL_DAYS = 30;
 
@@ -102,6 +103,39 @@ export const registerSchool = async (
        VALUES (?, ?, ?, ?, ?, 1, NOW(), NOW())`,
       [email.trim(), hashedPassword, adminName.trim(), adminRoleId, schoolId]
     );
+
+    // try to fetch contact info from website settings if available
+    let contactEmail: string | undefined;
+    let contactPhone: string | undefined;
+    try {
+      const [settingsRows] = await db.execute(
+        'SELECT contact_email, contact_phone FROM front_cms_website_settings WHERE school_id = ? LIMIT 1',
+        [schoolId]
+      ) as any[];
+      if (settingsRows && settingsRows.length > 0) {
+        contactEmail = settingsRows[0].contact_email || undefined;
+        contactPhone = settingsRows[0].contact_phone || undefined;
+      }
+    } catch {
+      // ignore, table might not exist yet or query fails
+    }
+
+    // send onboarding email (non-blocking)
+    try {
+      await sendSchoolOnboardingEmail({
+        to: email.trim(),
+        schoolName: schoolName.trim(),
+        trialStartsAt,
+        trialEndsAt,
+        adminEmail: email.trim(),
+        adminPassword: password, // plaintext from request
+        loginUrl: `${req.protocol}://${req.get('host')}/login`,
+        contactEmail,
+        contactPhone,
+      });
+    } catch (emailErr) {
+      console.warn('Failed to send school onboarding email:', emailErr);
+    }
 
     // Optional: create default general_settings row for this school (if table has school_id)
     try {

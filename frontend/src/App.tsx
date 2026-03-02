@@ -1,5 +1,5 @@
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
-import { AuthProvider } from './contexts/AuthContext';
+import { AuthProvider, useAuth } from './contexts/AuthContext';
 import { ToastProvider } from './contexts/ToastContext';
 import { QueryClient, QueryClientProvider } from 'react-query';
 import Layout from './layouts/Layout';
@@ -97,6 +97,15 @@ const queryClient = new QueryClient({
   },
 });
 
+function DefaultRedirect() {
+  const { isAuthenticated, user } = useAuth();
+  if (!isAuthenticated) return <Navigate to="/login" replace />;
+  const isPlatformAdmin =
+    user?.isPlatformAdmin === true ||
+    (user?.role === 'superadmin' && (user?.schoolId == null || user?.schoolId === undefined));
+  return <Navigate to={isPlatformAdmin ? '/platform' : '/dashboard'} replace />;
+}
+
 function App() {
   return (
     <QueryClientProvider client={queryClient}>
@@ -107,8 +116,8 @@ function App() {
               <Route path="/login" element={<Login />} />
               <Route path="/register-school" element={<RegisterSchool />} />
               <Route path="/trial-expired" element={<TrialExpired />} />
-              {/* Root redirect to dashboard */}
-              <Route path="/" element={<Navigate to="/dashboard" replace />} />
+              {/* Root: platform admin -> /platform, others -> /dashboard, not logged in -> /login */}
+              <Route path="/" element={<DefaultRedirect />} />
               {/* Protected Admin Routes - These will only match if user is authenticated */}
               <Route
                 path="/*"
@@ -116,7 +125,7 @@ function App() {
                   <ProtectedRoute allowedRoles={['superadmin', 'admin', 'teacher', 'accountant', 'librarian', 'receptionist']}>
                     <Layout>
                       <Routes>
-                        <Route path="/" element={<Navigate to="/dashboard" replace />} />
+                        <Route path="/" element={<DefaultRedirect />} />
                         <Route path="/dashboard" element={<Dashboard />} />
                         <Route path="/users" element={<Users />} />
                         <Route path="/roles" element={<Roles />} />

@@ -1,7 +1,11 @@
 import { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
+import { User } from '../../types/auth';
 import './Login.css';
+
+const isPlatformAdmin = (user: User | null): boolean =>
+  !!user && (user.isPlatformAdmin === true || (user.role === 'superadmin' && (user.schoolId == null || user.schoolId === undefined)));
 
 const DEFAULT_SCHOOL_NAME = 'Make My School';
 
@@ -43,8 +47,8 @@ const Login = () => {
     setLoading(true);
 
     try {
-      await login(email, password);
-      navigate('/dashboard');
+      const user = await login(email, password);
+      navigate(isPlatformAdmin(user) ? '/platform' : '/dashboard');
     } catch (err: any) {
       console.error('Login error:', err);
       const errorMessage =

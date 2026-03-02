@@ -341,6 +341,148 @@ export const sendStudentAdmissionEmail = async (
 /**
  * Send parent account email with login credentials
  */
+
+export const sendSchoolOnboardingEmail = async (data: {
+  to: string;
+  schoolName: string;
+  trialStartsAt: Date;
+  trialEndsAt: Date;
+  adminEmail: string;
+  adminPassword: string;
+  loginUrl?: string;
+  contactEmail?: string;
+  contactPhone?: string;
+}): Promise<void> => {
+  // prepare login url default to frontend path
+  const loginUrl = data.loginUrl || 'http://localhost:5173/login';
+  const contactEmail = data.contactEmail || 'support@schoolwizard.com';
+  const contactPhone = data.contactPhone || '';
+  
+  const emailHtml = `
+    <!DOCTYPE html>
+    <html>
+    <head>
+      <meta charset="utf-8">
+      <style>
+        body {
+          font-family: Arial, sans-serif;
+          line-height: 1.6;
+          color: #333;
+        }
+        .container {
+          max-width: 600px;
+          margin: 0 auto;
+          padding: 20px;
+          border: 1px solid #ddd;
+          border-radius: 5px;
+        }
+        .header {
+          background-color: #2563eb;
+          color: white;
+          padding: 20px;
+          text-align: center;
+          border-radius: 5px 5px 0 0;
+        }
+        .content {
+          padding: 20px;
+          background-color: #f9fafb;
+        }
+        .credentials {
+          background-color: white;
+          padding: 15px;
+          border-radius: 5px;
+          margin: 20px 0;
+          border-left: 4px solid #2563eb;
+        }
+        .credentials-item {
+          margin: 10px 0;
+        }
+        .credentials-label {
+          font-weight: bold;
+          color: #666;
+        }
+        .credentials-value {
+          color: #333;
+          font-size: 16px;
+        }
+        .button {
+          display: inline-block;
+          padding: 12px 24px;
+          background-color: #2563eb;
+          color: white;
+          text-decoration: none;
+          border-radius: 5px;
+          margin: 20px 0;
+        }
+        .footer {
+          text-align: center;
+          padding: 20px;
+          color: #666;
+          font-size: 12px;
+        }
+        .info-box {
+          background-color: #eff6ff;
+          border-left: 4px solid #2563eb;
+          padding: 15px;
+          margin: 20px 0;
+          border-radius: 5px;
+        }
+      </style>
+    </head>
+    <body>
+      <div class="container">
+        <div class="header">
+          <h1>Welcome to SchoolWizard!</h1>
+        </div>
+        <div class="content">
+          <p>Dear Administrator,</p>
+          <p>Thank you for registering <strong>${data.schoolName}</strong> with SchoolWizard. Your 30‑day free trial has begun.</p>
+
+          <div class="info-box">
+            <p><strong>Trial Period:</strong></p>
+            <ul style="margin: 10px 0; padding-left: 20px;">
+              <li>Starts: ${data.trialStartsAt.toDateString()}</li>
+              <li>Ends: ${data.trialEndsAt.toDateString()}</li>
+            </ul>
+          </div>
+
+          <div class="credentials">
+            <h3>Your Admin Login Credentials:</h3>
+            <div class="credentials-item">
+              <span class="credentials-label">Email:</span>
+              <div class="credentials-value">${data.adminEmail}</div>
+            </div>
+            <div class="credentials-item">
+              <span class="credentials-label">Password:</span>
+              <div class="credentials-value">${data.adminPassword}</div>
+            </div>
+          </div>
+
+          <div style="text-align: center;">
+            <a href="${loginUrl}" class="button">Go to Login Page</a>
+          </div>
+
+          <p>Please change your password after first login for security reasons.</p>
+
+          <p>If you need assistance, contact us at <a href="mailto:${contactEmail}">${contactEmail}</a>${contactPhone ? ' or call ' + contactPhone : ''}.</p>
+
+          <p>Best regards,<br>SchoolWizard Support Team</p>
+        </div>
+        <div class="footer">
+          <p>This is an automated email. Please do not reply to this email.</p>
+        </div>
+      </div>
+    </body>
+    </html>
+  `;
+
+  await sendEmail({
+    to: data.to,
+    subject: `Welcome to SchoolWizard — ${data.schoolName} onboarded`,
+    html: emailHtml,
+  });
+};
+
 export const sendParentAccountEmail = async (data: {
   to: string;
   parentName: string;
@@ -350,8 +492,7 @@ export const sendParentAccountEmail = async (data: {
   password: string;
   isPasswordReset?: boolean;
   loginUrl?: string;
-}): Promise<void> => {
-  // Use default login URL if not provided
+}): Promise<void> => {  // Use default login URL if not provided
   // Note: FRONTEND_URL is not in env schema, so we use a default
   const loginUrl = data.loginUrl || 'http://localhost:5173/login';
   
