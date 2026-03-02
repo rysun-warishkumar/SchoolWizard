@@ -56,7 +56,7 @@ const StudentLayout: React.FC<StudentLayoutProps> = ({ children }) => {
               <span className="hamburger-icon">☰</span>
             </button>
             <div className="student-logo">
-              <h1>SchoolWizard</h1>
+              <h1>Make My School</h1>
               <span className="student-badge">Student Panel</span>
             </div>
           </div>

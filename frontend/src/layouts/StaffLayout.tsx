@@ -52,7 +52,7 @@ const StaffLayout: React.FC<StaffLayoutProps> = ({ children }) => {
               <span className="hamburger-icon">☰</span>
             </button>
             <div className="staff-logo">
-              <h1>SchoolWizard</h1>
+              <h1>Make My School</h1>
               <span className="staff-badge">Staff Panel</span>
             </div>
           </div>

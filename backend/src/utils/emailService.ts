@@ -149,7 +149,7 @@ export const sendEmail = async (options: EmailOptions): Promise<void> => {
 
     // Get from_email and from_name from database if available
     let fromEmail = emailConfig.auth.user;
-    let fromName = 'SchoolWizard';
+    let fromName = 'Make My School';
 
     try {
       const { getDatabase } = await import('../config/database.js');
@@ -287,7 +287,7 @@ export const sendStudentAdmissionEmail = async (
     <body>
       <div class="container">
         <div class="header">
-          <h1>Welcome to SchoolWizard!</h1>
+          <h1>Welcome to Make My School !</h1>
         </div>
         <div class="content">
           <p>Dear ${studentName},</p>
@@ -333,7 +333,7 @@ export const sendStudentAdmissionEmail = async (
 
   await sendEmail({
     to: studentEmail,
-    subject: 'Welcome to SchoolWizard - Your Login Credentials',
+    subject: 'Welcome to Make My School - Your Login Credentials',
     html: emailHtml,
   });
 };
@@ -355,7 +355,7 @@ export const sendSchoolOnboardingEmail = async (data: {
 }): Promise<void> => {
   // prepare login url default to frontend path
   const loginUrl = data.loginUrl || 'http://localhost:5173/login';
-  const contactEmail = data.contactEmail || 'support@schoolwizard.com';
+  const contactEmail = data.contactEmail || 'info@makemyschool.com';
   const contactPhone = data.contactPhone || '';
   
   const emailHtml = `
@@ -432,11 +432,11 @@ export const sendSchoolOnboardingEmail = async (data: {
     <body>
       <div class="container">
         <div class="header">
-          <h1>Welcome to SchoolWizard!</h1>
+          <h1>Welcome to Make My School!</h1>
         </div>
         <div class="content">
           <p>Dear Administrator,</p>
-          <p>Thank you for registering <strong>${data.schoolName}</strong> with SchoolWizard. Your 30‑day free trial has begun.</p>
+          <p>Thank you for registering <strong>${data.schoolName}</strong> with Make My School. Your 30‑day free trial has begun.</p>
 
           <div class="info-box">
             <p><strong>Trial Period:</strong></p>
@@ -466,7 +466,7 @@ export const sendSchoolOnboardingEmail = async (data: {
 
           <p>If you need assistance, contact us at <a href="mailto:${contactEmail}">${contactEmail}</a>${contactPhone ? ' or call ' + contactPhone : ''}.</p>
 
-          <p>Best regards,<br>SchoolWizard Support Team</p>
+          <p>Best regards,<br>Make My School Support Team</p>
         </div>
         <div class="footer">
           <p>This is an automated email. Please do not reply to this email.</p>
@@ -478,7 +478,7 @@ export const sendSchoolOnboardingEmail = async (data: {
 
   await sendEmail({
     to: data.to,
-    subject: `Welcome to SchoolWizard — ${data.schoolName} onboarded`,
+    subject: `Welcome to Make My School — ${data.schoolName} onboarded`,
     html: emailHtml,
   });
 };
@@ -577,7 +577,7 @@ export const sendParentAccountEmail = async (data: {
     <body>
       <div class="container">
         <div class="header">
-          <h1>${data.isPasswordReset ? 'Password Reset - SchoolWizard' : 'Welcome to SchoolWizard Parent Portal!'}</h1>
+          <h1>${data.isPasswordReset ? 'Password Reset - Make My School' : 'Welcome to Make My School Parent Portal!'}</h1>
         </div>
         <div class="content">
           <p>Dear ${data.parentName},</p>
@@ -637,8 +637,8 @@ export const sendParentAccountEmail = async (data: {
   await sendEmail({
     to: data.to,
     subject: data.isPasswordReset
-      ? 'SchoolWizard - Parent Account Password Reset'
-      : 'Welcome to SchoolWizard Parent Portal - Your Login Credentials',
+      ? 'Make My School - Parent Account Password Reset'
+      : 'Welcome to Make My School Parent Portal - Your Login Credentials',
     html: emailHtml,
   });
 };

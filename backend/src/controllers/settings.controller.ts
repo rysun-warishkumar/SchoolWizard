@@ -525,7 +525,7 @@ export const getEmailSettings = async (
           smtp_username: '',
           smtp_password: '',
           from_email: '',
-          from_name: 'SchoolWizard',
+          from_name: 'Make My School',
           is_enabled: false,
         },
       });

@@ -179,7 +179,8 @@ export const updateSchool = async (
         'SELECT id, name, slug, status, trial_starts_at, trial_ends_at, custom_domain, updated_at FROM schools WHERE id = ?',
         [id]
       ) as any[];
-      return res.json({ success: true, data: schools[0] });
+      res.json({ success: true, data: schools[0] });
+      return;
     }
 
     values.push(id);
