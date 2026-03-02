@@ -2100,7 +2100,6 @@ export const updateSystemFieldStatus = async (
 };
 
 // ========== Backup & Restore ==========
-import { AuthRequest } from '../middleware/auth';
 import * as backupService from '../utils/backupService';
 // path and fs already imported at top of file
 

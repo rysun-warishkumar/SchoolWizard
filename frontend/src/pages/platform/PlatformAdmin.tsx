@@ -161,7 +161,7 @@ export default function PlatformAdmin() {
 
       {error && (
         <div className="platform-admin-error">
-          {(error as any)?.response?.data?.message || 'Failed to load schools. You may need to run the Phase 1 database migration.'}
+          {String((error as any)?.response?.data?.message ?? 'Failed to load schools. You may need to run the Phase 1 database migration.')}
         </div>
       )}
 

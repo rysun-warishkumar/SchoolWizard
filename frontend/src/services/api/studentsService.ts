@@ -99,7 +99,7 @@ export const studentsService = {
     return response.data;
   },
 
-  async createStudent(data: Partial<Student>): Promise<{ success: boolean; message: string; data: Student }> {
+  async createStudent(data: Partial<Student> & { create_parent_account?: boolean }): Promise<{ success: boolean; message: string; data: Student }> {
     const response = await apiClient.post<{ success: boolean; message: string; data: Student }>('/students', data);
     return response.data;
   },
