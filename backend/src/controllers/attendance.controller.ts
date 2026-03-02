@@ -1,7 +1,7 @@
 import { Request, Response, NextFunction } from 'express';
 import { getDatabase } from '../config/database';
 import { createError } from '../middleware/errorHandler';
-import { AuthRequest } from '../middleware/auth';
+import { AuthRequest, getSchoolId } from '../middleware/auth';
 
 // ========== Student Attendance ==========
 export const getStudentAttendance = async (
@@ -10,6 +10,8 @@ export const getStudentAttendance = async (
   next: NextFunction
 ): Promise<void> => {
   try {
+    const schoolId = getSchoolId(req as AuthRequest);
+    if (schoolId == null) throw createError('School context required', 403);
     const { class_id, section_id, attendance_date, session_id } = req.query;
     const db = getDatabase();
 
@@ -17,23 +19,21 @@ export const getStudentAttendance = async (
       throw createError('Class, section, and attendance date are required', 400);
     }
 
-    // Get students for the class-section
     const [students] = await db.execute(
       `SELECT s.id, s.admission_no, s.first_name, s.last_name, s.photo
        FROM students s
-       WHERE s.class_id = ? AND s.section_id = ? AND s.session_id = ? AND s.is_active = 1
+       WHERE s.school_id = ? AND s.class_id = ? AND s.section_id = ? AND s.session_id = ? AND s.is_active = 1
        ORDER BY s.admission_no ASC`,
-      [class_id, section_id, session_id]
+      [schoolId, class_id, section_id, session_id]
     ) as any[];
 
-    // Get existing attendance records for the date
     const [attendance] = await db.execute(
       `SELECT sa.*, s.admission_no, s.first_name, s.last_name
        FROM student_attendance sa
-       INNER JOIN students s ON sa.student_id = s.id
-       WHERE sa.class_id = ? AND sa.section_id = ? AND sa.attendance_date = ? AND sa.session_id = ?
+       INNER JOIN students s ON sa.student_id = s.id AND s.school_id = ?
+       WHERE sa.school_id = ? AND sa.class_id = ? AND sa.section_id = ? AND sa.attendance_date = ? AND sa.session_id = ?
        ORDER BY s.admission_no ASC`,
-      [class_id, section_id, attendance_date, session_id]
+      [schoolId, schoolId, class_id, section_id, attendance_date, session_id]
     ) as any[];
 
     // Create a map of existing attendance
@@ -70,9 +70,9 @@ export const getMyStudentAttendance = async (
   next: NextFunction
 ): Promise<void> => {
   try {
-    if (!req.user) {
-      throw createError('Not authenticated', 401);
-    }
+    if (!req.user) throw createError('Not authenticated', 401);
+    const schoolId = getSchoolId(req);
+    if (schoolId == null) throw createError('School context required', 403);
 
     const { month, year } = req.query;
     const db = getDatabase();
@@ -81,10 +81,9 @@ export const getMyStudentAttendance = async (
       throw createError('Month and year are required', 400);
     }
 
-    // Get student ID from user_id
     const [students] = await db.execute(
-      'SELECT id FROM students WHERE user_id = ?',
-      [req.user.id]
+      'SELECT id FROM students WHERE user_id = ? AND school_id = ?',
+      [req.user.id, schoolId]
     ) as any[];
 
     if (students.length === 0) {
@@ -93,7 +92,6 @@ export const getMyStudentAttendance = async (
 
     const studentId = students[0].id;
 
-    // Get attendance summary for the month
     const [attendance] = await db.execute(
       `SELECT 
         COUNT(CASE WHEN status = 'present' THEN 1 END) as present_count,
@@ -103,8 +101,8 @@ export const getMyStudentAttendance = async (
         COUNT(CASE WHEN status = 'holiday' THEN 1 END) as holiday_count,
         COUNT(id) as total_days
       FROM student_attendance
-      WHERE student_id = ? AND MONTH(attendance_date) = ? AND YEAR(attendance_date) = ?`,
-      [studentId, month, year]
+      WHERE school_id = ? AND student_id = ? AND MONTH(attendance_date) = ? AND YEAR(attendance_date) = ?`,
+      [schoolId, studentId, month, year]
     ) as any[];
 
     res.json({ success: true, data: attendance });
@@ -119,6 +117,8 @@ export const submitStudentAttendance = async (
   next: NextFunction
 ): Promise<void> => {
   try {
+    const schoolId = getSchoolId(req);
+    if (schoolId == null) throw createError('School context required', 403);
     const { class_id, section_id, attendance_date, session_id, attendance_records, mark_holiday } =
       req.body;
 
@@ -134,26 +134,24 @@ export const submitStudentAttendance = async (
       await connection.beginTransaction();
 
       if (mark_holiday) {
-        // Mark all students as holiday
         const [students] = await connection.execute(
           `SELECT id FROM students 
-           WHERE class_id = ? AND section_id = ? AND session_id = ? AND is_active = 1`,
-          [class_id, section_id, session_id]
+           WHERE school_id = ? AND class_id = ? AND section_id = ? AND session_id = ? AND is_active = 1`,
+          [schoolId, class_id, section_id, session_id]
         ) as any[];
 
         for (const student of students) {
           await connection.execute(
             `INSERT INTO student_attendance 
-             (student_id, class_id, section_id, session_id, attendance_date, status, created_by)
-             VALUES (?, ?, ?, ?, ?, 'holiday', ?)
+             (school_id, student_id, class_id, section_id, session_id, attendance_date, status, created_by)
+             VALUES (?, ?, ?, ?, ?, ?, 'holiday', ?)
              ON DUPLICATE KEY UPDATE 
              status = 'holiday', 
              updated_at = NOW()`,
-            [student.id, class_id, section_id, session_id, attendance_date, createdBy]
+            [schoolId, student.id, class_id, section_id, session_id, attendance_date, createdBy]
           );
         }
       } else {
-        // Process individual attendance records
         if (!attendance_records || !Array.isArray(attendance_records)) {
           throw createError('Attendance records are required', 400);
         }
@@ -162,18 +160,19 @@ export const submitStudentAttendance = async (
           const { student_id, status, note } = record;
 
           if (!student_id || !status) {
-            continue; // Skip invalid records
+            continue;
           }
 
           await connection.execute(
             `INSERT INTO student_attendance 
-             (student_id, class_id, section_id, session_id, attendance_date, status, note, created_by)
-             VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+             (school_id, student_id, class_id, section_id, session_id, attendance_date, status, note, created_by)
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
              ON DUPLICATE KEY UPDATE 
              status = VALUES(status), 
              note = VALUES(note), 
              updated_at = NOW()`,
             [
+              schoolId,
               student_id,
               class_id,
               section_id,
@@ -213,6 +212,8 @@ export const getAttendanceByDate = async (
   next: NextFunction
 ): Promise<void> => {
   try {
+    const schoolId = getSchoolId(req as AuthRequest);
+    if (schoolId == null) throw createError('School context required', 403);
     const { class_id, section_id, attendance_date, session_id } = req.query;
     const db = getDatabase();
 
@@ -230,13 +231,13 @@ export const getAttendanceByDate = async (
         c.name as class_name,
         sec.name as section_name
        FROM student_attendance sa
-       INNER JOIN students s ON sa.student_id = s.id
-       INNER JOIN classes c ON sa.class_id = c.id
-       INNER JOIN sections sec ON sa.section_id = sec.id
-       WHERE sa.class_id = ? AND sa.section_id = ? AND sa.attendance_date = ?
+       INNER JOIN students s ON sa.student_id = s.id AND s.school_id = ?
+       INNER JOIN classes c ON sa.class_id = c.id AND c.school_id = ?
+       INNER JOIN sections sec ON sa.section_id = sec.id AND sec.school_id = ?
+       WHERE sa.school_id = ? AND sa.class_id = ? AND sa.section_id = ? AND sa.attendance_date = ?
        ${session_id ? 'AND sa.session_id = ?' : ''}
        ORDER BY s.admission_no ASC`,
-      session_id ? [class_id, section_id, attendance_date, session_id] : [class_id, section_id, attendance_date]
+      session_id ? [schoolId, schoolId, schoolId, schoolId, class_id, section_id, attendance_date, session_id] : [schoolId, schoolId, schoolId, schoolId, class_id, section_id, attendance_date]
     ) as any[];
 
     res.json({ success: true, data: attendance });
@@ -252,22 +253,21 @@ export const getStudentLeaveRequests = async (
   next: NextFunction
 ): Promise<void> => {
   try {
+    const schoolId = getSchoolId(req);
+    if (schoolId == null) throw createError('School context required', 403);
     const { student_id, status, class_id, section_id, page = 1, limit = 20 } = req.query;
     const db = getDatabase();
 
-    // If user is a student, ensure they can only access their own leave requests
     let actualStudentId = student_id;
     if (req.user?.role === 'student') {
-      // Get student ID from user_id
       const [students] = await db.execute(
-        'SELECT id FROM students WHERE user_id = ?',
-        [req.user.id]
+        'SELECT id FROM students WHERE user_id = ? AND school_id = ?',
+        [req.user.id, schoolId]
       ) as any[];
       if (students.length === 0) {
         throw createError('Student profile not found', 404);
       }
       actualStudentId = students[0].id;
-      // Override any student_id in query to prevent unauthorized access
     }
 
     let query = `
@@ -280,13 +280,13 @@ export const getStudentLeaveRequests = async (
         sec.name as section_name,
         u.name as approved_by_name
        FROM student_leave_requests slr
-       INNER JOIN students s ON slr.student_id = s.id
-       INNER JOIN classes c ON slr.class_id = c.id
-       INNER JOIN sections sec ON slr.section_id = sec.id
+       INNER JOIN students s ON slr.student_id = s.id AND s.school_id = ?
+       INNER JOIN classes c ON slr.class_id = c.id AND c.school_id = ?
+       INNER JOIN sections sec ON slr.section_id = sec.id AND sec.school_id = ?
        LEFT JOIN users u ON slr.approved_by = u.id
-       WHERE 1=1
+       WHERE slr.school_id = ?
     `;
-    const params: any[] = [];
+    const params: any[] = [schoolId, schoolId, schoolId, schoolId];
 
     if (actualStudentId) {
       query += ' AND slr.student_id = ?';
@@ -314,9 +314,8 @@ export const getStudentLeaveRequests = async (
 
     const [leaveRequests] = await db.execute(query, params) as any[];
 
-    // Get total count
-    let countQuery = 'SELECT COUNT(*) as total FROM student_leave_requests WHERE 1=1';
-    const countParams: any[] = [];
+    let countQuery = 'SELECT COUNT(*) as total FROM student_leave_requests WHERE school_id = ?';
+    const countParams: any[] = [schoolId];
 
     if (actualStudentId) {
       countQuery += ' AND student_id = ?';
@@ -358,6 +357,8 @@ export const getStudentLeaveRequestById = async (
   next: NextFunction
 ): Promise<void> => {
   try {
+    const schoolId = getSchoolId(req as AuthRequest);
+    if (schoolId == null) throw createError('School context required', 403);
     const { id } = req.params;
     const db = getDatabase();
 
@@ -375,8 +376,8 @@ export const getStudentLeaveRequestById = async (
        INNER JOIN classes c ON slr.class_id = c.id
        INNER JOIN sections sec ON slr.section_id = sec.id
        LEFT JOIN users u ON slr.approved_by = u.id
-       WHERE slr.id = ?`,
-      [id]
+       WHERE slr.id = ? AND slr.school_id = ?`,
+      [id, schoolId]
     ) as any[];
 
     if (leaveRequests.length === 0) {
@@ -395,23 +396,22 @@ export const createStudentLeaveRequest = async (
   next: NextFunction
 ): Promise<void> => {
   try {
+    const schoolId = getSchoolId(req);
+    if (schoolId == null) throw createError('School context required', 403);
     let { student_id, class_id, section_id, session_id, apply_date, leave_date, leave_type, reason, document_path } =
       req.body;
 
     const db = getDatabase();
 
-    // If user is a student, ensure they can only create leave requests for themselves
     if (req.user?.role === 'student') {
-      // Get student ID from user_id
       const [students] = await db.execute(
-        'SELECT id, class_id, section_id, session_id FROM students WHERE user_id = ?',
-        [req.user.id]
+        'SELECT id, class_id, section_id, session_id FROM students WHERE user_id = ? AND school_id = ?',
+        [req.user.id, schoolId]
       ) as any[];
       if (students.length === 0) {
         throw createError('Student profile not found', 404);
       }
       const student = students[0];
-      // Override student_id, class_id, section_id, session_id to prevent unauthorized access
       student_id = student.id;
       class_id = student.class_id;
       section_id = student.section_id;
@@ -424,9 +424,10 @@ export const createStudentLeaveRequest = async (
 
     const [result] = await db.execute(
       `INSERT INTO student_leave_requests 
-       (student_id, class_id, section_id, session_id, apply_date, leave_date, leave_type, reason, document_path)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+       (school_id, student_id, class_id, section_id, session_id, apply_date, leave_date, leave_type, reason, document_path)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       [
+        schoolId,
         student_id,
         class_id,
         section_id,
@@ -445,8 +446,8 @@ export const createStudentLeaveRequest = async (
        INNER JOIN students s ON slr.student_id = s.id
        INNER JOIN classes c ON slr.class_id = c.id
        INNER JOIN sections sec ON slr.section_id = sec.id
-       WHERE slr.id = ?`,
-      [result.insertId]
+       WHERE slr.id = ? AND slr.school_id = ?`,
+      [result.insertId, schoolId]
     ) as any[];
 
     res.status(201).json({
@@ -482,11 +483,14 @@ export const updateStudentLeaveRequest = async (
       rejection_reason: status === 'rejected' ? rejection_reason || null : null,
     };
 
+    const schoolId = getSchoolId(req);
+    if (schoolId == null) throw createError('School context required', 403);
+
     await db.execute(
       `UPDATE student_leave_requests 
        SET status = ?, approved_by = ?, approved_at = ?, rejection_reason = ?, updated_at = NOW()
-       WHERE id = ?`,
-      [updateData.status, updateData.approved_by, updateData.approved_at, updateData.rejection_reason, id]
+       WHERE id = ? AND school_id = ?`,
+      [updateData.status, updateData.approved_by, updateData.approved_at, updateData.rejection_reason, id, schoolId]
     );
 
     const [updatedRequest] = await db.execute(
@@ -495,8 +499,8 @@ export const updateStudentLeaveRequest = async (
        INNER JOIN students s ON slr.student_id = s.id
        INNER JOIN classes c ON slr.class_id = c.id
        INNER JOIN sections sec ON slr.section_id = sec.id
-       WHERE slr.id = ?`,
-      [id]
+       WHERE slr.id = ? AND slr.school_id = ?`,
+      [id, schoolId]
     ) as any[];
 
     res.json({
@@ -515,10 +519,12 @@ export const deleteStudentLeaveRequest = async (
   next: NextFunction
 ): Promise<void> => {
   try {
+    const schoolId = getSchoolId(req as AuthRequest);
+    if (schoolId == null) throw createError('School context required', 403);
     const { id } = req.params;
     const db = getDatabase();
 
-    await db.execute('DELETE FROM student_leave_requests WHERE id = ?', [id]);
+    await db.execute('DELETE FROM student_leave_requests WHERE id = ? AND school_id = ?', [id, schoolId]);
 
     res.json({ success: true, message: 'Leave request deleted successfully' });
   } catch (error) {

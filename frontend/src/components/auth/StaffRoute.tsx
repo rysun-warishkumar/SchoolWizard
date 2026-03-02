@@ -8,7 +8,7 @@ interface StaffRouteProps {
 }
 
 const StaffRoute: React.FC<StaffRouteProps> = ({ children }) => {
-  const { isAuthenticated, loading, user } = useAuth();
+  const { isAuthenticated, loading, user, isTrialExpired } = useAuth();
 
   if (loading) {
     return (
@@ -20,6 +20,10 @@ const StaffRoute: React.FC<StaffRouteProps> = ({ children }) => {
 
   if (!isAuthenticated) {
     return <Navigate to="/login" replace />;
+  }
+
+  if (isTrialExpired) {
+    return <Navigate to="/trial-expired" replace />;
   }
 
   // Allow staff, teacher, and other staff roles

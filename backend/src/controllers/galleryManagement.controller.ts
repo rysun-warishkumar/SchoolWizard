@@ -1,6 +1,7 @@
 import { Request, Response, NextFunction } from 'express';
 import { getDatabase } from '../config/database';
 import { createError } from '../middleware/errorHandler';
+import { AuthRequest, getSchoolId } from '../middleware/auth';
 import multer from 'multer';
 import path from 'path';
 import fs from 'fs';
@@ -54,9 +55,12 @@ const parseBoolean = (value: any): boolean => {
 
 export const getCategories = async (req: Request, res: Response, next: NextFunction) => {
   try {
+    const schoolId = getSchoolId(req as AuthRequest);
+    if (schoolId == null) throw createError('School context required', 403);
     const db = getDatabase();
     const [categories] = await db.execute(
-      'SELECT * FROM gallery_categories ORDER BY sort_order ASC, name ASC'
+      'SELECT * FROM gallery_categories WHERE school_id = ? ORDER BY sort_order ASC, name ASC',
+      [schoolId]
     );
     res.json({ success: true, data: Array.isArray(categories) ? categories : [] });
   } catch (error: any) {
@@ -66,6 +70,8 @@ export const getCategories = async (req: Request, res: Response, next: NextFunct
 
 export const createCategory = async (req: Request, res: Response, next: NextFunction) => {
   try {
+    const schoolId = getSchoolId(req as AuthRequest);
+    if (schoolId == null) throw createError('School context required', 403);
     const db = getDatabase();
     const { name, description, sort_order, is_active } = req.body;
     
@@ -74,11 +80,11 @@ export const createCategory = async (req: Request, res: Response, next: NextFunc
     }
     
     const [result] = await db.execute(
-      'INSERT INTO gallery_categories (name, description, sort_order, is_active) VALUES (?, ?, ?, ?)',
-      [name.trim(), description?.trim() || null, sort_order || 0, parseBoolean(is_active) !== undefined ? parseBoolean(is_active) : true]
+      'INSERT INTO gallery_categories (school_id, name, description, sort_order, is_active) VALUES (?, ?, ?, ?, ?)',
+      [schoolId, name.trim(), description?.trim() || null, sort_order || 0, parseBoolean(is_active) !== undefined ? parseBoolean(is_active) : true]
     ) as any;
     
-    const [newCategory] = await db.execute('SELECT * FROM gallery_categories WHERE id = ?', [result.insertId]);
+    const [newCategory] = await db.execute('SELECT * FROM gallery_categories WHERE school_id = ? AND id = ?', [schoolId, result.insertId]);
     
     res.status(201).json({
       success: true,
@@ -95,6 +101,8 @@ export const createCategory = async (req: Request, res: Response, next: NextFunc
 
 export const updateCategory = async (req: Request, res: Response, next: NextFunction) => {
   try {
+    const schoolId = getSchoolId(req as AuthRequest);
+    if (schoolId == null) throw createError('School context required', 403);
     const db = getDatabase();
     const { id } = req.params;
     const { name, description, sort_order, is_active } = req.body;
@@ -104,11 +112,11 @@ export const updateCategory = async (req: Request, res: Response, next: NextFunc
     }
     
     await db.execute(
-      'UPDATE gallery_categories SET name = ?, description = ?, sort_order = ?, is_active = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?',
-      [name.trim(), description?.trim() || null, sort_order || 0, parseBoolean(is_active) !== undefined ? parseBoolean(is_active) : true, String(id)]
+      'UPDATE gallery_categories SET name = ?, description = ?, sort_order = ?, is_active = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ? AND school_id = ?',
+      [name.trim(), description?.trim() || null, sort_order || 0, parseBoolean(is_active) !== undefined ? parseBoolean(is_active) : true, String(id), schoolId]
     );
     
-    const [updatedCategory] = await db.execute('SELECT * FROM gallery_categories WHERE id = ?', [String(id)]);
+    const [updatedCategory] = await db.execute('SELECT * FROM gallery_categories WHERE school_id = ? AND id = ?', [schoolId, String(id)]);
     
     res.json({
       success: true,
@@ -125,16 +133,17 @@ export const updateCategory = async (req: Request, res: Response, next: NextFunc
 
 export const deleteCategory = async (req: Request, res: Response, next: NextFunction) => {
   try {
+    const schoolId = getSchoolId(req as AuthRequest);
+    if (schoolId == null) throw createError('School context required', 403);
     const db = getDatabase();
     const { id } = req.params;
     
-    // Check if category has images
-    const [images] = await db.execute('SELECT COUNT(*) as count FROM gallery_images WHERE category_id = ?', [String(id)]) as any;
+    const [images] = await db.execute('SELECT COUNT(*) as count FROM gallery_images WHERE school_id = ? AND category_id = ?', [schoolId, String(id)]) as any;
     if (images && images[0] && images[0].count > 0) {
       return next(createError('Cannot delete category with existing images. Please delete or move images first.', 400));
     }
     
-    await db.execute('DELETE FROM gallery_categories WHERE id = ?', [id]);
+    await db.execute('DELETE FROM gallery_categories WHERE id = ? AND school_id = ?', [id, schoolId]);
     
     res.json({ success: true, message: 'Category deleted successfully' });
   } catch (error: any) {
@@ -146,16 +155,18 @@ export const deleteCategory = async (req: Request, res: Response, next: NextFunc
 
 export const getImages = async (req: Request, res: Response, next: NextFunction) => {
   try {
+    const schoolId = getSchoolId(req as AuthRequest);
+    if (schoolId == null) throw createError('School context required', 403);
     const db = getDatabase();
     const { category_id } = req.query;
     
     let query = `
       SELECT gi.*, gc.name as category_name 
       FROM gallery_images gi
-      LEFT JOIN gallery_categories gc ON gi.category_id = gc.id
-      WHERE 1=1
+      LEFT JOIN gallery_categories gc ON gi.category_id = gc.id AND gc.school_id = ?
+      WHERE gi.school_id = ?
     `;
-    const params: any[] = [];
+    const params: any[] = [schoolId, schoolId];
     
     if (category_id) {
       query += ' AND gi.category_id = ?';
@@ -173,6 +184,8 @@ export const getImages = async (req: Request, res: Response, next: NextFunction)
 
 export const createImage = async (req: Request, res: Response, next: NextFunction) => {
   try {
+    const schoolId = getSchoolId(req as AuthRequest);
+    if (schoolId == null) throw createError('School context required', 403);
     const db = getDatabase();
     const file = req.file;
     const { category_id, title, description, sort_order, is_active } = req.body;
@@ -185,8 +198,7 @@ export const createImage = async (req: Request, res: Response, next: NextFunctio
       return next(createError('Category and title are required', 400));
     }
     
-    // Verify category exists
-    const [categories] = await db.execute('SELECT id FROM gallery_categories WHERE id = ?', [String(category_id)]) as any;
+    const [categories] = await db.execute('SELECT id FROM gallery_categories WHERE school_id = ? AND id = ?', [schoolId, String(category_id)]) as any;
     if (!categories || categories.length === 0) {
       return next(createError('Category not found', 404));
     }
@@ -194,13 +206,13 @@ export const createImage = async (req: Request, res: Response, next: NextFunctio
     const imagePath = `/uploads/front-cms/gallery/${file.filename}`;
     
     const [result] = await db.execute(
-      'INSERT INTO gallery_images (category_id, title, description, image_path, sort_order, is_active) VALUES (?, ?, ?, ?, ?, ?)',
-      [category_id, title.trim(), description?.trim() || null, imagePath, sort_order || 0, parseBoolean(is_active) !== undefined ? parseBoolean(is_active) : true]
+      'INSERT INTO gallery_images (school_id, category_id, title, description, image_path, sort_order, is_active) VALUES (?, ?, ?, ?, ?, ?, ?)',
+      [schoolId, category_id, title.trim(), description?.trim() || null, imagePath, sort_order || 0, parseBoolean(is_active) !== undefined ? parseBoolean(is_active) : true]
     ) as any;
     
     const [newImage] = await db.execute(
-      'SELECT gi.*, gc.name as category_name FROM gallery_images gi LEFT JOIN gallery_categories gc ON gi.category_id = gc.id WHERE gi.id = ?',
-      [result.insertId]
+      'SELECT gi.*, gc.name as category_name FROM gallery_images gi LEFT JOIN gallery_categories gc ON gi.category_id = gc.id AND gc.school_id = ? WHERE gi.school_id = ? AND gi.id = ?',
+      [schoolId, schoolId, result.insertId]
     );
     
     res.status(201).json({
@@ -222,6 +234,8 @@ export const createImage = async (req: Request, res: Response, next: NextFunctio
 
 export const updateImage = async (req: Request, res: Response, next: NextFunction) => {
   try {
+    const schoolId = getSchoolId(req as AuthRequest);
+    if (schoolId == null) throw createError('School context required', 403);
     const db = getDatabase();
     const { id } = req.params;
     const file = req.file;
@@ -231,8 +245,7 @@ export const updateImage = async (req: Request, res: Response, next: NextFunctio
       return next(createError('Title is required', 400));
     }
     
-    // Get existing image
-    const [existingImages] = await db.execute('SELECT * FROM gallery_images WHERE id = ?', [String(id)]) as any;
+    const [existingImages] = await db.execute('SELECT * FROM gallery_images WHERE school_id = ? AND id = ?', [schoolId, String(id)]) as any;
     if (!existingImages || existingImages.length === 0) {
       return next(createError('Image not found', 404));
     }
@@ -240,9 +253,7 @@ export const updateImage = async (req: Request, res: Response, next: NextFunctio
     
     let imagePath = existingImage.image_path;
     
-    // If new file uploaded, delete old file and update path
     if (file) {
-      // Delete old file
       if (existingImage.image_path) {
         const oldFilePath = path.join(__dirname, '../../', existingImage.image_path);
         if (fs.existsSync(oldFilePath)) {
@@ -255,13 +266,13 @@ export const updateImage = async (req: Request, res: Response, next: NextFunctio
     const updateCategoryId = category_id || existingImage.category_id;
     
     await db.execute(
-      'UPDATE gallery_images SET category_id = ?, title = ?, description = ?, image_path = ?, sort_order = ?, is_active = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?',
-      [String(updateCategoryId), title.trim(), description?.trim() || null, imagePath, sort_order || 0, parseBoolean(is_active) !== undefined ? parseBoolean(is_active) : true, String(id)]
+      'UPDATE gallery_images SET category_id = ?, title = ?, description = ?, image_path = ?, sort_order = ?, is_active = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ? AND school_id = ?',
+      [String(updateCategoryId), title.trim(), description?.trim() || null, imagePath, sort_order || 0, parseBoolean(is_active) !== undefined ? parseBoolean(is_active) : true, String(id), schoolId]
     );
     
     const [updatedImage] = await db.execute(
-      'SELECT gi.*, gc.name as category_name FROM gallery_images gi LEFT JOIN gallery_categories gc ON gi.category_id = gc.id WHERE gi.id = ?',
-      [id]
+      'SELECT gi.*, gc.name as category_name FROM gallery_images gi LEFT JOIN gallery_categories gc ON gi.category_id = gc.id AND gc.school_id = ? WHERE gi.school_id = ? AND gi.id = ?',
+      [schoolId, schoolId, id]
     );
     
     res.json({
@@ -283,17 +294,17 @@ export const updateImage = async (req: Request, res: Response, next: NextFunctio
 
 export const deleteImage = async (req: Request, res: Response, next: NextFunction) => {
   try {
+    const schoolId = getSchoolId(req as AuthRequest);
+    if (schoolId == null) throw createError('School context required', 403);
     const db = getDatabase();
     const { id } = req.params;
     
-    // Get image to delete file
-    const [images] = await db.execute('SELECT * FROM gallery_images WHERE id = ?', [id]) as any;
+    const [images] = await db.execute('SELECT * FROM gallery_images WHERE school_id = ? AND id = ?', [schoolId, id]) as any;
     if (!images || images.length === 0) {
       return next(createError('Image not found', 404));
     }
     const image = images[0];
     
-    // Delete file
     if (image.image_path) {
       const filePath = path.join(__dirname, '../../', image.image_path);
       if (fs.existsSync(filePath)) {
@@ -301,7 +312,7 @@ export const deleteImage = async (req: Request, res: Response, next: NextFunctio
       }
     }
     
-    await db.execute('DELETE FROM gallery_images WHERE id = ?', [String(id)]);
+    await db.execute('DELETE FROM gallery_images WHERE id = ? AND school_id = ?', [String(id), schoolId]);
     
     res.json({ success: true, message: 'Image deleted successfully' });
   } catch (error: any) {

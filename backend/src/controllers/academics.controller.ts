@@ -1,24 +1,29 @@
 import { Request, Response, NextFunction } from 'express';
 import { getDatabase } from '../config/database';
 import { createError } from '../middleware/errorHandler';
+import { AuthRequest, getSchoolId } from '../middleware/auth';
 
 // ========== Classes ==========
 export const getClasses = async (
-  req: Request,
+  req: AuthRequest,
   res: Response,
   next: NextFunction
 ): Promise<void> => {
   try {
+    const schoolId = getSchoolId(req);
+    if (schoolId == null) return next(createError('School context required', 403));
     const db = getDatabase();
     const [classes] = await db.execute(
       `SELECT c.*, 
        GROUP_CONCAT(DISTINCT s.name ORDER BY s.name SEPARATOR ', ') as sections,
        GROUP_CONCAT(DISTINCT cs.section_id ORDER BY s.name SEPARATOR ',') as section_ids
        FROM classes c
-       LEFT JOIN class_sections cs ON c.id = cs.class_id
-       LEFT JOIN sections s ON cs.section_id = s.id
+       LEFT JOIN class_sections cs ON c.id = cs.class_id AND cs.school_id = ?
+       LEFT JOIN sections s ON cs.section_id = s.id AND s.school_id = ?
+       WHERE c.school_id = ?
        GROUP BY c.id
-       ORDER BY c.numeric_value ASC, c.name ASC`
+       ORDER BY c.numeric_value ASC, c.name ASC`,
+      [schoolId, schoolId, schoolId]
     ) as any[];
 
     res.json({
@@ -31,11 +36,13 @@ export const getClasses = async (
 };
 
 export const createClass = async (
-  req: Request,
+  req: AuthRequest,
   res: Response,
   next: NextFunction
 ): Promise<void> => {
   try {
+    const schoolId = getSchoolId(req);
+    if (schoolId == null) return next(createError('School context required', 403));
     const { name, numeric_value, section_ids } = req.body;
 
     if (!name) {
@@ -46,18 +53,18 @@ export const createClass = async (
 
     // Create class
     const [result] = await db.execute(
-      'INSERT INTO classes (name, numeric_value, created_at) VALUES (?, ?, NOW())',
-      [name, numeric_value || null]
+      'INSERT INTO classes (school_id, name, numeric_value, created_at) VALUES (?, ?, ?, NOW())',
+      [schoolId, name, numeric_value || null]
     ) as any;
 
     // Assign sections if provided
     if (section_ids && Array.isArray(section_ids) && section_ids.length > 0) {
-      const values = section_ids.map((sectionId: number) => [result.insertId, sectionId]);
-      const placeholders = values.map(() => '(?, ?)').join(', ');
+      const values = section_ids.map((sectionId: number) => [schoolId, result.insertId, sectionId]);
+      const placeholders = values.map(() => '(?, ?, ?)').join(', ');
       const flatValues = values.flat();
 
       await db.execute(
-        `INSERT INTO class_sections (class_id, section_id) VALUES ${placeholders}`,
+        `INSERT INTO class_sections (school_id, class_id, section_id) VALUES ${placeholders}`,
         flatValues
       );
     }
@@ -163,30 +170,33 @@ export const deleteClass = async (
 
 // ========== Sections ==========
 export const getSections = async (
-  req: Request,
+  req: AuthRequest,
   res: Response,
   next: NextFunction
 ): Promise<void> => {
   try {
+    const schoolId = getSchoolId(req);
+    if (schoolId == null) return next(createError('School context required', 403));
     const db = getDatabase();
     const { class_id } = req.query;
 
     let query = '';
-    let params: any[] = [];
+    let params: any[] = [schoolId];
 
     if (class_id) {
-      // Get sections for a specific class
+      // Get sections for a specific class (same school)
       query = `
         SELECT DISTINCT s.* 
         FROM sections s
-        INNER JOIN class_sections cs ON s.id = cs.section_id
-        WHERE cs.class_id = ?
+        INNER JOIN class_sections cs ON s.id = cs.section_id AND cs.school_id = ?
+        WHERE cs.class_id = ? AND s.school_id = ?
         ORDER BY s.name ASC
       `;
-      params = [class_id];
+      params = [schoolId, class_id, schoolId];
     } else {
-      // Get all sections
-      query = 'SELECT * FROM sections ORDER BY name ASC';
+      // Get all sections for this school
+      query = 'SELECT * FROM sections WHERE school_id = ? ORDER BY name ASC';
+      params = [schoolId];
     }
 
     const [sections] = await db.execute(query, params) as any[];
@@ -201,11 +211,13 @@ export const getSections = async (
 };
 
 export const createSection = async (
-  req: Request,
+  req: AuthRequest,
   res: Response,
   next: NextFunction
 ): Promise<void> => {
   try {
+    const schoolId = getSchoolId(req);
+    if (schoolId == null) return next(createError('School context required', 403));
     const { name } = req.body;
 
     if (!name) {
@@ -214,10 +226,9 @@ export const createSection = async (
 
     const db = getDatabase();
 
-    // Check if section exists
     const [existing] = await db.execute(
-      'SELECT id FROM sections WHERE name = ?',
-      [name]
+      'SELECT id FROM sections WHERE name = ? AND school_id = ?',
+      [name, schoolId]
     ) as any[];
 
     if (existing.length > 0) {
@@ -225,8 +236,8 @@ export const createSection = async (
     }
 
     const [result] = await db.execute(
-      'INSERT INTO sections (name, created_at) VALUES (?, NOW())',
-      [name]
+      'INSERT INTO sections (school_id, name, created_at) VALUES (?, ?, NOW())',
+      [schoolId, name]
     ) as any;
 
     const [newSections] = await db.execute(
@@ -305,9 +316,12 @@ export const getSubjects = async (
   next: NextFunction
 ): Promise<void> => {
   try {
+    const schoolId = getSchoolId(req as AuthRequest);
+    if (schoolId == null) return next(createError('School context required', 403));
     const db = getDatabase();
     const [subjects] = await db.execute(
-      'SELECT * FROM subjects ORDER BY name ASC'
+      'SELECT * FROM subjects WHERE school_id = ? ORDER BY name ASC',
+      [schoolId]
     ) as any[];
 
     res.json({
@@ -325,6 +339,8 @@ export const createSubject = async (
   next: NextFunction
 ): Promise<void> => {
   try {
+    const schoolId = getSchoolId(req as AuthRequest);
+    if (schoolId == null) return next(createError('School context required', 403));
     const { name, code, type } = req.body;
 
     if (!name) {
@@ -334,13 +350,13 @@ export const createSubject = async (
     const db = getDatabase();
 
     const [result] = await db.execute(
-      'INSERT INTO subjects (name, code, type, created_at) VALUES (?, ?, ?, NOW())',
-      [name, code || null, type || 'theory']
+      'INSERT INTO subjects (school_id, name, code, type, created_at) VALUES (?, ?, ?, ?, NOW())',
+      [schoolId, name, code || null, type || 'theory']
     ) as any;
 
     const [newSubjects] = await db.execute(
-      'SELECT * FROM subjects WHERE id = ?',
-      [result.insertId]
+      'SELECT * FROM subjects WHERE school_id = ? AND id = ?',
+      [schoolId, result.insertId]
     ) as any[];
 
     res.status(201).json({
@@ -359,6 +375,8 @@ export const updateSubject = async (
   next: NextFunction
 ): Promise<void> => {
   try {
+    const schoolId = getSchoolId(req as AuthRequest);
+    if (schoolId == null) return next(createError('School context required', 403));
     const { id } = req.params;
     const { name, code, type } = req.body;
     const db = getDatabase();
@@ -384,16 +402,16 @@ export const updateSubject = async (
     }
 
     updates.push('updated_at = NOW()');
-    params.push(id);
+    params.push(id, schoolId);
 
     await db.execute(
-      `UPDATE subjects SET ${updates.join(', ')} WHERE id = ?`,
+      `UPDATE subjects SET ${updates.join(', ')} WHERE id = ? AND school_id = ?`,
       params
     );
 
     const [updatedSubjects] = await db.execute(
-      'SELECT * FROM subjects WHERE id = ?',
-      [id]
+      'SELECT * FROM subjects WHERE school_id = ? AND id = ?',
+      [schoolId, id]
     ) as any[];
 
     res.json({
@@ -412,10 +430,12 @@ export const deleteSubject = async (
   next: NextFunction
 ): Promise<void> => {
   try {
+    const schoolId = getSchoolId(req as AuthRequest);
+    if (schoolId == null) return next(createError('School context required', 403));
     const { id } = req.params;
     const db = getDatabase();
 
-    await db.execute('DELETE FROM subjects WHERE id = ?', [id]);
+    await db.execute('DELETE FROM subjects WHERE id = ? AND school_id = ?', [id, schoolId]);
 
     res.json({
       success: true,
@@ -433,6 +453,8 @@ export const getSubjectGroups = async (
   next: NextFunction
 ): Promise<void> => {
   try {
+    const schoolId = getSchoolId(req as AuthRequest);
+    if (schoolId == null) return next(createError('School context required', 403));
     const { class_id, section_id } = req.query;
     const db = getDatabase();
 
@@ -441,13 +463,13 @@ export const getSubjectGroups = async (
        GROUP_CONCAT(DISTINCT sub.name ORDER BY sub.name SEPARATOR ', ') as subjects,
        GROUP_CONCAT(DISTINCT sgs.subject_id ORDER BY sgs.subject_id SEPARATOR ',') as subject_ids
        FROM subject_groups sg
-       LEFT JOIN classes c ON sg.class_id = c.id
-       LEFT JOIN sections s ON sg.section_id = s.id
-       LEFT JOIN subject_group_subjects sgs ON sg.id = sgs.subject_group_id
-       LEFT JOIN subjects sub ON sgs.subject_id = sub.id
-       WHERE 1=1
+       LEFT JOIN classes c ON sg.class_id = c.id AND c.school_id = ?
+       LEFT JOIN sections s ON sg.section_id = s.id AND s.school_id = ?
+       LEFT JOIN subject_group_subjects sgs ON sg.id = sgs.subject_group_id AND sgs.school_id = ?
+       LEFT JOIN subjects sub ON sgs.subject_id = sub.id AND sub.school_id = ?
+       WHERE sg.school_id = ?
     `;
-    const params: any[] = [];
+    const params: any[] = [schoolId, schoolId, schoolId, schoolId, schoolId];
 
     if (class_id) {
       query += ' AND sg.class_id = ?';
@@ -477,6 +499,8 @@ export const createSubjectGroup = async (
   next: NextFunction
 ): Promise<void> => {
   try {
+    const schoolId = getSchoolId(req as AuthRequest);
+    if (schoolId == null) return next(createError('School context required', 403));
     const { name, class_id, section_id, subject_ids } = req.body;
 
     if (!name || !class_id || !section_id) {
@@ -486,25 +510,24 @@ export const createSubjectGroup = async (
     const db = getDatabase();
 
     const [result] = await db.execute(
-      'INSERT INTO subject_groups (name, class_id, section_id, created_at) VALUES (?, ?, ?, NOW())',
-      [name, class_id, section_id]
+      'INSERT INTO subject_groups (school_id, name, class_id, section_id, created_at) VALUES (?, ?, ?, ?, NOW())',
+      [schoolId, name, class_id, section_id]
     ) as any;
 
-    // Add subjects if provided
     if (subject_ids && Array.isArray(subject_ids) && subject_ids.length > 0) {
-      const values = subject_ids.map((subjectId: number) => [result.insertId, subjectId]);
-      const placeholders = values.map(() => '(?, ?)').join(', ');
+      const values = subject_ids.map((subjectId: number) => [schoolId, result.insertId, subjectId]);
+      const placeholders = values.map(() => '(?, ?, ?)').join(', ');
       const flatValues = values.flat();
 
       await db.execute(
-        `INSERT INTO subject_group_subjects (subject_group_id, subject_id) VALUES ${placeholders}`,
+        `INSERT INTO subject_group_subjects (school_id, subject_group_id, subject_id) VALUES ${placeholders}`,
         flatValues
       );
     }
 
     const [newGroups] = await db.execute(
-      'SELECT * FROM subject_groups WHERE id = ?',
-      [result.insertId]
+      'SELECT * FROM subject_groups WHERE school_id = ? AND id = ?',
+      [schoolId, result.insertId]
     ) as any[];
 
     res.status(201).json({
@@ -523,36 +546,37 @@ export const updateSubjectGroup = async (
   next: NextFunction
 ): Promise<void> => {
   try {
+    const schoolId = getSchoolId(req as AuthRequest);
+    if (schoolId == null) return next(createError('School context required', 403));
     const { id } = req.params;
     const { name, subject_ids } = req.body;
     const db = getDatabase();
 
     if (name) {
       await db.execute(
-        'UPDATE subject_groups SET name = ?, updated_at = NOW() WHERE id = ?',
-        [name, id]
+        'UPDATE subject_groups SET name = ?, updated_at = NOW() WHERE id = ? AND school_id = ?',
+        [name, id, schoolId]
       );
     }
 
-    // Update subjects if provided
     if (subject_ids && Array.isArray(subject_ids)) {
-      await db.execute('DELETE FROM subject_group_subjects WHERE subject_group_id = ?', [id]);
+      await db.execute('DELETE FROM subject_group_subjects WHERE subject_group_id = ? AND school_id = ?', [id, schoolId]);
 
       if (subject_ids.length > 0) {
-        const values = subject_ids.map((subjectId: number) => [id, subjectId]);
-        const placeholders = values.map(() => '(?, ?)').join(', ');
+        const values = subject_ids.map((subjectId: number) => [schoolId, id, subjectId]);
+        const placeholders = values.map(() => '(?, ?, ?)').join(', ');
         const flatValues = values.flat();
 
         await db.execute(
-          `INSERT INTO subject_group_subjects (subject_group_id, subject_id) VALUES ${placeholders}`,
+          `INSERT INTO subject_group_subjects (school_id, subject_group_id, subject_id) VALUES ${placeholders}`,
           flatValues
         );
       }
     }
 
     const [updatedGroups] = await db.execute(
-      'SELECT * FROM subject_groups WHERE id = ?',
-      [id]
+      'SELECT * FROM subject_groups WHERE school_id = ? AND id = ?',
+      [schoolId, id]
     ) as any[];
 
     res.json({
@@ -571,10 +595,12 @@ export const deleteSubjectGroup = async (
   next: NextFunction
 ): Promise<void> => {
   try {
+    const schoolId = getSchoolId(req as AuthRequest);
+    if (schoolId == null) return next(createError('School context required', 403));
     const { id } = req.params;
     const db = getDatabase();
 
-    await db.execute('DELETE FROM subject_groups WHERE id = ?', [id]);
+    await db.execute('DELETE FROM subject_groups WHERE id = ? AND school_id = ?', [id, schoolId]);
 
     res.json({
       success: true,

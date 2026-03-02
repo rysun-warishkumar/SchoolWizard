@@ -1,6 +1,7 @@
 import { Request, Response, NextFunction } from 'express';
 import { getDatabase } from '../config/database';
 import { createError } from '../middleware/errorHandler';
+import { AuthRequest, getSchoolId } from '../middleware/auth';
 import multer from 'multer';
 import path from 'path';
 import fs from 'fs';
@@ -73,9 +74,12 @@ const bannerUpload = multer({
 // Get Website Settings
 export const getWebsiteSettings = async (req: Request, res: Response, next: NextFunction) => {
   try {
-    const db = await getDatabase();
+    const schoolId = getSchoolId(req as AuthRequest);
+    if (schoolId == null) throw createError('School context required', 403);
+    const db = getDatabase();
     const [settings] = await db.execute(
-      'SELECT * FROM front_cms_website_settings LIMIT 1'
+      'SELECT * FROM front_cms_website_settings WHERE school_id = ? LIMIT 1',
+      [schoolId]
     );
 
     if (!settings || (Array.isArray(settings) && settings.length === 0)) {
@@ -124,6 +128,8 @@ const parseBoolean = (value: any): boolean => {
 // Update Website Settings
 export const updateWebsiteSettings = async (req: Request, res: Response, next: NextFunction) => {
   try {
+    const schoolId = getSchoolId(req as AuthRequest);
+    if (schoolId == null) throw createError('School context required', 403);
     const db = getDatabase();
     
     // Parse FormData values - booleans come as strings from FormData
@@ -155,8 +161,7 @@ export const updateWebsiteSettings = async (req: Request, res: Response, next: N
       website_logo = req.body.website_logo;
     }
 
-    // Check if settings exist
-    const [existing] = await db.execute('SELECT id FROM front_cms_website_settings LIMIT 1') as any[];
+    const [existing] = await db.execute('SELECT id FROM front_cms_website_settings WHERE school_id = ? LIMIT 1', [schoolId]) as any[];
     const exists = Array.isArray(existing) && existing.length > 0;
     const existingId = exists ? (existing[0] as any)?.id : null;
 
@@ -239,22 +244,22 @@ export const updateWebsiteSettings = async (req: Request, res: Response, next: N
       }
 
       if (updateFields.length > 0) {
-        values.push(String(existingId));
+        values.push(String(existingId), schoolId);
         await db.execute(
-          `UPDATE front_cms_website_settings SET ${updateFields.join(', ')}, updated_at = CURRENT_TIMESTAMP WHERE id = ?`,
+          `UPDATE front_cms_website_settings SET ${updateFields.join(', ')}, updated_at = CURRENT_TIMESTAMP WHERE id = ? AND school_id = ?`,
           values
         );
       }
     } else {
-      // Insert new settings
       await db.execute(
         `INSERT INTO front_cms_website_settings (
-          school_name, tag_line, tag_line_visible, contact_email, contact_phone,
+          school_id, school_name, tag_line, tag_line_visible, contact_email, contact_phone,
           website_logo, facebook_url, facebook_enabled, twitter_url, twitter_enabled,
           youtube_url, youtube_enabled, instagram_url, instagram_enabled,
           linkedin_url, linkedin_enabled, whatsapp_url, whatsapp_enabled
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
         [
+          schoolId,
           school_name || 'School Name',
           tag_line || null,
           tag_line_visible !== undefined ? tag_line_visible : true,
@@ -277,8 +282,7 @@ export const updateWebsiteSettings = async (req: Request, res: Response, next: N
       );
     }
 
-    // Get updated settings
-    const [updated] = await db.execute('SELECT * FROM front_cms_website_settings LIMIT 1');
+    const [updated] = await db.execute('SELECT * FROM front_cms_website_settings WHERE school_id = ? LIMIT 1', [schoolId]);
     const setting = Array.isArray(updated) ? updated[0] : updated;
 
     res.json({
@@ -295,9 +299,12 @@ export const updateWebsiteSettings = async (req: Request, res: Response, next: N
 // Get All Banners
 export const getBanners = async (req: Request, res: Response, next: NextFunction) => {
   try {
+    const schoolId = getSchoolId(req as AuthRequest);
+    if (schoolId == null) throw createError('School context required', 403);
     const db = getDatabase();
     const [banners] = await db.execute(
-      'SELECT * FROM front_cms_banners ORDER BY sort_order ASC, created_at ASC'
+      'SELECT * FROM front_cms_banners WHERE school_id = ? ORDER BY sort_order ASC, created_at ASC',
+      [schoolId]
     );
 
     res.json({
@@ -312,10 +319,12 @@ export const getBanners = async (req: Request, res: Response, next: NextFunction
 // Get Single Banner
 export const getBanner = async (req: Request, res: Response, next: NextFunction) => {
   try {
+    const schoolId = getSchoolId(req as AuthRequest);
+    if (schoolId == null) throw createError('School context required', 403);
     const db = getDatabase();
     const { id } = req.params;
 
-    const [banners] = await db.execute('SELECT * FROM front_cms_banners WHERE id = ?', [String(id)]);
+    const [banners] = await db.execute('SELECT * FROM front_cms_banners WHERE school_id = ? AND id = ?', [schoolId, String(id)]);
 
     if (!Array.isArray(banners) || banners.length === 0) {
       return next(createError('Banner not found', 404));
@@ -330,9 +339,10 @@ export const getBanner = async (req: Request, res: Response, next: NextFunction)
 // Create Banner
 export const createBanner = async (req: Request, res: Response, next: NextFunction) => {
   try {
+    const schoolId = getSchoolId(req as AuthRequest);
+    if (schoolId == null) throw createError('School context required', 403);
     const db = getDatabase();
     
-    // Parse FormData values
     const title = req.body.title;
     const description = req.body.description !== undefined && req.body.description !== '' ? req.body.description : null;
     const button_text = req.body.button_text !== undefined && req.body.button_text !== '' ? req.body.button_text : null;
@@ -347,9 +357,10 @@ export const createBanner = async (req: Request, res: Response, next: NextFuncti
     const image_path = `/uploads/front-cms/banners/${req.file.filename}`;
 
     const [result] = await db.execute(
-      `INSERT INTO front_cms_banners (title, description, image_path, button_text, button_url, sort_order, is_active)
-       VALUES (?, ?, ?, ?, ?, ?, ?)`,
+      `INSERT INTO front_cms_banners (school_id, title, description, image_path, button_text, button_url, sort_order, is_active)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
       [
+        schoolId,
         title,
         description,
         image_path,
@@ -361,7 +372,8 @@ export const createBanner = async (req: Request, res: Response, next: NextFuncti
     );
 
     const insertResult = result as any;
-    const [banners] = await db.execute('SELECT * FROM front_cms_banners WHERE id = ?', [
+    const [banners] = await db.execute('SELECT * FROM front_cms_banners WHERE school_id = ? AND id = ?', [
+      schoolId,
       String(insertResult.insertId),
     ]);
 
@@ -378,10 +390,11 @@ export const createBanner = async (req: Request, res: Response, next: NextFuncti
 // Update Banner
 export const updateBanner = async (req: Request, res: Response, next: NextFunction) => {
   try {
+    const schoolId = getSchoolId(req as AuthRequest);
+    if (schoolId == null) throw createError('School context required', 403);
     const db = getDatabase();
     const { id } = req.params;
     
-    // Parse FormData values
     const title = req.body.title;
     const description = req.body.description !== undefined && req.body.description !== '' ? req.body.description : null;
     const button_text = req.body.button_text !== undefined && req.body.button_text !== '' ? req.body.button_text : null;
@@ -389,8 +402,7 @@ export const updateBanner = async (req: Request, res: Response, next: NextFuncti
     const sort_order = req.body.sort_order !== undefined ? parseInt(req.body.sort_order) : undefined;
     const is_active = req.body.is_active !== undefined ? parseBoolean(req.body.is_active) : undefined;
 
-    // Check if banner exists
-    const [existing] = await db.execute('SELECT * FROM front_cms_banners WHERE id = ?', [String(id)]);
+    const [existing] = await db.execute('SELECT * FROM front_cms_banners WHERE school_id = ? AND id = ?', [schoolId, String(id)]);
     if (!Array.isArray(existing) || existing.length === 0) {
       return next(createError('Banner not found', 404));
     }
@@ -414,7 +426,7 @@ export const updateBanner = async (req: Request, res: Response, next: NextFuncti
       `UPDATE front_cms_banners 
        SET title = ?, description = ?, image_path = ?, button_text = ?, button_url = ?, 
            sort_order = ?, is_active = ?, updated_at = CURRENT_TIMESTAMP
-       WHERE id = ?`,
+       WHERE id = ? AND school_id = ?`,
       [
         title !== undefined ? title : existingBanner.title,
         description !== undefined ? description : existingBanner.description,
@@ -424,10 +436,11 @@ export const updateBanner = async (req: Request, res: Response, next: NextFuncti
         sort_order !== undefined ? sort_order : existingBanner.sort_order,
         is_active !== undefined ? is_active : existingBanner.is_active,
         String(id),
+        schoolId,
       ]
     );
 
-    const [updated] = await db.execute('SELECT * FROM front_cms_banners WHERE id = ?', [String(id)]);
+    const [updated] = await db.execute('SELECT * FROM front_cms_banners WHERE school_id = ? AND id = ?', [schoolId, String(id)]);
 
     res.json({
       success: true,
@@ -443,11 +456,13 @@ export const updateBanner = async (req: Request, res: Response, next: NextFuncti
 // Delete Banner
 export const deleteBanner = async (req: Request, res: Response, next: NextFunction) => {
   try {
+    const schoolId = getSchoolId(req as AuthRequest);
+    if (schoolId == null) throw createError('School context required', 403);
     const db = getDatabase();
     const { id } = req.params;
 
-    // Get banner to delete image
-    const [banners] = await db.execute('SELECT image_path FROM front_cms_banners WHERE id = ?', [
+    const [banners] = await db.execute('SELECT image_path FROM front_cms_banners WHERE school_id = ? AND id = ?', [
+      schoolId,
       String(id),
     ]);
 
@@ -457,8 +472,7 @@ export const deleteBanner = async (req: Request, res: Response, next: NextFuncti
 
     const banner = banners[0] as any;
 
-    // Delete banner from database
-    await db.execute('DELETE FROM front_cms_banners WHERE id = ?', [String(id)]);
+    await db.execute('DELETE FROM front_cms_banners WHERE id = ? AND school_id = ?', [String(id), schoolId]);
 
     // Delete image file
     if (banner.image_path) {

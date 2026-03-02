@@ -7,12 +7,12 @@ import {
   generateCertificate, generateIdCard,
   upload,
 } from '../controllers/certificate.controller';
-import { authenticate } from '../middleware/auth';
+import { authenticate, requireSchool } from '../middleware/auth';
 import { checkPermission } from '../middleware/permissions';
 
 const router = express.Router();
 
-router.use(authenticate);
+router.use(authenticate, requireSchool);
 
 // Certificate Templates Routes
 router.get('/certificate-templates', checkPermission('certificate', 'view'), getCertificateTemplates);

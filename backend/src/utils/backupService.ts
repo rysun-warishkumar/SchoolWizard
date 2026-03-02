@@ -24,6 +24,7 @@ if (!fs.existsSync(BACKUP_DIR)) {
 interface BackupOptions {
   userId?: number;
   backupType?: 'manual' | 'automatic';
+  schoolId?: number;
 }
 
 /**
@@ -84,16 +85,24 @@ export const createBackup = async (options: BackupOptions = {}): Promise<{
 
     // Save backup record to database
     const backupType = options.backupType || 'manual';
+    const schoolId = options.schoolId ?? null;
     const [result] = await db.execute(
-      `INSERT INTO backup_records (backup_name, file_path, file_size, backup_type, created_by, created_at)
-       VALUES (?, ?, ?, ?, ?, NOW())`,
-      [backupName, filePath, fileSize, backupType, options.userId || null]
+      `INSERT INTO backup_records (school_id, backup_name, file_path, file_size, backup_type, created_by, created_at)
+       VALUES (?, ?, ?, ?, ?, ?, NOW())`,
+      [schoolId, backupName, filePath, fileSize, backupType, options.userId || null]
     ) as any;
 
-    // Update last backup time in settings
-    await db.execute(
-      'UPDATE backup_settings SET last_backup_at = NOW() WHERE id = 1'
-    );
+    // Update last backup time in settings (per-school if schoolId provided)
+    if (schoolId != null) {
+      await db.execute(
+        'UPDATE backup_settings SET last_backup_at = NOW() WHERE school_id = ?',
+        [schoolId]
+      );
+    } else {
+      await db.execute(
+        'UPDATE backup_settings SET last_backup_at = NOW() WHERE id = 1'
+      );
+    }
 
     return {
       backupName,
@@ -209,31 +218,43 @@ export const restoreBackup = async (filePath: string): Promise<void> => {
 };
 
 /**
- * Get all backup records
+ * Get all backup records, optionally filtered by school_id
  */
-export const getBackupRecords = async (): Promise<any[]> => {
+export const getBackupRecords = async (schoolId?: number | null): Promise<any[]> => {
   const db = getDatabase();
+  if (schoolId != null) {
+    const [records] = await db.execute(
+      `SELECT br.*, u.name as created_by_name
+       FROM backup_records br
+       LEFT JOIN users u ON br.created_by = u.id
+       WHERE br.school_id = ?
+       ORDER BY br.created_at DESC`,
+      [schoolId]
+    ) as any[];
+    return records;
+  }
   const [records] = await db.execute(
     `SELECT br.*, u.name as created_by_name
      FROM backup_records br
      LEFT JOIN users u ON br.created_by = u.id
      ORDER BY br.created_at DESC`
   ) as any[];
-
   return records;
 };
 
 /**
- * Delete backup file and record
+ * Delete backup file and record. If schoolId provided, only deletes if record belongs to that school.
  */
-export const deleteBackup = async (id: number): Promise<void> => {
+export const deleteBackup = async (id: number, schoolId?: number | null): Promise<void> => {
   const db = getDatabase();
 
-  // Get backup record
-  const [records] = await db.execute(
-    'SELECT file_path FROM backup_records WHERE id = ?',
-    [id]
-  ) as any[];
+  let query = 'SELECT file_path FROM backup_records WHERE id = ?';
+  const queryParams: any[] = [id];
+  if (schoolId != null) {
+    query += ' AND school_id = ?';
+    queryParams.push(schoolId);
+  }
+  const [records] = await db.execute(query, queryParams) as any[];
 
   if (records.length === 0) {
     throw createError('Backup record not found', 404);
@@ -250,21 +271,50 @@ export const deleteBackup = async (id: number): Promise<void> => {
     }
   }
 
-  // Delete record
-  await db.execute('DELETE FROM backup_records WHERE id = ?', [id]);
+  const deleteParams = schoolId != null ? [schoolId, id] : [id];
+  const deleteQuery = schoolId != null
+    ? 'DELETE FROM backup_records WHERE school_id = ? AND id = ?'
+    : 'DELETE FROM backup_records WHERE id = ?';
+  await db.execute(deleteQuery, deleteParams);
 };
 
 /**
- * Get backup settings
+ * Get backup settings. If schoolId provided, returns settings for that school.
  */
-export const getBackupSettings = async (): Promise<any> => {
+export const getBackupSettings = async (schoolId?: number | null): Promise<any> => {
   const db = getDatabase();
+  if (schoolId != null) {
+    const [settings] = await db.execute(
+      'SELECT * FROM backup_settings WHERE school_id = ?',
+      [schoolId]
+    ) as any[];
+    if (settings.length === 0) {
+      return {
+        id: null,
+        auto_backup_enabled: false,
+        backup_frequency: 'daily',
+        backup_time: '02:00:00',
+        keep_backups: 7,
+        cron_secret_key: null,
+        last_backup_at: null,
+      };
+    }
+    const setting = settings[0];
+    return {
+      id: setting.id,
+      auto_backup_enabled: setting.auto_backup_enabled === 1,
+      backup_frequency: setting.backup_frequency,
+      backup_time: setting.backup_time,
+      keep_backups: setting.keep_backups,
+      cron_secret_key: setting.cron_secret_key,
+      last_backup_at: setting.last_backup_at,
+    };
+  }
   const [settings] = await db.execute(
     'SELECT * FROM backup_settings WHERE id = 1'
   ) as any[];
 
   if (settings.length === 0) {
-    // Return default settings
     return {
       id: null,
       auto_backup_enabled: false,
@@ -289,18 +339,21 @@ export const getBackupSettings = async (): Promise<any> => {
 };
 
 /**
- * Update backup settings
+ * Update backup settings. If schoolId provided, updates/creates row for that school.
  */
 export const updateBackupSettings = async (settings: {
   auto_backup_enabled?: boolean;
   backup_frequency?: string;
   backup_time?: string;
   keep_backups?: number;
-}): Promise<void> => {
+}, schoolId?: number | null): Promise<void> => {
   const db = getDatabase();
 
+  const whereClause = schoolId != null ? 'WHERE school_id = ?' : 'WHERE id = 1';
+  const whereParam = schoolId != null ? [schoolId] : [];
   const [existing] = await db.execute(
-    'SELECT id FROM backup_settings WHERE id = 1'
+    `SELECT id FROM backup_settings ${whereClause}`,
+    whereParam
   ) as any[];
 
   if (existing.length > 0) {
@@ -326,76 +379,107 @@ export const updateBackupSettings = async (settings: {
 
     if (updates.length > 0) {
       updates.push('updated_at = NOW()');
-      params.push(1);
+      params.push(...(schoolId != null ? [schoolId] : [1]));
+      const updateWhere = schoolId != null ? 'WHERE school_id = ?' : 'WHERE id = ?';
       await db.execute(
-        `UPDATE backup_settings SET ${updates.join(', ')} WHERE id = ?`,
+        `UPDATE backup_settings SET ${updates.join(', ')} ${updateWhere}`,
         params
       );
     }
   } else {
-    await db.execute(
-      `INSERT INTO backup_settings 
-       (auto_backup_enabled, backup_frequency, backup_time, keep_backups, created_at, updated_at)
-       VALUES (?, ?, ?, ?, NOW(), NOW())`,
-      [
-        settings.auto_backup_enabled ? 1 : 0,
-        settings.backup_frequency || 'daily',
-        settings.backup_time || '02:00:00',
-        settings.keep_backups || 7,
-      ]
-    );
+    if (schoolId != null) {
+      await db.execute(
+        `INSERT INTO backup_settings 
+         (school_id, auto_backup_enabled, backup_frequency, backup_time, keep_backups, created_at, updated_at)
+         VALUES (?, ?, ?, ?, ?, NOW(), NOW())`,
+        [
+          schoolId,
+          settings.auto_backup_enabled ? 1 : 0,
+          settings.backup_frequency || 'daily',
+          settings.backup_time || '02:00:00',
+          settings.keep_backups || 7,
+        ]
+      );
+    } else {
+      await db.execute(
+        `INSERT INTO backup_settings 
+         (auto_backup_enabled, backup_frequency, backup_time, keep_backups, created_at, updated_at)
+         VALUES (?, ?, ?, ?, NOW(), NOW())`,
+        [
+          settings.auto_backup_enabled ? 1 : 0,
+          settings.backup_frequency || 'daily',
+          settings.backup_time || '02:00:00',
+          settings.keep_backups || 7,
+        ]
+      );
+    }
   }
 };
 
 /**
- * Generate or regenerate cron secret key
+ * Generate or regenerate cron secret key. If schoolId provided, updates/creates row for that school.
  */
-export const generateCronSecretKey = async (): Promise<string> => {
+export const generateCronSecretKey = async (schoolId?: number | null): Promise<string> => {
   const db = getDatabase();
   const secretKey = crypto.randomBytes(32).toString('hex');
 
+  const whereClause = schoolId != null ? 'WHERE school_id = ?' : 'WHERE id = 1';
+  const whereParam = schoolId != null ? [schoolId] : [];
   const [existing] = await db.execute(
-    'SELECT id FROM backup_settings WHERE id = 1'
+    `SELECT id FROM backup_settings ${whereClause}`,
+    whereParam
   ) as any[];
 
   if (existing.length > 0) {
+    const updateWhere = schoolId != null ? 'WHERE school_id = ?' : 'WHERE id = 1';
+    const updateParam = schoolId != null ? [secretKey, schoolId] : [secretKey];
     await db.execute(
-      'UPDATE backup_settings SET cron_secret_key = ?, updated_at = NOW() WHERE id = 1',
-      [secretKey]
+      `UPDATE backup_settings SET cron_secret_key = ?, updated_at = NOW() ${updateWhere}`,
+      updateParam
     );
   } else {
-    await db.execute(
-      `INSERT INTO backup_settings (cron_secret_key, created_at, updated_at)
-       VALUES (?, NOW(), NOW())`,
-      [secretKey]
-    );
+    if (schoolId != null) {
+      await db.execute(
+        `INSERT INTO backup_settings (school_id, cron_secret_key, created_at, updated_at)
+         VALUES (?, ?, NOW(), NOW())`,
+        [schoolId, secretKey]
+      );
+    } else {
+      await db.execute(
+        `INSERT INTO backup_settings (cron_secret_key, created_at, updated_at)
+         VALUES (?, NOW(), NOW())`,
+        [secretKey]
+      );
+    }
   }
 
   return secretKey;
 };
 
 /**
- * Clean up old backups based on keep_backups setting
+ * Clean up old backups based on keep_backups setting. If schoolId provided, only cleans that school's backups.
  */
-export const cleanupOldBackups = async (): Promise<void> => {
+export const cleanupOldBackups = async (schoolId?: number | null): Promise<void> => {
   const db = getDatabase();
-  const settings = await getBackupSettings();
+  const settings = await getBackupSettings(schoolId);
 
   if (!settings.keep_backups || settings.keep_backups <= 0) {
     return;
   }
 
-  // Get all backups ordered by date
-  const [backups] = await db.execute(
-    'SELECT id, file_path FROM backup_records ORDER BY created_at DESC'
-  ) as any[];
+  let query = 'SELECT id, file_path FROM backup_records';
+  const params: any[] = [];
+  if (schoolId != null) {
+    query += ' WHERE school_id = ?';
+    params.push(schoolId);
+  }
+  query += ' ORDER BY created_at DESC';
+  const [backups] = await db.execute(query, params) as any[];
 
-  // Keep only the most recent N backups
   if (backups.length > settings.keep_backups) {
     const backupsToDelete = backups.slice(settings.keep_backups);
-
     for (const backup of backupsToDelete) {
-      await deleteBackup(backup.id);
+      await deleteBackup(backup.id, schoolId ?? undefined);
     }
   }
 };

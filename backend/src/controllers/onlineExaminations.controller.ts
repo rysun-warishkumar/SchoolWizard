@@ -1,22 +1,24 @@
 import { Request, Response, NextFunction } from 'express';
 import { getDatabase } from '../config/database';
 import { createError } from '../middleware/errorHandler';
-import { AuthRequest } from '../middleware/auth';
+import { AuthRequest, getSchoolId } from '../middleware/auth';
 
 // ========== Question Bank ==========
 
 export const getQuestionBank = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
   try {
+    const schoolId = getSchoolId(req as AuthRequest);
+    if (schoolId == null) throw createError('School context required', 403);
     const db = getDatabase();
     const { subject_id } = req.query;
 
     let query = `
       SELECT qb.*, s.name as subject_name, s.code as subject_code
       FROM question_bank qb
-      INNER JOIN subjects s ON qb.subject_id = s.id
-      WHERE 1=1
+      INNER JOIN subjects s ON qb.subject_id = s.id AND s.school_id = ?
+      WHERE qb.school_id = ?
     `;
-    const params: any[] = [];
+    const params: any[] = [schoolId, schoolId];
 
     if (subject_id) {
       query += ' AND qb.subject_id = ?';
@@ -38,15 +40,17 @@ export const getQuestionBank = async (req: Request, res: Response, next: NextFun
 
 export const getQuestionById = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
   try {
+    const schoolId = getSchoolId(req as AuthRequest);
+    if (schoolId == null) throw createError('School context required', 403);
     const { id } = req.params;
     const db = getDatabase();
 
     const [questions] = await db.execute(
       `SELECT qb.*, s.name as subject_name, s.code as subject_code
        FROM question_bank qb
-       INNER JOIN subjects s ON qb.subject_id = s.id
-       WHERE qb.id = ?`,
-      [id]
+       INNER JOIN subjects s ON qb.subject_id = s.id AND s.school_id = ?
+       WHERE qb.school_id = ? AND qb.id = ?`,
+      [schoolId, schoolId, id]
     ) as any[];
 
     if (questions.length === 0) {
@@ -64,6 +68,8 @@ export const getQuestionById = async (req: Request, res: Response, next: NextFun
 
 export const createQuestion = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
   try {
+    const schoolId = getSchoolId(req as AuthRequest);
+    if (schoolId == null) throw createError('School context required', 403);
     const { subject_id, question, option_a, option_b, option_c, option_d, option_e, correct_answer, marks } = req.body;
 
     if (!subject_id || !question || !correct_answer) {
@@ -73,9 +79,10 @@ export const createQuestion = async (req: Request, res: Response, next: NextFunc
     const db = getDatabase();
 
     await db.execute(
-      `INSERT INTO question_bank (subject_id, question, option_a, option_b, option_c, option_d, option_e, correct_answer, marks)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      `INSERT INTO question_bank (school_id, subject_id, question, option_a, option_b, option_c, option_d, option_e, correct_answer, marks)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       [
+        schoolId,
         subject_id,
         question.trim(),
         option_a?.trim() || null,
@@ -103,6 +110,8 @@ export const createQuestion = async (req: Request, res: Response, next: NextFunc
 
 export const updateQuestion = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
   try {
+    const schoolId = getSchoolId(req as AuthRequest);
+    if (schoolId == null) throw createError('School context required', 403);
     const { id } = req.params;
     const { subject_id, question, option_a, option_b, option_c, option_d, option_e, correct_answer, marks } = req.body;
 
@@ -115,7 +124,7 @@ export const updateQuestion = async (req: Request, res: Response, next: NextFunc
     const [result] = await db.execute(
       `UPDATE question_bank
        SET subject_id = ?, question = ?, option_a = ?, option_b = ?, option_c = ?, option_d = ?, option_e = ?, correct_answer = ?, marks = ?
-       WHERE id = ?`,
+       WHERE id = ? AND school_id = ?`,
       [
         subject_id,
         question.trim(),
@@ -127,6 +136,7 @@ export const updateQuestion = async (req: Request, res: Response, next: NextFunc
         correct_answer.toUpperCase(),
         marks || 1.00,
         id,
+        schoolId,
       ]
     ) as any[];
 
@@ -145,10 +155,12 @@ export const updateQuestion = async (req: Request, res: Response, next: NextFunc
 
 export const deleteQuestion = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
   try {
+    const schoolId = getSchoolId(req as AuthRequest);
+    if (schoolId == null) throw createError('School context required', 403);
     const { id } = req.params;
     const db = getDatabase();
 
-    const [result] = await db.execute('DELETE FROM question_bank WHERE id = ?', [id]) as any[];
+    const [result] = await db.execute('DELETE FROM question_bank WHERE id = ? AND school_id = ?', [id, schoolId]) as any[];
 
     if (result.affectedRows === 0) {
       throw createError('Question not found', 404);
@@ -167,6 +179,8 @@ export const deleteQuestion = async (req: Request, res: Response, next: NextFunc
 
 export const getOnlineExams = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
   try {
+    const schoolId = getSchoolId(req as AuthRequest);
+    if (schoolId == null) throw createError('School context required', 403);
     const db = getDatabase();
     const { session_id, subject_id, class_id, is_published } = req.query;
 
@@ -178,14 +192,14 @@ export const getOnlineExams = async (req: Request, res: Response, next: NextFunc
              sec.name as section_name,
              u.name as created_by_name
       FROM online_exams oe
-      INNER JOIN subjects s ON oe.subject_id = s.id
-      INNER JOIN sessions sess ON oe.session_id = sess.id
-      LEFT JOIN classes c ON oe.class_id = c.id
-      LEFT JOIN sections sec ON oe.section_id = sec.id
-      LEFT JOIN users u ON oe.created_by = u.id
-      WHERE 1=1
+      INNER JOIN subjects s ON oe.subject_id = s.id AND s.school_id = ?
+      INNER JOIN sessions sess ON oe.session_id = sess.id AND sess.school_id = ?
+      LEFT JOIN classes c ON oe.class_id = c.id AND c.school_id = ?
+      LEFT JOIN sections sec ON oe.section_id = sec.id AND sec.school_id = ?
+      LEFT JOIN users u ON oe.created_by = u.id AND u.school_id = ?
+      WHERE oe.school_id = ?
     `;
-    const params: any[] = [];
+    const params: any[] = [schoolId, schoolId, schoolId, schoolId, schoolId, schoolId];
 
     if (session_id) {
       query += ' AND oe.session_id = ?';
@@ -247,6 +261,8 @@ export const getOnlineExams = async (req: Request, res: Response, next: NextFunc
 
 export const getOnlineExamById = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
   try {
+    const schoolId = getSchoolId(req as AuthRequest);
+    if (schoolId == null) throw createError('School context required', 403);
     const { id } = req.params;
     const db = getDatabase();
 
@@ -257,12 +273,12 @@ export const getOnlineExamById = async (req: Request, res: Response, next: NextF
               c.name as class_name,
               sec.name as section_name
        FROM online_exams oe
-       INNER JOIN subjects s ON oe.subject_id = s.id
-       INNER JOIN sessions sess ON oe.session_id = sess.id
-       LEFT JOIN classes c ON oe.class_id = c.id
-       LEFT JOIN sections sec ON oe.section_id = sec.id
-       WHERE oe.id = ?`,
-      [id]
+       INNER JOIN subjects s ON oe.subject_id = s.id AND s.school_id = ?
+       INNER JOIN sessions sess ON oe.session_id = sess.id AND sess.school_id = ?
+       LEFT JOIN classes c ON oe.class_id = c.id AND c.school_id = ?
+       LEFT JOIN sections sec ON oe.section_id = sec.id AND sec.school_id = ?
+       WHERE oe.school_id = ? AND oe.id = ?`,
+      [schoolId, schoolId, schoolId, schoolId, schoolId, id]
     ) as any[];
 
     if (exams.length === 0) {
@@ -307,24 +323,22 @@ export const getOnlineExamById = async (req: Request, res: Response, next: NextF
       }
     }
 
-    // Get questions
     const [questions] = await db.execute(
       `SELECT oeq.*, qb.question, qb.option_a, qb.option_b, qb.option_c, qb.option_d, qb.option_e, qb.correct_answer
        FROM online_exam_questions oeq
-       INNER JOIN question_bank qb ON oeq.question_id = qb.id
-       WHERE oeq.online_exam_id = ?
+       INNER JOIN question_bank qb ON oeq.question_id = qb.id AND qb.school_id = ?
+       WHERE oeq.online_exam_id = ? AND oeq.school_id = ?
        ORDER BY oeq.display_order ASC, oeq.id ASC`,
-      [id]
+      [schoolId, id, schoolId]
     ) as any[];
 
-    // Get assigned students
     const [students] = await db.execute(
       `SELECT oes.*, st.admission_no, st.first_name, st.last_name, st.roll_no
        FROM online_exam_students oes
-       INNER JOIN students st ON oes.student_id = st.id
-       WHERE oes.online_exam_id = ?
+       INNER JOIN students st ON oes.student_id = st.id AND st.school_id = ?
+       WHERE oes.online_exam_id = ? AND oes.school_id = ?
        ORDER BY st.admission_no ASC`,
-      [id]
+      [schoolId, id, schoolId]
     ) as any[];
 
     res.json({
@@ -342,6 +356,8 @@ export const getOnlineExamById = async (req: Request, res: Response, next: NextF
 
 export const createOnlineExam = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
   try {
+    const schoolId = getSchoolId(req as AuthRequest);
+    if (schoolId == null) throw createError('School context required', 403);
     const {
       name,
       subject_id,
@@ -369,13 +385,13 @@ export const createOnlineExam = async (req: Request, res: Response, next: NextFu
     try {
       await connection.beginTransaction();
 
-      // Insert exam
       const [result] = await connection.execute(
         `INSERT INTO online_exams
-         (name, subject_id, session_id, class_id, section_id, exam_date, exam_time_from, exam_time_to,
+         (school_id, name, subject_id, session_id, class_id, section_id, exam_date, exam_time_from, exam_time_to,
           duration_minutes, total_marks, passing_marks, instructions, is_published, created_by)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
         [
+          schoolId,
           name.trim(),
           subject_id,
           session_id,
@@ -395,23 +411,20 @@ export const createOnlineExam = async (req: Request, res: Response, next: NextFu
 
       const examId = result.insertId;
 
-      // Auto-assign students if class_id and section_id are provided
       if (class_id && section_id && session_id) {
-        // Get all active students from the specified class, section, and session
         const [students] = await connection.execute(
           `SELECT id FROM students 
-           WHERE class_id = ? AND section_id = ? AND session_id = ? AND is_active = 1`,
-          [class_id, section_id, session_id]
+           WHERE school_id = ? AND class_id = ? AND section_id = ? AND session_id = ? AND is_active = 1`,
+          [schoolId, class_id, section_id, session_id]
         ) as any[];
 
-        // Assign all students to the exam
         if (students.length > 0) {
           const studentIds = students.map((s: any) => s.id);
-          const placeholders = studentIds.map(() => '(?, ?)').join(', ');
-          const values = studentIds.flatMap((studentId: number) => [examId, studentId]);
+          const placeholders = studentIds.map(() => '(?, ?, ?)').join(', ');
+          const values = studentIds.flatMap((studentId: number) => [schoolId, examId, studentId]);
           
           await connection.execute(
-            `INSERT INTO online_exam_students (online_exam_id, student_id) VALUES ${placeholders}`,
+            `INSERT INTO online_exam_students (school_id, online_exam_id, student_id) VALUES ${placeholders}`,
             values
           );
         }
@@ -556,10 +569,12 @@ export const updateOnlineExam = async (req: Request, res: Response, next: NextFu
 
 export const deleteOnlineExam = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
   try {
+    const schoolId = getSchoolId(req as AuthRequest);
+    if (schoolId == null) throw createError('School context required', 403);
     const { id } = req.params;
     const db = getDatabase();
 
-    const [result] = await db.execute('DELETE FROM online_exams WHERE id = ?', [id]) as any[];
+    const [result] = await db.execute('DELETE FROM online_exams WHERE id = ? AND school_id = ?', [id, schoolId]) as any[];
 
     if (result.affectedRows === 0) {
       throw createError('Online exam not found', 404);

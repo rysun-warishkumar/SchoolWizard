@@ -1,7 +1,7 @@
 import { Request, Response, NextFunction } from 'express';
 import { getDatabase } from '../config/database';
 import { createError } from '../middleware/errorHandler';
-import { AuthRequest } from '../middleware/auth';
+import { AuthRequest, getSchoolId } from '../middleware/auth';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import { dirname } from 'path';
@@ -17,8 +17,10 @@ export const getFeesTypes = async (
   next: NextFunction
 ): Promise<void> => {
   try {
+    const schoolId = getSchoolId(req as AuthRequest);
+    if (schoolId == null) throw createError('School context required', 403);
     const db = getDatabase();
-    const [feesTypes] = await db.execute('SELECT * FROM fees_types ORDER BY name ASC') as any[];
+    const [feesTypes] = await db.execute('SELECT * FROM fees_types WHERE school_id = ? ORDER BY name ASC', [schoolId]) as any[];
     res.json({ success: true, data: feesTypes });
   } catch (error) {
     next(error);
@@ -31,6 +33,8 @@ export const createFeesType = async (
   next: NextFunction
 ): Promise<void> => {
   try {
+    const schoolId = getSchoolId(req as AuthRequest);
+    if (schoolId == null) throw createError('School context required', 403);
     const { name, code, description } = req.body;
     if (!name || name.trim() === '') {
       throw createError('Fees type name is required', 400);
@@ -41,13 +45,13 @@ export const createFeesType = async (
 
     const db = getDatabase();
     const [result] = await db.execute(
-      'INSERT INTO fees_types (name, code, description) VALUES (?, ?, ?)',
-      [name.trim(), code.trim(), description || null]
+      'INSERT INTO fees_types (school_id, name, code, description) VALUES (?, ?, ?, ?)',
+      [schoolId, name.trim(), code.trim(), description || null]
     ) as any;
 
     const [newFeesType] = await db.execute(
-      'SELECT * FROM fees_types WHERE id = ?',
-      [result.insertId]
+      'SELECT * FROM fees_types WHERE id = ? AND school_id = ?',
+      [result.insertId, schoolId]
     ) as any[];
 
     res.status(201).json({
@@ -70,8 +74,10 @@ export const getFeesGroups = async (
   next: NextFunction
 ): Promise<void> => {
   try {
+    const schoolId = getSchoolId(req as AuthRequest);
+    if (schoolId == null) throw createError('School context required', 403);
     const db = getDatabase();
-    const [feesGroups] = await db.execute('SELECT * FROM fees_groups ORDER BY name ASC') as any[];
+    const [feesGroups] = await db.execute('SELECT * FROM fees_groups WHERE school_id = ? ORDER BY name ASC', [schoolId]) as any[];
     res.json({ success: true, data: feesGroups });
   } catch (error) {
     next(error);
@@ -84,24 +90,25 @@ export const getFeesGroupById = async (
   next: NextFunction
 ): Promise<void> => {
   try {
+    const schoolId = getSchoolId(req as AuthRequest);
+    if (schoolId == null) throw createError('School context required', 403);
     const { id } = req.params;
     const db = getDatabase();
 
     const [feesGroups] = await db.execute(
-      'SELECT * FROM fees_groups WHERE id = ?',
-      [id]
+      'SELECT * FROM fees_groups WHERE id = ? AND school_id = ?',
+      [id, schoolId]
     ) as any[];
 
     if (feesGroups.length === 0) {
       throw createError('Fees group not found', 404);
     }
 
-    // Get fees types in this group
     const [feesTypes] = await db.execute(
       `SELECT ft.* FROM fees_types ft
-       INNER JOIN fees_group_types fgt ON ft.id = fgt.fees_type_id
-       WHERE fgt.fees_group_id = ?`,
-      [id]
+       INNER JOIN fees_group_types fgt ON ft.id = fgt.fees_type_id AND fgt.school_id = ?
+       WHERE fgt.fees_group_id = ? AND ft.school_id = ?`,
+      [schoolId, id, schoolId]
     ) as any[];
 
     res.json({
@@ -122,6 +129,8 @@ export const createFeesGroup = async (
   next: NextFunction
 ): Promise<void> => {
   try {
+    const schoolId = getSchoolId(req as AuthRequest);
+    if (schoolId == null) throw createError('School context required', 403);
     const { name, description, fees_type_ids } = req.body;
     if (!name || name.trim() === '') {
       throw createError('Fees group name is required', 400);
@@ -129,27 +138,25 @@ export const createFeesGroup = async (
 
     const db = getDatabase();
 
-    // Create fees group
     const [result] = await db.execute(
-      'INSERT INTO fees_groups (name, description) VALUES (?, ?)',
-      [name.trim(), description || null]
+      'INSERT INTO fees_groups (school_id, name, description) VALUES (?, ?, ?)',
+      [schoolId, name.trim(), description || null]
     ) as any;
 
     const feesGroupId = result.insertId;
 
-    // Add fees types to group
     if (fees_type_ids && Array.isArray(fees_type_ids) && fees_type_ids.length > 0) {
       for (const feesTypeId of fees_type_ids) {
         await db.execute(
-          'INSERT INTO fees_group_types (fees_group_id, fees_type_id) VALUES (?, ?)',
-          [feesGroupId, feesTypeId]
+          'INSERT INTO fees_group_types (school_id, fees_group_id, fees_type_id) VALUES (?, ?, ?)',
+          [schoolId, feesGroupId, feesTypeId]
         );
       }
     }
 
     const [newFeesGroup] = await db.execute(
-      'SELECT * FROM fees_groups WHERE id = ?',
-      [feesGroupId]
+      'SELECT * FROM fees_groups WHERE id = ? AND school_id = ?',
+      [feesGroupId, schoolId]
     ) as any[];
 
     res.status(201).json({
@@ -171,6 +178,8 @@ export const updateFeesGroup = async (
   next: NextFunction
 ): Promise<void> => {
   try {
+    const schoolId = getSchoolId(req as AuthRequest);
+    if (schoolId == null) throw createError('School context required', 403);
     const { id } = req.params;
     const { name, description, fees_type_ids } = req.body;
 
@@ -180,29 +189,25 @@ export const updateFeesGroup = async (
 
     const db = getDatabase();
 
-    // Update fees group
     await db.execute(
-      'UPDATE fees_groups SET name = ?, description = ?, updated_at = NOW() WHERE id = ?',
-      [name.trim(), description || null, id]
+      'UPDATE fees_groups SET name = ?, description = ?, updated_at = NOW() WHERE id = ? AND school_id = ?',
+      [name.trim(), description || null, id, schoolId]
     );
 
-    // Update fees types if provided
     if (fees_type_ids && Array.isArray(fees_type_ids)) {
-      // Delete existing fees types
-      await db.execute('DELETE FROM fees_group_types WHERE fees_group_id = ?', [id]);
+      await db.execute('DELETE FROM fees_group_types WHERE fees_group_id = ? AND school_id = ?', [id, schoolId]);
 
-      // Add new fees types
       for (const feesTypeId of fees_type_ids) {
         await db.execute(
-          'INSERT INTO fees_group_types (fees_group_id, fees_type_id) VALUES (?, ?)',
-          [id, feesTypeId]
+          'INSERT INTO fees_group_types (school_id, fees_group_id, fees_type_id) VALUES (?, ?, ?)',
+          [schoolId, id, feesTypeId]
         );
       }
     }
 
     const [updatedFeesGroup] = await db.execute(
-      'SELECT * FROM fees_groups WHERE id = ?',
-      [id]
+      'SELECT * FROM fees_groups WHERE id = ? AND school_id = ?',
+      [id, schoolId]
     ) as any[];
 
     res.json({
@@ -222,6 +227,8 @@ export const getFeesMaster = async (
   next: NextFunction
 ): Promise<void> => {
   try {
+    const schoolId = getSchoolId(req as AuthRequest);
+    if (schoolId == null) throw createError('School context required', 403);
     const { session_id } = req.query;
     const db = getDatabase();
 
@@ -233,12 +240,12 @@ export const getFeesMaster = async (
         ft.code as fees_type_code,
         s.name as session_name
       FROM fees_master fm
-      INNER JOIN fees_groups fg ON fm.fees_group_id = fg.id
-      INNER JOIN fees_types ft ON fm.fees_type_id = ft.id
-      INNER JOIN sessions s ON fm.session_id = s.id
-      WHERE 1=1
+      INNER JOIN fees_groups fg ON fm.fees_group_id = fg.id AND fg.school_id = ?
+      INNER JOIN fees_types ft ON fm.fees_type_id = ft.id AND ft.school_id = ?
+      INNER JOIN sessions s ON fm.session_id = s.id AND s.school_id = ?
+      WHERE fm.school_id = ?
     `;
-    const params: any[] = [];
+    const params: any[] = [schoolId, schoolId, schoolId, schoolId];
 
     if (session_id) {
       query += ' AND fm.session_id = ?';
@@ -261,6 +268,8 @@ export const createFeesMaster = async (
   next: NextFunction
 ): Promise<void> => {
   try {
+    const schoolId = getSchoolId(req as AuthRequest);
+    if (schoolId == null) throw createError('School context required', 403);
     const { fees_group_id, fees_type_id, session_id, amount, due_date, fine_type, fine_amount } = req.body;
 
     if (!fees_group_id || !fees_type_id || !session_id) {
@@ -273,9 +282,10 @@ export const createFeesMaster = async (
     const db = getDatabase();
 
     const [result] = await db.execute(
-      `INSERT INTO fees_master (fees_group_id, fees_type_id, session_id, amount, due_date, fine_type, fine_amount)
-       VALUES (?, ?, ?, ?, ?, ?, ?)`,
+      `INSERT INTO fees_master (school_id, fees_group_id, fees_type_id, session_id, amount, due_date, fine_type, fine_amount)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
       [
+        schoolId,
         fees_group_id,
         fees_type_id,
         session_id,
@@ -293,10 +303,10 @@ export const createFeesMaster = async (
         ft.name as fees_type_name,
         ft.code as fees_type_code
       FROM fees_master fm
-      INNER JOIN fees_groups fg ON fm.fees_group_id = fg.id
-      INNER JOIN fees_types ft ON fm.fees_type_id = ft.id
-      WHERE fm.id = ?`,
-      [result.insertId]
+      INNER JOIN fees_groups fg ON fm.fees_group_id = fg.id AND fg.school_id = ?
+      INNER JOIN fees_types ft ON fm.fees_type_id = ft.id AND ft.school_id = ?
+      WHERE fm.id = ? AND fm.school_id = ?`,
+      [schoolId, schoolId, result.insertId, schoolId]
     ) as any[];
 
     res.status(201).json({
@@ -316,8 +326,10 @@ export const getFeesDiscounts = async (
   next: NextFunction
 ): Promise<void> => {
   try {
+    const schoolId = getSchoolId(req as AuthRequest);
+    if (schoolId == null) throw createError('School context required', 403);
     const db = getDatabase();
-    const [discounts] = await db.execute('SELECT * FROM fees_discounts ORDER BY name ASC') as any[];
+    const [discounts] = await db.execute('SELECT * FROM fees_discounts WHERE school_id = ? ORDER BY name ASC', [schoolId]) as any[];
     res.json({ success: true, data: discounts });
   } catch (error) {
     next(error);
@@ -330,6 +342,8 @@ export const createFeesDiscount = async (
   next: NextFunction
 ): Promise<void> => {
   try {
+    const schoolId = getSchoolId(req as AuthRequest);
+    if (schoolId == null) throw createError('School context required', 403);
     const { name, code, amount, discount_type, description } = req.body;
 
     if (!name || name.trim() === '') {
@@ -345,14 +359,14 @@ export const createFeesDiscount = async (
     const db = getDatabase();
 
     const [result] = await db.execute(
-      `INSERT INTO fees_discounts (name, code, amount, discount_type, description)
-       VALUES (?, ?, ?, ?, ?)`,
-      [name.trim(), code.trim(), amount, discount_type || 'fixed', description || null]
+      `INSERT INTO fees_discounts (school_id, name, code, amount, discount_type, description)
+       VALUES (?, ?, ?, ?, ?, ?)`,
+      [schoolId, name.trim(), code.trim(), amount, discount_type || 'fixed', description || null]
     ) as any;
 
     const [newDiscount] = await db.execute(
-      'SELECT * FROM fees_discounts WHERE id = ?',
-      [result.insertId]
+      'SELECT * FROM fees_discounts WHERE id = ? AND school_id = ?',
+      [result.insertId, schoolId]
     ) as any[];
 
     res.status(201).json({
@@ -375,22 +389,21 @@ export const getStudentFeesInvoices = async (
   next: NextFunction
 ): Promise<void> => {
   try {
+    const schoolId = getSchoolId(req);
+    if (schoolId == null) throw createError('School context required', 403);
     const { student_id, session_id, status } = req.query;
     const db = getDatabase();
 
-    // If user is a student, ensure they can only access their own data
     let actualStudentId = student_id;
     if (req.user?.role === 'student') {
-      // Get student ID from user_id
       const [students] = await db.execute(
-        'SELECT id FROM students WHERE user_id = ?',
-        [req.user.id]
+        'SELECT id FROM students WHERE user_id = ? AND school_id = ?',
+        [req.user.id, schoolId]
       ) as any[];
       if (students.length === 0) {
         throw createError('Student profile not found', 404);
       }
       actualStudentId = students[0].id;
-      // Override any student_id in query to prevent unauthorized access
     }
 
     let query = `
@@ -402,12 +415,12 @@ export const getStudentFeesInvoices = async (
         ft.name as fees_type_name,
         ft.code as fees_type_code
       FROM fees_invoices fi
-      INNER JOIN fees_master fm ON fi.fees_master_id = fm.id
-      INNER JOIN fees_groups fg ON fm.fees_group_id = fg.id
-      INNER JOIN fees_types ft ON fm.fees_type_id = ft.id
-      WHERE 1=1
+      INNER JOIN fees_master fm ON fi.fees_master_id = fm.id AND fm.school_id = ?
+      INNER JOIN fees_groups fg ON fm.fees_group_id = fg.id AND fg.school_id = ?
+      INNER JOIN fees_types ft ON fm.fees_type_id = ft.id AND ft.school_id = ?
+      WHERE fi.school_id = ?
     `;
-    const params: any[] = [];
+    const params: any[] = [schoolId, schoolId, schoolId, schoolId];
 
     if (actualStudentId) {
       query += ' AND fi.student_id = ?';
@@ -439,22 +452,21 @@ export const getFeesPayments = async (
   next: NextFunction
 ): Promise<void> => {
   try {
+    const schoolId = getSchoolId(req);
+    if (schoolId == null) throw createError('School context required', 403);
     const { payment_id, student_id, date_from, date_to } = req.query;
     const db = getDatabase();
 
-    // If user is a student, ensure they can only access their own data
     let actualStudentId = student_id;
     if (req.user?.role === 'student') {
-      // Get student ID from user_id
       const [students] = await db.execute(
-        'SELECT id FROM students WHERE user_id = ?',
-        [req.user.id]
+        'SELECT id FROM students WHERE user_id = ? AND school_id = ?',
+        [req.user.id, schoolId]
       ) as any[];
       if (students.length === 0) {
         throw createError('Student profile not found', 404);
       }
       actualStudentId = students[0].id;
-      // Override any student_id in query to prevent unauthorized access
     }
 
     let query = `
@@ -465,14 +477,14 @@ export const getFeesPayments = async (
         fg.name as fees_group_name,
         ft.name as fees_type_name
       FROM fees_payments fp
-      INNER JOIN students s ON fp.student_id = s.id
-      INNER JOIN fees_invoices fi ON fp.fees_invoice_id = fi.id
-      INNER JOIN fees_master fm ON fi.fees_master_id = fm.id
-      INNER JOIN fees_groups fg ON fm.fees_group_id = fg.id
-      INNER JOIN fees_types ft ON fm.fees_type_id = ft.id
-      WHERE fp.is_reverted = 0
+      INNER JOIN students s ON fp.student_id = s.id AND s.school_id = ?
+      INNER JOIN fees_invoices fi ON fp.fees_invoice_id = fi.id AND fi.school_id = ?
+      INNER JOIN fees_master fm ON fi.fees_master_id = fm.id AND fm.school_id = ?
+      INNER JOIN fees_groups fg ON fm.fees_group_id = fg.id AND fg.school_id = ?
+      INNER JOIN fees_types ft ON fm.fees_type_id = ft.id AND ft.school_id = ?
+      WHERE fp.school_id = ? AND fp.is_reverted = 0
     `;
-    const params: any[] = [];
+    const params: any[] = [schoolId, schoolId, schoolId, schoolId, schoolId, schoolId];
 
     if (payment_id) {
       query += ' AND fp.payment_id = ?';
@@ -507,6 +519,8 @@ export const createFeesPayment = async (
   next: NextFunction
 ): Promise<void> => {
   try {
+    const schoolId = getSchoolId(req as AuthRequest);
+    if (schoolId == null) throw createError('School context required', 403);
     const {
       fees_invoice_id,
       student_id,
@@ -526,21 +540,17 @@ export const createFeesPayment = async (
     const connection = await db.getConnection();
 
     try {
-      // Generate payment ID
       const paymentId = `PAY-${Date.now()}-${Math.random().toString(36).substr(2, 9).toUpperCase()}`;
-
-      // Get current user (collector)
       const collectedBy = (req as any).user?.id || null;
 
-      // Start transaction
       await connection.beginTransaction();
 
-      // Create payment
       const [paymentResult] = await connection.execute(
         `INSERT INTO fees_payments 
-         (payment_id, fees_invoice_id, student_id, payment_date, amount, discount_amount, fine_amount, payment_mode, note, collected_by)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+         (school_id, payment_id, fees_invoice_id, student_id, payment_date, amount, discount_amount, fine_amount, payment_mode, note, collected_by)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
         [
+          schoolId,
           paymentId,
           fees_invoice_id,
           student_id,
@@ -554,10 +564,9 @@ export const createFeesPayment = async (
         ]
       ) as any;
 
-      // Update invoice
       const [invoice] = await connection.execute(
-        'SELECT * FROM fees_invoices WHERE id = ?',
-        [fees_invoice_id]
+        'SELECT * FROM fees_invoices WHERE id = ? AND school_id = ?',
+        [fees_invoice_id, schoolId]
       ) as any[];
 
       if (invoice.length === 0) {
@@ -577,8 +586,8 @@ export const createFeesPayment = async (
       await connection.execute(
         `UPDATE fees_invoices 
          SET paid_amount = ?, balance_amount = ?, status = ?, updated_at = NOW()
-         WHERE id = ?`,
-        [newPaidAmount, Math.max(0, newBalanceAmount), newStatus, fees_invoice_id]
+         WHERE id = ? AND school_id = ?`,
+        [newPaidAmount, Math.max(0, newBalanceAmount), newStatus, fees_invoice_id, schoolId]
       );
 
       await connection.commit();
@@ -588,8 +597,8 @@ export const createFeesPayment = async (
          FROM fees_payments fp
          INNER JOIN students s ON fp.student_id = s.id
          INNER JOIN fees_invoices fi ON fp.fees_invoice_id = fi.id
-         WHERE fp.id = ?`,
-        [paymentResult.insertId]
+         WHERE fp.id = ? AND fp.school_id = ?`,
+        [paymentResult.insertId, schoolId]
       ) as any[];
 
       res.status(201).json({
@@ -615,6 +624,8 @@ export const getCarryForward = async (
   next: NextFunction
 ): Promise<void> => {
   try {
+    const schoolId = getSchoolId(req as AuthRequest);
+    if (schoolId == null) throw createError('School context required', 403);
     const { class_id, section_id, from_session_id, to_session_id } = req.query;
     const db = getDatabase();
 
@@ -636,14 +647,14 @@ export const getCarryForward = async (
         fs_from.name as from_session_name,
         fs_to.name as to_session_name
       FROM fees_carry_forward fcf
-      INNER JOIN students s ON fcf.student_id = s.id
-      LEFT JOIN classes c ON s.class_id = c.id
-      LEFT JOIN sections sec ON s.section_id = sec.id
-      LEFT JOIN sessions fs_from ON fcf.from_session_id = fs_from.id
-      LEFT JOIN sessions fs_to ON fcf.to_session_id = fs_to.id
-      WHERE fcf.from_session_id = ? AND fcf.to_session_id = ?
+      INNER JOIN students s ON fcf.student_id = s.id AND s.school_id = ?
+      LEFT JOIN classes c ON s.class_id = c.id AND c.school_id = ?
+      LEFT JOIN sections sec ON s.section_id = sec.id AND sec.school_id = ?
+      LEFT JOIN sessions fs_from ON fcf.from_session_id = fs_from.id AND fs_from.school_id = ?
+      LEFT JOIN sessions fs_to ON fcf.to_session_id = fs_to.id AND fs_to.school_id = ?
+      WHERE fcf.school_id = ? AND fcf.from_session_id = ? AND fcf.to_session_id = ?
     `;
-    const params: any[] = [from_session_id, to_session_id];
+    const params: any[] = [schoolId, schoolId, schoolId, schoolId, schoolId, schoolId, from_session_id, to_session_id];
 
     if (class_id) {
       query += ' AND s.class_id = ?';
@@ -680,7 +691,9 @@ export const getStudentBalanceForCarryForward = async (
       throw createError('From session and To session are required', 400);
     }
 
-    // Get students with balance fees from previous session
+    const schoolId = getSchoolId(req as AuthRequest);
+    if (schoolId == null) throw createError('School context required', 403);
+
     let query = `
       SELECT 
         s.id as student_id,
@@ -693,13 +706,13 @@ export const getStudentBalanceForCarryForward = async (
         sec.name as section_name,
         COALESCE(SUM(fi.total_amount), 0) - COALESCE(SUM(fp.amount), 0) as balance_amount
       FROM students s
-      LEFT JOIN classes c ON s.class_id = c.id
-      LEFT JOIN sections sec ON s.section_id = sec.id
-      LEFT JOIN fees_invoices fi ON fi.student_id = s.id AND fi.session_id = ?
+      LEFT JOIN classes c ON s.class_id = c.id AND c.school_id = ?
+      LEFT JOIN sections sec ON s.section_id = sec.id AND sec.school_id = ?
+      LEFT JOIN fees_invoices fi ON fi.student_id = s.id AND fi.session_id = ? AND fi.school_id = ?
       LEFT JOIN fees_payments fp ON fp.fees_invoice_id = fi.id
-      WHERE s.is_active = 1 AND s.session_id = ?
+      WHERE s.school_id = ? AND s.is_active = 1 AND s.session_id = ?
     `;
-    const params: any[] = [from_session_id, from_session_id];
+    const params: any[] = [schoolId, schoolId, from_session_id, schoolId, schoolId, from_session_id];
 
     if (class_id) {
       query += ' AND s.class_id = ?';
@@ -733,6 +746,8 @@ export const createCarryForward = async (
   next: NextFunction
 ): Promise<void> => {
   try {
+    const schoolId = getSchoolId(req as AuthRequest);
+    if (schoolId == null) throw createError('School context required', 403);
     const { student_id, from_session_id, to_session_id, amount, due_date } = req.body;
 
     if (!student_id || !from_session_id || !to_session_id || !amount) {
@@ -741,10 +756,9 @@ export const createCarryForward = async (
 
     const db = getDatabase();
 
-    // Check if already exists
     const [existing] = await db.execute(
-      'SELECT id FROM fees_carry_forward WHERE student_id = ? AND from_session_id = ? AND to_session_id = ?',
-      [student_id, from_session_id, to_session_id]
+      'SELECT id FROM fees_carry_forward WHERE school_id = ? AND student_id = ? AND from_session_id = ? AND to_session_id = ?',
+      [schoolId, student_id, from_session_id, to_session_id]
     ) as any[];
 
     if (existing.length > 0) {
@@ -752,13 +766,13 @@ export const createCarryForward = async (
     }
 
     const [result] = await db.execute(
-      'INSERT INTO fees_carry_forward (student_id, from_session_id, to_session_id, amount, due_date) VALUES (?, ?, ?, ?, ?)',
-      [student_id, from_session_id, to_session_id, amount, due_date || null]
+      'INSERT INTO fees_carry_forward (school_id, student_id, from_session_id, to_session_id, amount, due_date) VALUES (?, ?, ?, ?, ?, ?)',
+      [schoolId, student_id, from_session_id, to_session_id, amount, due_date || null]
     ) as any;
 
     const [newCarryForward] = await db.execute(
-      'SELECT * FROM fees_carry_forward WHERE id = ?',
-      [result.insertId]
+      'SELECT * FROM fees_carry_forward WHERE id = ? AND school_id = ?',
+      [result.insertId, schoolId]
     ) as any[];
 
     res.status(201).json({
@@ -777,6 +791,8 @@ export const updateCarryForward = async (
   next: NextFunction
 ): Promise<void> => {
   try {
+    const schoolId = getSchoolId(req as AuthRequest);
+    if (schoolId == null) throw createError('School context required', 403);
     const { id } = req.params;
     const { amount, due_date } = req.body;
     const db = getDatabase();
@@ -798,16 +814,16 @@ export const updateCarryForward = async (
     }
 
     updates.push('updated_at = NOW()');
-    params.push(id);
+    params.push(id, schoolId);
 
     await db.execute(
-      `UPDATE fees_carry_forward SET ${updates.join(', ')} WHERE id = ?`,
+      `UPDATE fees_carry_forward SET ${updates.join(', ')} WHERE id = ? AND school_id = ?`,
       params
     );
 
     const [updated] = await db.execute(
-      'SELECT * FROM fees_carry_forward WHERE id = ?',
-      [id]
+      'SELECT * FROM fees_carry_forward WHERE id = ? AND school_id = ?',
+      [id, schoolId]
     ) as any[];
 
     res.json({
@@ -827,9 +843,12 @@ export const getFeesReminderSettings = async (
   next: NextFunction
 ): Promise<void> => {
   try {
+    const schoolId = getSchoolId(req as AuthRequest);
+    if (schoolId == null) throw createError('School context required', 403);
     const db = getDatabase();
     const [settings] = await db.execute(
-      'SELECT * FROM fees_reminder_settings ORDER BY reminder_type ASC'
+      'SELECT * FROM fees_reminder_settings WHERE school_id = ? ORDER BY reminder_type ASC',
+      [schoolId]
     ) as any[];
 
     res.json({
@@ -847,6 +866,8 @@ export const updateFeesReminderSettings = async (
   next: NextFunction
 ): Promise<void> => {
   try {
+    const schoolId = getSchoolId(req as AuthRequest);
+    if (schoolId == null) throw createError('School context required', 403);
     const { reminder_type, is_active, days } = req.body;
 
     if (!reminder_type) {
@@ -855,29 +876,26 @@ export const updateFeesReminderSettings = async (
 
     const db = getDatabase();
 
-    // Check if exists
     const [existing] = await db.execute(
-      'SELECT id FROM fees_reminder_settings WHERE reminder_type = ?',
-      [reminder_type]
+      'SELECT id FROM fees_reminder_settings WHERE school_id = ? AND reminder_type = ?',
+      [schoolId, reminder_type]
     ) as any[];
 
     if (existing.length > 0) {
-      // Update
       await db.execute(
-        'UPDATE fees_reminder_settings SET is_active = ?, days = ?, updated_at = NOW() WHERE reminder_type = ?',
-        [is_active ? 1 : 0, days || 0, reminder_type]
+        'UPDATE fees_reminder_settings SET is_active = ?, days = ?, updated_at = NOW() WHERE reminder_type = ? AND school_id = ?',
+        [is_active ? 1 : 0, days || 0, reminder_type, schoolId]
       );
     } else {
-      // Create
       await db.execute(
-        'INSERT INTO fees_reminder_settings (reminder_type, is_active, days) VALUES (?, ?, ?)',
-        [reminder_type, is_active ? 1 : 0, days || 0]
+        'INSERT INTO fees_reminder_settings (school_id, reminder_type, is_active, days) VALUES (?, ?, ?, ?)',
+        [schoolId, reminder_type, is_active ? 1 : 0, days || 0]
       );
     }
 
     const [updated] = await db.execute(
-      'SELECT * FROM fees_reminder_settings WHERE reminder_type = ?',
-      [reminder_type]
+      'SELECT * FROM fees_reminder_settings WHERE school_id = ? AND reminder_type = ?',
+      [schoolId, reminder_type]
     ) as any[];
 
     res.json({
@@ -896,6 +914,8 @@ export const getFeesReminderLogs = async (
   next: NextFunction
 ): Promise<void> => {
   try {
+    const schoolId = getSchoolId(req as AuthRequest);
+    if (schoolId == null) throw createError('School context required', 403);
     const { fees_invoice_id, reminder_type, start_date, end_date } = req.query;
     const db = getDatabase();
 
@@ -908,11 +928,11 @@ export const getFeesReminderLogs = async (
         s.first_name,
         s.last_name
       FROM fees_reminder_logs frl
-      LEFT JOIN fees_invoices fi ON frl.fees_invoice_id = fi.id
-      LEFT JOIN students s ON fi.student_id = s.id
-      WHERE 1=1
+      LEFT JOIN fees_invoices fi ON frl.fees_invoice_id = fi.id AND fi.school_id = ?
+      LEFT JOIN students s ON fi.student_id = s.id AND s.school_id = ?
+      WHERE frl.school_id = ?
     `;
-    const params: any[] = [];
+    const params: any[] = [schoolId, schoolId, schoolId];
 
     if (fees_invoice_id) {
       query += ' AND frl.fees_invoice_id = ?';
@@ -951,6 +971,8 @@ export const getFeesGroupAssignments = async (
   next: NextFunction
 ): Promise<void> => {
   try {
+    const schoolId = getSchoolId(req as AuthRequest);
+    if (schoolId == null) throw createError('School context required', 403);
     const { fees_group_id, session_id, class_id, section_id } = req.query;
     const db = getDatabase();
 
@@ -965,14 +987,14 @@ export const getFeesGroupAssignments = async (
         st.first_name as student_first_name,
         st.last_name as student_last_name
       FROM fees_group_assignments fga
-      INNER JOIN fees_groups fg ON fga.fees_group_id = fg.id
-      INNER JOIN sessions s ON fga.session_id = s.id
-      LEFT JOIN classes c ON fga.class_id = c.id
-      LEFT JOIN sections sec ON fga.section_id = sec.id
-      LEFT JOIN students st ON fga.student_id = st.id
-      WHERE 1=1
+      INNER JOIN fees_groups fg ON fga.fees_group_id = fg.id AND fg.school_id = ?
+      INNER JOIN sessions s ON fga.session_id = s.id AND s.school_id = ?
+      LEFT JOIN classes c ON fga.class_id = c.id AND c.school_id = ?
+      LEFT JOIN sections sec ON fga.section_id = sec.id AND sec.school_id = ?
+      LEFT JOIN students st ON fga.student_id = st.id AND st.school_id = ?
+      WHERE fga.school_id = ?
     `;
-    const params: any[] = [];
+    const params: any[] = [schoolId, schoolId, schoolId, schoolId, schoolId, schoolId];
 
     if (fees_group_id) {
       query += ' AND fga.fees_group_id = ?';
@@ -1011,13 +1033,14 @@ export const assignFeesGroup = async (
   next: NextFunction
 ): Promise<void> => {
   try {
+    const schoolId = getSchoolId(req as AuthRequest);
+    if (schoolId == null) throw createError('School context required', 403);
     const { fees_group_id, session_id, class_id, section_id, student_ids } = req.body;
 
     if (!fees_group_id || !session_id) {
       throw createError('Fees group and session are required', 400);
     }
 
-    // Either class-section OR student_ids should be provided
     if ((!class_id || !section_id) && (!student_ids || !Array.isArray(student_ids) || student_ids.length === 0)) {
       throw createError('Either class-section or student IDs are required', 400);
     }
@@ -1035,58 +1058,51 @@ export const assignFeesGroup = async (
       let studentsToAssign: any[] = [];
 
       if (class_id && section_id) {
-        // Get all students in the class-section
         const [students] = await connection.execute(
-          'SELECT id FROM students WHERE class_id = ? AND section_id = ? AND session_id = ? AND is_active = 1',
-          [class_id, section_id, session_id]
+          'SELECT id FROM students WHERE school_id = ? AND class_id = ? AND section_id = ? AND session_id = ? AND is_active = 1',
+          [schoolId, class_id, section_id, session_id]
         ) as any[];
         studentsToAssign = students;
 
-        // Check if assignment already exists for this class-section
         const [existing] = await connection.execute(
-          'SELECT id FROM fees_group_assignments WHERE fees_group_id = ? AND session_id = ? AND class_id = ? AND section_id = ?',
-          [fees_group_id, session_id, class_id, section_id]
+          'SELECT id FROM fees_group_assignments WHERE school_id = ? AND fees_group_id = ? AND session_id = ? AND class_id = ? AND section_id = ?',
+          [schoolId, fees_group_id, session_id, class_id, section_id]
         ) as any[];
 
         if (existing.length > 0) {
           throw createError('Fees group already assigned to this class-section', 400);
         }
 
-        // Create assignment for class-section
         await connection.execute(
-          'INSERT INTO fees_group_assignments (fees_group_id, session_id, class_id, section_id) VALUES (?, ?, ?, ?)',
-          [fees_group_id, session_id, class_id, section_id]
+          'INSERT INTO fees_group_assignments (school_id, fees_group_id, session_id, class_id, section_id) VALUES (?, ?, ?, ?, ?)',
+          [schoolId, fees_group_id, session_id, class_id, section_id]
         );
       } else if (student_ids && student_ids.length > 0) {
-        // Get students data
         const placeholders = student_ids.map(() => '?').join(',');
         const [students] = await connection.execute(
-          `SELECT id FROM students WHERE id IN (${placeholders}) AND session_id = ? AND is_active = 1`,
-          [...student_ids, session_id]
+          `SELECT id FROM students WHERE school_id = ? AND id IN (${placeholders}) AND session_id = ? AND is_active = 1`,
+          [schoolId, ...student_ids, session_id]
         ) as any[];
         studentsToAssign = students;
 
-        // Create assignments for individual students
         for (const studentId of student_ids) {
-          // Check if already assigned
           const [existing] = await connection.execute(
-            'SELECT id FROM fees_group_assignments WHERE fees_group_id = ? AND session_id = ? AND student_id = ?',
-            [fees_group_id, session_id, studentId]
+            'SELECT id FROM fees_group_assignments WHERE school_id = ? AND fees_group_id = ? AND session_id = ? AND student_id = ?',
+            [schoolId, fees_group_id, session_id, studentId]
           ) as any[];
 
           if (existing.length === 0) {
             await connection.execute(
-              'INSERT INTO fees_group_assignments (fees_group_id, session_id, student_id) VALUES (?, ?, ?)',
-              [fees_group_id, session_id, studentId]
+              'INSERT INTO fees_group_assignments (school_id, fees_group_id, session_id, student_id) VALUES (?, ?, ?, ?)',
+              [schoolId, fees_group_id, session_id, studentId]
             );
           }
         }
       }
 
-      // Get all fees master entries for this fees group and session
       const [feesMasters] = await connection.execute(
-        'SELECT * FROM fees_master WHERE fees_group_id = ? AND session_id = ?',
-        [fees_group_id, session_id]
+        'SELECT * FROM fees_master WHERE school_id = ? AND fees_group_id = ? AND session_id = ?',
+        [schoolId, fees_group_id, session_id]
       ) as any[];
 
       if (feesMasters.length === 0) {
@@ -1099,22 +1115,20 @@ export const assignFeesGroup = async (
         for (const feesMaster of feesMasters) {
           // Check if invoice already exists
           const [existingInvoice] = await connection.execute(
-            'SELECT id FROM fees_invoices WHERE student_id = ? AND fees_master_id = ? AND session_id = ?',
-            [student.id, feesMaster.id, session_id]
+            'SELECT id FROM fees_invoices WHERE school_id = ? AND student_id = ? AND fees_master_id = ? AND session_id = ?',
+            [schoolId, student.id, feesMaster.id, session_id]
           ) as any[];
 
           if (existingInvoice.length === 0) {
-            // Generate unique invoice number
             const invoiceNo = `INV-${session_id}-${feesMaster.id}-${student.id}-${Date.now()}`;
 
-            // Get discount amount if student has discount assigned
             let discountAmount = 0;
             const [discountAssignments] = await connection.execute(
               `SELECT fd.amount, fd.discount_type 
                FROM fees_discount_assignments fda
-               INNER JOIN fees_discounts fd ON fda.fees_discount_id = fd.id
-               WHERE fda.student_id = ?`,
-              [student.id]
+               INNER JOIN fees_discounts fd ON fda.fees_discount_id = fd.id AND fd.school_id = ?
+               WHERE fda.school_id = ? AND fda.student_id = ?`,
+              [schoolId, schoolId, student.id]
             ) as any[];
 
             if (discountAssignments.length > 0) {
@@ -1129,12 +1143,12 @@ export const assignFeesGroup = async (
             const amount = feesMaster.amount;
             const balanceAmount = amount - discountAmount;
 
-            // Create invoice
             await connection.execute(
               `INSERT INTO fees_invoices 
-               (invoice_no, student_id, fees_master_id, session_id, amount, discount_amount, balance_amount, due_date, status)
-               VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'pending')`,
+               (school_id, invoice_no, student_id, fees_master_id, session_id, amount, discount_amount, balance_amount, due_date, status)
+               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'pending')`,
               [
+                schoolId,
                 invoiceNo,
                 student.id,
                 feesMaster.id,
@@ -1178,13 +1192,14 @@ export const removeFeesGroupAssignment = async (
   next: NextFunction
 ): Promise<void> => {
   try {
+    const schoolId = getSchoolId(req as AuthRequest);
+    if (schoolId == null) throw createError('School context required', 403);
     const { id } = req.params;
     const db = getDatabase();
 
-    // Get assignment details
     const [assignments] = await db.execute(
-      'SELECT * FROM fees_group_assignments WHERE id = ?',
-      [id]
+      'SELECT * FROM fees_group_assignments WHERE id = ? AND school_id = ?',
+      [id, schoolId]
     ) as any[];
 
     if (assignments.length === 0) {
@@ -1193,8 +1208,7 @@ export const removeFeesGroupAssignment = async (
 
     const assignment = assignments[0];
 
-    // Delete assignment
-    await db.execute('DELETE FROM fees_group_assignments WHERE id = ?', [id]);
+    await db.execute('DELETE FROM fees_group_assignments WHERE id = ? AND school_id = ?', [id, schoolId]);
 
     // Note: Invoices are not deleted automatically (they remain for audit purposes)
     // If you want to delete invoices, uncomment the following:

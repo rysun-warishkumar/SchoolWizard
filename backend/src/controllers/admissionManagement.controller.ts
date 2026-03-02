@@ -1,6 +1,7 @@
 import { Request, Response, NextFunction } from 'express';
 import { getDatabase } from '../config/database';
 import { createError } from '../middleware/errorHandler';
+import { AuthRequest, getSchoolId } from '../middleware/auth';
 
 // Helper function to convert string boolean to boolean
 const parseBoolean = (value: any): boolean => {
@@ -15,16 +16,19 @@ const parseBoolean = (value: any): boolean => {
 
 export const getInquiries = async (req: Request, res: Response, next: NextFunction) => {
   try {
+    const schoolId = getSchoolId(req as AuthRequest);
+    if (schoolId == null) throw createError('School context required', 403);
     const db = getDatabase();
     const { status } = req.query;
     
-    let query = 'SELECT * FROM admission_inquiries ORDER BY created_at DESC';
-    const params: any[] = [];
+    let query = 'SELECT * FROM admission_inquiries WHERE school_id = ?';
+    const params: any[] = [schoolId];
     
     if (status) {
-      query = 'SELECT * FROM admission_inquiries WHERE status = ? ORDER BY created_at DESC';
+      query += ' AND status = ?';
       params.push(status);
     }
+    query += ' ORDER BY created_at DESC';
     
     const [inquiries] = await db.execute(query, params);
     res.json({ success: true, data: Array.isArray(inquiries) ? inquiries : [] });
@@ -35,10 +39,12 @@ export const getInquiries = async (req: Request, res: Response, next: NextFuncti
 
 export const getInquiry = async (req: Request, res: Response, next: NextFunction) => {
   try {
+    const schoolId = getSchoolId(req as AuthRequest);
+    if (schoolId == null) throw createError('School context required', 403);
     const db = getDatabase();
     const { id } = req.params;
     
-    const [inquiries] = await db.execute('SELECT * FROM admission_inquiries WHERE id = ?', [String(id)]);
+    const [inquiries] = await db.execute('SELECT * FROM admission_inquiries WHERE school_id = ? AND id = ?', [schoolId, String(id)]);
     
     if (!inquiries || (Array.isArray(inquiries) && inquiries.length === 0)) {
       return next(createError('Inquiry not found', 404));
@@ -52,6 +58,8 @@ export const getInquiry = async (req: Request, res: Response, next: NextFunction
 
 export const createInquiry = async (req: Request, res: Response, next: NextFunction) => {
   try {
+    const schoolId = getSchoolId(req as AuthRequest);
+    if (schoolId == null) throw createError('School context required', 403);
     const db = getDatabase();
     const { student_name, parent_name, email, phone, grade, previous_school, address, message } = req.body;
     
@@ -60,12 +68,12 @@ export const createInquiry = async (req: Request, res: Response, next: NextFunct
     }
     
     const [result] = await db.execute(
-      'INSERT INTO admission_inquiries (student_name, parent_name, email, phone, grade, previous_school, address, message) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
-      [student_name, parent_name, email, phone, grade, previous_school || null, address, message || null]
+      'INSERT INTO admission_inquiries (school_id, student_name, parent_name, email, phone, grade, previous_school, address, message) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)',
+      [schoolId, student_name, parent_name, email, phone, grade, previous_school || null, address, message || null]
     );
     
     const insertResult = result as any;
-    const [inquiry] = await db.execute('SELECT * FROM admission_inquiries WHERE id = ?', [String(insertResult.insertId)]);
+    const [inquiry] = await db.execute('SELECT * FROM admission_inquiries WHERE school_id = ? AND id = ?', [schoolId, String(insertResult.insertId)]);
     
     res.status(201).json({ success: true, message: 'Inquiry submitted successfully', data: Array.isArray(inquiry) ? inquiry[0] : inquiry });
   } catch (error: any) {
@@ -75,6 +83,8 @@ export const createInquiry = async (req: Request, res: Response, next: NextFunct
 
 export const updateInquiryStatus = async (req: Request, res: Response, next: NextFunction) => {
   try {
+    const schoolId = getSchoolId(req as AuthRequest);
+    if (schoolId == null) throw createError('School context required', 403);
     const db = getDatabase();
     const { id } = req.params;
     const { status, notes } = req.body;
@@ -84,11 +94,11 @@ export const updateInquiryStatus = async (req: Request, res: Response, next: Nex
     }
     
     await db.execute(
-      'UPDATE admission_inquiries SET status = ?, notes = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?',
-      [status, notes || null, id]
+      'UPDATE admission_inquiries SET status = ?, notes = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ? AND school_id = ?',
+      [status, notes || null, id, schoolId]
     );
     
-    const [updated] = await db.execute('SELECT * FROM admission_inquiries WHERE id = ?', [id]);
+    const [updated] = await db.execute('SELECT * FROM admission_inquiries WHERE school_id = ? AND id = ?', [schoolId, id]);
     res.json({ success: true, message: 'Inquiry status updated successfully', data: Array.isArray(updated) ? updated[0] : updated });
   } catch (error: any) {
     next(createError(error.message, 500));
@@ -97,10 +107,12 @@ export const updateInquiryStatus = async (req: Request, res: Response, next: Nex
 
 export const deleteInquiry = async (req: Request, res: Response, next: NextFunction) => {
   try {
+    const schoolId = getSchoolId(req as AuthRequest);
+    if (schoolId == null) throw createError('School context required', 403);
     const db = getDatabase();
     const { id } = req.params;
     
-    await db.execute('DELETE FROM admission_inquiries WHERE id = ?', [String(id)]);
+    await db.execute('DELETE FROM admission_inquiries WHERE id = ? AND school_id = ?', [String(id), schoolId]);
     
     res.json({ success: true, message: 'Inquiry deleted successfully' });
   } catch (error: any) {
@@ -112,9 +124,12 @@ export const deleteInquiry = async (req: Request, res: Response, next: NextFunct
 
 export const getImportantDates = async (req: Request, res: Response, next: NextFunction) => {
   try {
+    const schoolId = getSchoolId(req as AuthRequest);
+    if (schoolId == null) throw createError('School context required', 403);
     const db = getDatabase();
     const [dates] = await db.execute(
-      'SELECT * FROM admission_important_dates ORDER BY sort_order ASC, created_at ASC'
+      'SELECT * FROM admission_important_dates WHERE school_id = ? ORDER BY sort_order ASC, created_at ASC',
+      [schoolId]
     );
     
     res.json({ success: true, data: Array.isArray(dates) ? dates : [] });
@@ -125,6 +140,8 @@ export const getImportantDates = async (req: Request, res: Response, next: NextF
 
 export const createImportantDate = async (req: Request, res: Response, next: NextFunction) => {
   try {
+    const schoolId = getSchoolId(req as AuthRequest);
+    if (schoolId == null) throw createError('School context required', 403);
     const db = getDatabase();
     const { title, date_value, description, sort_order, is_active } = req.body;
     
@@ -133,12 +150,12 @@ export const createImportantDate = async (req: Request, res: Response, next: Nex
     }
     
     const [result] = await db.execute(
-      'INSERT INTO admission_important_dates (title, date_value, description, sort_order, is_active) VALUES (?, ?, ?, ?, ?)',
-      [title, date_value, description || null, sort_order || 0, parseBoolean(is_active) !== undefined ? parseBoolean(is_active) : true]
+      'INSERT INTO admission_important_dates (school_id, title, date_value, description, sort_order, is_active) VALUES (?, ?, ?, ?, ?, ?)',
+      [schoolId, title, date_value, description || null, sort_order || 0, parseBoolean(is_active) !== undefined ? parseBoolean(is_active) : true]
     );
     
     const insertResult = result as any;
-    const [date] = await db.execute('SELECT * FROM admission_important_dates WHERE id = ?', [insertResult.insertId]);
+    const [date] = await db.execute('SELECT * FROM admission_important_dates WHERE school_id = ? AND id = ?', [schoolId, insertResult.insertId]);
     
     res.status(201).json({ success: true, message: 'Important date created successfully', data: Array.isArray(date) ? date[0] : date });
   } catch (error: any) {
@@ -148,16 +165,18 @@ export const createImportantDate = async (req: Request, res: Response, next: Nex
 
 export const updateImportantDate = async (req: Request, res: Response, next: NextFunction) => {
   try {
+    const schoolId = getSchoolId(req as AuthRequest);
+    if (schoolId == null) throw createError('School context required', 403);
     const db = getDatabase();
     const { id } = req.params;
     const { title, date_value, description, sort_order, is_active } = req.body;
     
     await db.execute(
-      'UPDATE admission_important_dates SET title = ?, date_value = ?, description = ?, sort_order = ?, is_active = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?',
-      [title, date_value, description || null, sort_order || 0, parseBoolean(is_active) !== undefined ? parseBoolean(is_active) : true, String(id)]
+      'UPDATE admission_important_dates SET title = ?, date_value = ?, description = ?, sort_order = ?, is_active = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ? AND school_id = ?',
+      [title, date_value, description || null, sort_order || 0, parseBoolean(is_active) !== undefined ? parseBoolean(is_active) : true, String(id), schoolId]
     );
     
-    const [updated] = await db.execute('SELECT * FROM admission_important_dates WHERE id = ?', [String(id)]);
+    const [updated] = await db.execute('SELECT * FROM admission_important_dates WHERE school_id = ? AND id = ?', [schoolId, String(id)]);
     res.json({ success: true, message: 'Important date updated successfully', data: Array.isArray(updated) ? updated[0] : updated });
   } catch (error: any) {
     next(createError(error.message, 500));
@@ -166,10 +185,12 @@ export const updateImportantDate = async (req: Request, res: Response, next: Nex
 
 export const deleteImportantDate = async (req: Request, res: Response, next: NextFunction) => {
   try {
+    const schoolId = getSchoolId(req as AuthRequest);
+    if (schoolId == null) throw createError('School context required', 403);
     const db = getDatabase();
     const { id } = req.params;
     
-    await db.execute('DELETE FROM admission_important_dates WHERE id = ?', [id]);
+    await db.execute('DELETE FROM admission_important_dates WHERE id = ? AND school_id = ?', [id, schoolId]);
     
     res.json({ success: true, message: 'Important date deleted successfully' });
   } catch (error: any) {
@@ -181,8 +202,10 @@ export const deleteImportantDate = async (req: Request, res: Response, next: Nex
 
 export const getContactDetails = async (req: Request, res: Response, next: NextFunction) => {
   try {
+    const schoolId = getSchoolId(req as AuthRequest);
+    if (schoolId == null) throw createError('School context required', 403);
     const db = getDatabase();
-    const [details] = await db.execute('SELECT * FROM admission_contact_details LIMIT 1');
+    const [details] = await db.execute('SELECT * FROM admission_contact_details WHERE school_id = ? LIMIT 1', [schoolId]);
     
     if (!details || (Array.isArray(details) && details.length === 0)) {
       return res.json({
@@ -207,10 +230,12 @@ export const getContactDetails = async (req: Request, res: Response, next: NextF
 
 export const updateContactDetails = async (req: Request, res: Response, next: NextFunction) => {
   try {
+    const schoolId = getSchoolId(req as AuthRequest);
+    if (schoolId == null) throw createError('School context required', 403);
     const db = getDatabase();
     const { call_us_numbers, email_us_addresses, visit_us_address, office_hours, important_dates_visible, contact_details_visible } = req.body;
     
-    const [existing] = await db.execute('SELECT id FROM admission_contact_details LIMIT 1');
+    const [existing] = await db.execute('SELECT id FROM admission_contact_details WHERE school_id = ? LIMIT 1', [schoolId]);
     const exists = Array.isArray(existing) && existing.length > 0;
     
     const callNumbers = call_us_numbers ? (typeof call_us_numbers === 'string' ? call_us_numbers : JSON.stringify(call_us_numbers)) : null;
@@ -219,7 +244,7 @@ export const updateContactDetails = async (req: Request, res: Response, next: Ne
     if (exists) {
       const existingId = (Array.isArray(existing) ? existing[0] : existing) as any;
       await db.execute(
-        'UPDATE admission_contact_details SET call_us_numbers = ?, email_us_addresses = ?, visit_us_address = ?, office_hours = ?, important_dates_visible = ?, contact_details_visible = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?',
+        'UPDATE admission_contact_details SET call_us_numbers = ?, email_us_addresses = ?, visit_us_address = ?, office_hours = ?, important_dates_visible = ?, contact_details_visible = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ? AND school_id = ?',
         [
           callNumbers,
           emailAddresses,
@@ -228,12 +253,14 @@ export const updateContactDetails = async (req: Request, res: Response, next: Ne
           parseBoolean(important_dates_visible) !== undefined ? parseBoolean(important_dates_visible) : true,
           parseBoolean(contact_details_visible) !== undefined ? parseBoolean(contact_details_visible) : true,
           existingId.id,
+          schoolId,
         ]
       );
     } else {
       await db.execute(
-        'INSERT INTO admission_contact_details (call_us_numbers, email_us_addresses, visit_us_address, office_hours, important_dates_visible, contact_details_visible) VALUES (?, ?, ?, ?, ?, ?)',
+        'INSERT INTO admission_contact_details (school_id, call_us_numbers, email_us_addresses, visit_us_address, office_hours, important_dates_visible, contact_details_visible) VALUES (?, ?, ?, ?, ?, ?, ?)',
         [
+          schoolId,
           callNumbers,
           emailAddresses,
           visit_us_address || null,
@@ -244,7 +271,7 @@ export const updateContactDetails = async (req: Request, res: Response, next: Ne
       );
     }
     
-    const [updated] = await db.execute('SELECT * FROM admission_contact_details LIMIT 1');
+    const [updated] = await db.execute('SELECT * FROM admission_contact_details WHERE school_id = ? LIMIT 1', [schoolId]);
     res.json({ success: true, message: 'Contact details updated successfully', data: Array.isArray(updated) ? updated[0] : updated });
   } catch (error: any) {
     next(createError(error.message, 500));

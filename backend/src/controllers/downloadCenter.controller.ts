@@ -1,7 +1,7 @@
 import { Request, Response, NextFunction } from 'express';
 import { getDatabase } from '../config/database';
 import { createError } from '../middleware/errorHandler';
-import { AuthRequest } from '../middleware/auth';
+import { AuthRequest, getSchoolId } from '../middleware/auth';
 import multer from 'multer';
 import path from 'path';
 import fs from 'fs';
@@ -41,6 +41,8 @@ export const upload = multer({
 
 export const getDownloadContents = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
   try {
+    const schoolId = getSchoolId(req as AuthRequest);
+    if (schoolId == null) throw createError('School context required', 403);
     const db = getDatabase();
     const { content_type, available_for, class_id, section_id, search } = req.query;
 
@@ -50,12 +52,12 @@ export const getDownloadContents = async (req: Request, res: Response, next: Nex
              s.name as section_name,
              u.name as uploaded_by_name
       FROM download_contents dc
-      LEFT JOIN classes c ON dc.class_id = c.id
-      LEFT JOIN sections s ON dc.section_id = s.id
+      LEFT JOIN classes c ON dc.class_id = c.id AND c.school_id = ?
+      LEFT JOIN sections s ON dc.section_id = s.id AND s.school_id = ?
       LEFT JOIN users u ON dc.uploaded_by = u.id
-      WHERE 1=1
+      WHERE dc.school_id = ?
     `;
-    const params: any[] = [];
+    const params: any[] = [schoolId, schoolId, schoolId];
 
     if (content_type) {
       query += ' AND dc.content_type = ?';
@@ -98,6 +100,8 @@ export const getDownloadContents = async (req: Request, res: Response, next: Nex
 
 export const getDownloadContentById = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
   try {
+    const schoolId = getSchoolId(req as AuthRequest);
+    if (schoolId == null) throw createError('School context required', 403);
     const { id } = req.params;
     const db = getDatabase();
 
@@ -107,11 +111,11 @@ export const getDownloadContentById = async (req: Request, res: Response, next: 
               s.name as section_name,
               u.name as uploaded_by_name
        FROM download_contents dc
-       LEFT JOIN classes c ON dc.class_id = c.id
-       LEFT JOIN sections s ON dc.section_id = s.id
+       LEFT JOIN classes c ON dc.class_id = c.id AND c.school_id = ?
+       LEFT JOIN sections s ON dc.section_id = s.id AND s.school_id = ?
        LEFT JOIN users u ON dc.uploaded_by = u.id
-       WHERE dc.id = ?`,
-      [id]
+       WHERE dc.id = ? AND dc.school_id = ?`,
+      [schoolId, schoolId, id, schoolId]
     ) as any[];
 
     if (contents.length === 0) {
@@ -129,6 +133,8 @@ export const getDownloadContentById = async (req: Request, res: Response, next: 
 
 export const createDownloadContent = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
   try {
+    const schoolId = getSchoolId(req as AuthRequest);
+    if (schoolId == null) throw createError('School context required', 403);
     const {
       content_title,
       content_type,
@@ -175,11 +181,10 @@ export const createDownloadContent = async (req: Request, res: Response, next: N
         throw createError('Class must be selected when section is selected', 400);
       }
 
-      // Validate that section belongs to class if both are provided
       if (finalClassId && finalSectionId) {
         const [classSections] = await db.execute(
-          'SELECT id FROM class_sections WHERE class_id = ? AND section_id = ?',
-          [finalClassId, finalSectionId]
+          'SELECT id FROM class_sections WHERE class_id = ? AND section_id = ? AND school_id = ?',
+          [finalClassId, finalSectionId, schoolId]
         ) as any[];
 
         if (classSections.length === 0) {
@@ -187,7 +192,6 @@ export const createDownloadContent = async (req: Request, res: Response, next: N
         }
       }
     } else if (available_for === 'staff') {
-      // For staff, class and section should be null
       finalClassId = null;
       finalSectionId = null;
     }
@@ -198,10 +202,11 @@ export const createDownloadContent = async (req: Request, res: Response, next: N
 
     await db.execute(
       `INSERT INTO download_contents
-       (content_title, content_type, available_for, class_id, section_id, upload_date, description,
+       (school_id, content_title, content_type, available_for, class_id, section_id, upload_date, description,
         file_path, file_name, file_size, file_type, uploaded_by)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       [
+        schoolId,
         content_title.trim(),
         content_type,
         available_for || 'students',
@@ -228,6 +233,8 @@ export const createDownloadContent = async (req: Request, res: Response, next: N
 
 export const updateDownloadContent = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
   try {
+    const schoolId = getSchoolId(req as AuthRequest);
+    if (schoolId == null) throw createError('School context required', 403);
     const { id } = req.params;
     const {
       content_title,
@@ -245,8 +252,7 @@ export const updateDownloadContent = async (req: Request, res: Response, next: N
 
     const db = getDatabase();
 
-    // Check if content exists
-    const [existing] = await db.execute('SELECT file_path FROM download_contents WHERE id = ?', [id]) as any[];
+    const [existing] = await db.execute('SELECT file_path FROM download_contents WHERE id = ? AND school_id = ?', [id, schoolId]) as any[];
 
     if (existing.length === 0) {
       throw createError('Download content not found', 404);
@@ -269,8 +275,8 @@ export const updateDownloadContent = async (req: Request, res: Response, next: N
       // Validate that section belongs to class if both are provided
       if (finalClassId && finalSectionId) {
         const [classSections] = await db.execute(
-          'SELECT id FROM class_sections WHERE class_id = ? AND section_id = ?',
-          [finalClassId, finalSectionId]
+          'SELECT id FROM class_sections WHERE class_id = ? AND section_id = ? AND school_id = ?',
+          [finalClassId, finalSectionId, schoolId]
         ) as any[];
 
         if (classSections.length === 0) {
@@ -278,7 +284,6 @@ export const updateDownloadContent = async (req: Request, res: Response, next: N
         }
       }
     } else if (available_for === 'staff') {
-      // For staff, class and section should be null
       finalClassId = null;
       finalSectionId = null;
     }
@@ -315,10 +320,10 @@ export const updateDownloadContent = async (req: Request, res: Response, next: N
 
     const updateFields = Object.keys(updateData).map(key => `${key} = ?`).join(', ');
     const updateValues = Object.values(updateData);
-    updateValues.push(id);
+    updateValues.push(id, schoolId);
 
     await db.execute(
-      `UPDATE download_contents SET ${updateFields} WHERE id = ?`,
+      `UPDATE download_contents SET ${updateFields} WHERE id = ? AND school_id = ?`,
       updateValues
     );
 
@@ -333,24 +338,23 @@ export const updateDownloadContent = async (req: Request, res: Response, next: N
 
 export const deleteDownloadContent = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
   try {
+    const schoolId = getSchoolId(req as AuthRequest);
+    if (schoolId == null) throw createError('School context required', 403);
     const { id } = req.params;
     const db = getDatabase();
 
-    // Get file path before deleting
-    const [contents] = await db.execute('SELECT file_path FROM download_contents WHERE id = ?', [id]) as any[];
+    const [contents] = await db.execute('SELECT file_path FROM download_contents WHERE id = ? AND school_id = ?', [id, schoolId]) as any[];
 
     if (contents.length === 0) {
       throw createError('Download content not found', 404);
     }
 
-    // Delete file from filesystem
     const filePath = path.join(__dirname, '../..', contents[0].file_path);
     if (fs.existsSync(filePath)) {
       fs.unlinkSync(filePath);
     }
 
-    // Delete from database
-    await db.execute('DELETE FROM download_contents WHERE id = ?', [id]);
+    await db.execute('DELETE FROM download_contents WHERE id = ? AND school_id = ?', [id, schoolId]);
 
     res.json({
       success: true,
@@ -363,12 +367,14 @@ export const deleteDownloadContent = async (req: Request, res: Response, next: N
 
 export const downloadFile = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
   try {
+    const schoolId = getSchoolId(req as AuthRequest);
+    if (schoolId == null) throw createError('School context required', 403);
     const { id } = req.params;
     const db = getDatabase();
 
     const [contents] = await db.execute(
-      'SELECT file_path, file_name FROM download_contents WHERE id = ?',
-      [id]
+      'SELECT file_path, file_name FROM download_contents WHERE id = ? AND school_id = ?',
+      [id, schoolId]
     ) as any[];
 
     if (contents.length === 0) {

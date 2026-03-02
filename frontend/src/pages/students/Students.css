@@ -157,6 +157,42 @@
   margin-bottom: var(--spacing-lg);
 }
 
+/* Create parent account checkbox - left-aligned, professional */
+.student-admission-form .create-parent-account-row {
+  display: flex;
+  justify-content: flex-start;
+  align-items: center;
+  margin-bottom: var(--spacing-md);
+}
+
+.student-admission-form .create-parent-account-group {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: var(--spacing-sm);
+  margin-bottom: 0;
+}
+
+.student-admission-form .create-parent-account-checkbox {
+  width: auto;
+  margin: 0;
+  accent-color: var(--primary-color);
+}
+
+.student-admission-form .create-parent-account-label {
+  margin-bottom: 0;
+  font-weight: 500;
+  color: var(--gray-700);
+  cursor: pointer;
+}
+
+.student-admission-form .create-parent-hint {
+  color: var(--gray-500);
+  font-size: var(--font-size-xs);
+  margin-top: var(--spacing-xs);
+  display: block;
+}
+
 /* Form Row and Form Group Styles */
 .form-row {
   display: grid;

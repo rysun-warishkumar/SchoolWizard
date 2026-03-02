@@ -1,6 +1,7 @@
 import { Request, Response, NextFunction } from 'express';
 import { getDatabase } from '../config/database';
 import { createError } from '../middleware/errorHandler';
+import { AuthRequest, getSchoolId } from '../middleware/auth';
 import multer, { FileFilterCallback } from 'multer';
 import path from 'path';
 import fs from 'fs';
@@ -99,14 +100,17 @@ export const uploadGeneralSettingsFiles = multer({
 // In production, you might want a more sophisticated settings system
 
 export const getGeneralSettings = async (
-  req: Request,
+  req: AuthRequest,
   res: Response,
   next: NextFunction
 ): Promise<void> => {
   try {
+    const schoolId = getSchoolId(req);
+    if (schoolId == null) return next(createError('School context required', 403));
     const db = getDatabase();
     const [settings] = await db.execute(
-      'SELECT setting_key, setting_value, setting_type FROM general_settings'
+      'SELECT setting_key, setting_value, setting_type FROM general_settings WHERE school_id = ?',
+      [schoolId]
     ) as any[];
 
     // Convert settings array to object
@@ -187,10 +191,13 @@ export const updateGeneralSettings = async (
     
     const db = getDatabase();
 
+    const schoolId = getSchoolId(req as AuthRequest);
+    if (schoolId == null) return next(createError('School context required', 403));
+
     // Get existing settings to preserve logo/favicon if not uploaded
     const [existingSettings] = await db.execute(
-      'SELECT setting_key, setting_value FROM general_settings WHERE setting_key IN (?, ?)',
-      ['admin_logo', 'favicon']
+      'SELECT setting_key, setting_value FROM general_settings WHERE school_id = ? AND setting_key IN (?, ?)',
+      [schoolId, 'admin_logo', 'favicon']
     ) as any[];
 
     const existingSettingsObj: any = {};
@@ -310,10 +317,10 @@ export const updateGeneralSettings = async (
       
       try {
         await db.execute(
-          `INSERT INTO general_settings (setting_key, setting_value, setting_type) 
-           VALUES (?, ?, ?) 
+          `INSERT INTO general_settings (school_id, setting_key, setting_value, setting_type) 
+           VALUES (?, ?, ?, ?) 
            ON DUPLICATE KEY UPDATE setting_value = ?, updated_at = NOW()`,
-          [dbKey, settingValue, settingType, settingValue]
+          [schoolId, dbKey, settingValue, settingType, settingValue]
         );
       } catch (error: any) {
         console.error(`Error updating setting ${dbKey}:`, error);
@@ -331,14 +338,17 @@ export const updateGeneralSettings = async (
 };
 
 export const getSessions = async (
-  req: Request,
+  req: AuthRequest,
   res: Response,
   next: NextFunction
 ): Promise<void> => {
   try {
+    const schoolId = getSchoolId(req);
+    if (schoolId == null) return next(createError('School context required', 403));
     const db = getDatabase();
     const [sessions] = await db.execute(
-      'SELECT * FROM sessions ORDER BY start_date DESC'
+      'SELECT * FROM sessions WHERE school_id = ? ORDER BY start_date DESC',
+      [schoolId]
     ) as any[];
 
     res.json({
@@ -351,11 +361,13 @@ export const getSessions = async (
 };
 
 export const createSession = async (
-  req: Request,
+  req: AuthRequest,
   res: Response,
   next: NextFunction
 ): Promise<void> => {
   try {
+    const schoolId = getSchoolId(req);
+    if (schoolId == null) return next(createError('School context required', 403));
     const { name, start_date, end_date, is_current } = req.body;
 
     if (!name || !start_date || !end_date) {
@@ -364,19 +376,18 @@ export const createSession = async (
 
     const db = getDatabase();
 
-    // If setting as current, unset other current sessions
     if (is_current) {
-      await db.execute('UPDATE sessions SET is_current = 0');
+      await db.execute('UPDATE sessions SET is_current = 0 WHERE school_id = ?', [schoolId]);
     }
 
     const [result] = await db.execute(
-      'INSERT INTO sessions (name, start_date, end_date, is_current, created_at) VALUES (?, ?, ?, ?, NOW())',
-      [name, start_date, end_date, is_current ? 1 : 0]
+      'INSERT INTO sessions (school_id, name, start_date, end_date, is_current, created_at) VALUES (?, ?, ?, ?, ?, NOW())',
+      [schoolId, name, start_date, end_date, is_current ? 1 : 0]
     ) as any;
 
     const [newSessions] = await db.execute(
-      'SELECT * FROM sessions WHERE id = ?',
-      [result.insertId]
+      'SELECT * FROM sessions WHERE id = ? AND school_id = ?',
+      [result.insertId, schoolId]
     ) as any[];
 
     res.status(201).json({
@@ -390,18 +401,19 @@ export const createSession = async (
 };
 
 export const updateSession = async (
-  req: Request,
+  req: AuthRequest,
   res: Response,
   next: NextFunction
 ): Promise<void> => {
   try {
+    const schoolId = getSchoolId(req);
+    if (schoolId == null) return next(createError('School context required', 403));
     const { id } = req.params;
     const { name, start_date, end_date, is_current } = req.body;
     const db = getDatabase();
 
-    // If setting as current, unset other current sessions
     if (is_current) {
-      await db.execute('UPDATE sessions SET is_current = 0 WHERE id != ?', [id]);
+      await db.execute('UPDATE sessions SET is_current = 0 WHERE school_id = ? AND id != ?', [schoolId, id]);
     }
 
     const updates: string[] = [];
@@ -429,16 +441,16 @@ export const updateSession = async (
     }
 
     updates.push('updated_at = NOW()');
-    params.push(id);
+    params.push(id, schoolId);
 
     await db.execute(
-      `UPDATE sessions SET ${updates.join(', ')} WHERE id = ?`,
+      `UPDATE sessions SET ${updates.join(', ')} WHERE id = ? AND school_id = ?`,
       params
     );
 
     const [updatedSessions] = await db.execute(
-      'SELECT * FROM sessions WHERE id = ?',
-      [id]
+      'SELECT * FROM sessions WHERE id = ? AND school_id = ?',
+      [id, schoolId]
     ) as any[];
 
     res.json({
@@ -452,18 +464,19 @@ export const updateSession = async (
 };
 
 export const deleteSession = async (
-  req: Request,
+  req: AuthRequest,
   res: Response,
   next: NextFunction
 ): Promise<void> => {
   try {
+    const schoolId = getSchoolId(req);
+    if (schoolId == null) return next(createError('School context required', 403));
     const { id } = req.params;
     const db = getDatabase();
 
-    // Check if session is current
     const [sessions] = await db.execute(
-      'SELECT is_current FROM sessions WHERE id = ?',
-      [id]
+      'SELECT is_current FROM sessions WHERE id = ? AND school_id = ?',
+      [id, schoolId]
     ) as any[];
 
     if (sessions.length === 0) {
@@ -474,7 +487,7 @@ export const deleteSession = async (
       throw createError('Cannot delete current session', 400);
     }
 
-    await db.execute('DELETE FROM sessions WHERE id = ?', [id]);
+    await db.execute('DELETE FROM sessions WHERE id = ? AND school_id = ?', [id, schoolId]);
 
     res.json({
       success: true,
@@ -492,9 +505,12 @@ export const getEmailSettings = async (
   next: NextFunction
 ): Promise<void> => {
   try {
+    const schoolId = getSchoolId(req as AuthRequest);
+    if (schoolId == null) return next(createError('School context required', 403));
     const db = getDatabase();
     const [settings] = await db.execute(
-      'SELECT id, smtp_host, smtp_port, smtp_secure, smtp_username, from_email, from_name, is_enabled FROM email_settings ORDER BY id DESC LIMIT 1'
+      'SELECT id, smtp_host, smtp_port, smtp_secure, smtp_username, from_email, from_name, is_enabled FROM email_settings WHERE school_id = ? ORDER BY id DESC LIMIT 1',
+      [schoolId]
     ) as any[];
 
     if (settings.length === 0) {
@@ -584,15 +600,16 @@ export const updateEmailSettings = async (
       }
     }
 
+    const schoolId = getSchoolId(req as AuthRequest);
+    if (schoolId == null) return next(createError('School context required', 403));
     const db = getDatabase();
 
-    // Check if settings exist
     const [existing] = await db.execute(
-      'SELECT id FROM email_settings ORDER BY id DESC LIMIT 1'
+      'SELECT id FROM email_settings WHERE school_id = ? ORDER BY id DESC LIMIT 1',
+      [schoolId]
     ) as any[];
 
     if (existing.length > 0) {
-      // Update existing
       const updates: string[] = [];
       const params: any[] = [];
 
@@ -616,18 +633,19 @@ export const updateEmailSettings = async (
       params.push(is_enabled ? 1 : 0);
       updates.push('updated_at = NOW()');
       params.push(existing[0].id);
+      params.push(schoolId);
 
       await db.execute(
-        `UPDATE email_settings SET ${updates.join(', ')} WHERE id = ?`,
+        `UPDATE email_settings SET ${updates.join(', ')} WHERE id = ? AND school_id = ?`,
         params
       );
     } else {
-      // Create new
       await db.execute(
         `INSERT INTO email_settings 
-        (smtp_host, smtp_port, smtp_secure, smtp_username, smtp_password, from_email, from_name, is_enabled, created_at, updated_at)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, NOW(), NOW())`,
+        (school_id, smtp_host, smtp_port, smtp_secure, smtp_username, smtp_password, from_email, from_name, is_enabled, created_at, updated_at)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, NOW(), NOW())`,
         [
+          schoolId,
           smtp_host || '',
           smtp_port || 587,
           smtp_secure ? 1 : 0,
@@ -690,7 +708,8 @@ export const testEmailSettings = async (
     // Import email service functions
     const { sendEmail, getEmailConfig, initializeEmailService } = await import('../utils/emailService.js');
 
-    // Get email configuration from database
+    const schoolId = getSchoolId(req as AuthRequest);
+    if (schoolId == null) return next(createError('School context required', 403));
     const db = getDatabase();
     const [settings] = await db.execute(
       `SELECT 
@@ -703,8 +722,9 @@ export const testEmailSettings = async (
         from_name,
         is_enabled
       FROM email_settings 
-      WHERE is_enabled = 1 
-      LIMIT 1`
+      WHERE school_id = ? AND is_enabled = 1 
+      LIMIT 1`,
+      [schoolId]
     ) as any[];
 
     if (settings.length === 0) {
@@ -873,9 +893,12 @@ export const getNotificationSettings = async (
   next: NextFunction
 ): Promise<void> => {
   try {
+    const schoolId = getSchoolId(req as AuthRequest);
+    if (schoolId == null) return next(createError('School context required', 403));
     const db = getDatabase();
     const [notifications] = await db.execute(
-      'SELECT * FROM notification_settings ORDER BY id ASC'
+      'SELECT * FROM notification_settings WHERE school_id = ? ORDER BY id ASC',
+      [schoolId]
     ) as any[];
 
     res.json({
@@ -893,7 +916,9 @@ export const updateNotificationSettings = async (
   next: NextFunction
 ): Promise<void> => {
   try {
-    const { notifications } = req.body; // Array of notification settings
+    const schoolId = getSchoolId(req as AuthRequest);
+    if (schoolId == null) return next(createError('School context required', 403));
+    const { notifications } = req.body;
     const db = getDatabase();
 
     if (!Array.isArray(notifications)) {
@@ -920,7 +945,7 @@ export const updateNotificationSettings = async (
          sms_enabled_guardian = ?,
          sms_enabled_staff = ?,
          updated_at = NOW()
-         WHERE event_name = ?`,
+         WHERE school_id = ? AND event_name = ?`,
         [
           email_enabled_student ? 1 : 0,
           email_enabled_guardian ? 1 : 0,
@@ -928,6 +953,7 @@ export const updateNotificationSettings = async (
           sms_enabled_student ? 1 : 0,
           sms_enabled_guardian ? 1 : 0,
           sms_enabled_staff ? 1 : 0,
+          schoolId,
           event_name,
         ]
       );
@@ -949,9 +975,12 @@ export const getSMSSettings = async (
   next: NextFunction
 ): Promise<void> => {
   try {
+    const schoolId = getSchoolId(req as AuthRequest);
+    if (schoolId == null) return next(createError('School context required', 403));
     const db = getDatabase();
     const [settings] = await db.execute(
-      'SELECT id, sms_gateway, sms_api_key, sms_sender_id, sms_username, sms_url, is_enabled FROM sms_settings ORDER BY id DESC'
+      'SELECT id, sms_gateway, sms_api_key, sms_sender_id, sms_username, sms_url, is_enabled FROM sms_settings WHERE school_id = ? ORDER BY id DESC',
+      [schoolId]
     ) as any[];
 
     res.json({
@@ -990,18 +1019,20 @@ export const createSMSSettings = async (
       throw createError('SMS Gateway is required', 400);
     }
 
+    const schoolId = getSchoolId(req as AuthRequest);
+    if (schoolId == null) return next(createError('School context required', 403));
     const db = getDatabase();
 
-    // If enabling this gateway, disable others
     if (is_enabled) {
-      await db.execute('UPDATE sms_settings SET is_enabled = 0');
+      await db.execute('UPDATE sms_settings SET is_enabled = 0 WHERE school_id = ?', [schoolId]);
     }
 
     const [result] = await db.execute(
       `INSERT INTO sms_settings 
-       (sms_gateway, sms_api_key, sms_api_secret, sms_sender_id, sms_username, sms_password, sms_url, is_enabled, created_at, updated_at)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, NOW(), NOW())`,
+       (school_id, sms_gateway, sms_api_key, sms_api_secret, sms_sender_id, sms_username, sms_password, sms_url, is_enabled, created_at, updated_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, NOW(), NOW())`,
       [
+        schoolId,
         sms_gateway,
         sms_api_key || null,
         sms_api_secret || null,
@@ -1041,11 +1072,12 @@ export const updateSMSSettings = async (
       is_enabled,
     } = req.body;
 
+    const schoolId = getSchoolId(req as AuthRequest);
+    if (schoolId == null) return next(createError('School context required', 403));
     const db = getDatabase();
 
-    // If enabling this gateway, disable others
     if (is_enabled) {
-      await db.execute('UPDATE sms_settings SET is_enabled = 0 WHERE id != ?', [id]);
+      await db.execute('UPDATE sms_settings SET is_enabled = 0 WHERE school_id = ? AND id != ?', [schoolId, id]);
     }
 
     const updates: string[] = [];
@@ -1089,10 +1121,10 @@ export const updateSMSSettings = async (
     }
 
     updates.push('updated_at = NOW()');
-    params.push(id);
+    params.push(id, schoolId);
 
     await db.execute(
-      `UPDATE sms_settings SET ${updates.join(', ')} WHERE id = ?`,
+      `UPDATE sms_settings SET ${updates.join(', ')} WHERE id = ? AND school_id = ?`,
       params
     );
 
@@ -1111,10 +1143,12 @@ export const deleteSMSSettings = async (
   next: NextFunction
 ): Promise<void> => {
   try {
+    const schoolId = getSchoolId(req as AuthRequest);
+    if (schoolId == null) return next(createError('School context required', 403));
     const { id } = req.params;
     const db = getDatabase();
 
-    await db.execute('DELETE FROM sms_settings WHERE id = ?', [id]);
+    await db.execute('DELETE FROM sms_settings WHERE id = ? AND school_id = ?', [id, schoolId]);
 
     res.json({
       success: true,
@@ -1132,9 +1166,12 @@ export const getPaymentGateways = async (
   next: NextFunction
 ): Promise<void> => {
   try {
+    const schoolId = getSchoolId(req as AuthRequest);
+    if (schoolId == null) return next(createError('School context required', 403));
     const db = getDatabase();
     const [gateways] = await db.execute(
-      'SELECT id, gateway_name, display_name, merchant_id, test_mode, is_enabled FROM payment_gateways ORDER BY id DESC'
+      'SELECT id, gateway_name, display_name, merchant_id, test_mode, is_enabled FROM payment_gateways WHERE school_id = ? ORDER BY id DESC',
+      [schoolId]
     ) as any[];
 
     res.json({
@@ -1173,18 +1210,20 @@ export const createPaymentGateway = async (
       throw createError('Gateway name and display name are required', 400);
     }
 
+    const schoolId = getSchoolId(req as AuthRequest);
+    if (schoolId == null) return next(createError('School context required', 403));
     const db = getDatabase();
 
-    // If enabling this gateway, disable others
     if (is_enabled) {
-      await db.execute('UPDATE payment_gateways SET is_enabled = 0');
+      await db.execute('UPDATE payment_gateways SET is_enabled = 0 WHERE school_id = ?', [schoolId]);
     }
 
     const [result] = await db.execute(
       `INSERT INTO payment_gateways 
-       (gateway_name, display_name, api_key, api_secret, merchant_id, test_mode, is_enabled, created_at, updated_at)
-       VALUES (?, ?, ?, ?, ?, ?, ?, NOW(), NOW())`,
+       (school_id, gateway_name, display_name, api_key, api_secret, merchant_id, test_mode, is_enabled, created_at, updated_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, NOW(), NOW())`,
       [
+        schoolId,
         gateway_name,
         display_name,
         api_key || null,
@@ -1222,11 +1261,12 @@ export const updatePaymentGateway = async (
       is_enabled,
     } = req.body;
 
+    const schoolId = getSchoolId(req as AuthRequest);
+    if (schoolId == null) return next(createError('School context required', 403));
     const db = getDatabase();
 
-    // If enabling this gateway, disable others
     if (is_enabled) {
-      await db.execute('UPDATE payment_gateways SET is_enabled = 0 WHERE id != ?', [id]);
+      await db.execute('UPDATE payment_gateways SET is_enabled = 0 WHERE school_id = ? AND id != ?', [schoolId, id]);
     }
 
     const updates: string[] = [];
@@ -1266,10 +1306,10 @@ export const updatePaymentGateway = async (
     }
 
     updates.push('updated_at = NOW()');
-    params.push(id);
+    params.push(id, schoolId);
 
     await db.execute(
-      `UPDATE payment_gateways SET ${updates.join(', ')} WHERE id = ?`,
+      `UPDATE payment_gateways SET ${updates.join(', ')} WHERE id = ? AND school_id = ?`,
       params
     );
 
@@ -1288,10 +1328,12 @@ export const deletePaymentGateway = async (
   next: NextFunction
 ): Promise<void> => {
   try {
+    const schoolId = getSchoolId(req as AuthRequest);
+    if (schoolId == null) return next(createError('School context required', 403));
     const { id } = req.params;
     const db = getDatabase();
 
-    await db.execute('DELETE FROM payment_gateways WHERE id = ?', [id]);
+    await db.execute('DELETE FROM payment_gateways WHERE id = ? AND school_id = ?', [id, schoolId]);
 
     res.json({
       success: true,
@@ -1309,9 +1351,12 @@ export const getPrintSettings = async (
   next: NextFunction
 ): Promise<void> => {
   try {
+    const schoolId = getSchoolId(req as AuthRequest);
+    if (schoolId == null) return next(createError('School context required', 403));
     const db = getDatabase();
     const [settings] = await db.execute(
-      'SELECT * FROM print_settings ORDER BY setting_type ASC'
+      'SELECT * FROM print_settings WHERE school_id = ? ORDER BY setting_type ASC',
+      [schoolId]
     ) as any[];
 
     const result: any = { header: null, footer: null };
@@ -1338,40 +1383,42 @@ export const updatePrintSettings = async (
   next: NextFunction
 ): Promise<void> => {
   try {
+    const schoolId = getSchoolId(req as AuthRequest);
+    if (schoolId == null) return next(createError('School context required', 403));
     const { header_image, footer_text } = req.body;
     const db = getDatabase();
 
-    // Update or create header
     const [headerExists] = await db.execute(
-      'SELECT id FROM print_settings WHERE setting_type = "header"'
+      'SELECT id FROM print_settings WHERE school_id = ? AND setting_type = "header"',
+      [schoolId]
     ) as any[];
 
     if (headerExists.length > 0) {
       await db.execute(
-        'UPDATE print_settings SET header_image = ?, updated_at = NOW() WHERE setting_type = "header"',
-        [header_image || null]
+        'UPDATE print_settings SET header_image = ?, updated_at = NOW() WHERE school_id = ? AND setting_type = "header"',
+        [header_image || null, schoolId]
       );
     } else {
       await db.execute(
-        'INSERT INTO print_settings (setting_type, header_image) VALUES ("header", ?)',
-        [header_image || null]
+        'INSERT INTO print_settings (school_id, setting_type, header_image) VALUES (?, "header", ?)',
+        [schoolId, header_image || null]
       );
     }
 
-    // Update or create footer
     const [footerExists] = await db.execute(
-      'SELECT id FROM print_settings WHERE setting_type = "footer"'
+      'SELECT id FROM print_settings WHERE school_id = ? AND setting_type = "footer"',
+      [schoolId]
     ) as any[];
 
     if (footerExists.length > 0) {
       await db.execute(
-        'UPDATE print_settings SET footer_text = ?, updated_at = NOW() WHERE setting_type = "footer"',
-        [footer_text || '']
+        'UPDATE print_settings SET footer_text = ?, updated_at = NOW() WHERE school_id = ? AND setting_type = "footer"',
+        [footer_text || '', schoolId]
       );
     } else {
       await db.execute(
-        'INSERT INTO print_settings (setting_type, footer_text) VALUES ("footer", ?)',
-        [footer_text || '']
+        'INSERT INTO print_settings (school_id, setting_type, footer_text) VALUES (?, "footer", ?)',
+        [schoolId, footer_text || '']
       );
     }
 
@@ -1391,9 +1438,12 @@ export const getFrontCMSSettings = async (
   next: NextFunction
 ): Promise<void> => {
   try {
+    const schoolId = getSchoolId(req as AuthRequest);
+    if (schoolId == null) return next(createError('School context required', 403));
     const db = getDatabase();
     const [settings] = await db.execute(
-      'SELECT * FROM front_cms_settings ORDER BY id DESC LIMIT 1'
+      'SELECT * FROM front_cms_settings WHERE school_id = ? ORDER BY id DESC LIMIT 1',
+      [schoolId]
     ) as any[];
 
     if (settings.length === 0) {
@@ -1491,11 +1541,13 @@ export const updateFrontCMSSettings = async (
       }
     }
 
+    const schoolId = getSchoolId(req as AuthRequest);
+    if (schoolId == null) return next(createError('School context required', 403));
     const [existing] = await db.execute(
-      'SELECT id, logo, favicon FROM front_cms_settings ORDER BY id DESC LIMIT 1'
+      'SELECT id, logo, favicon FROM front_cms_settings WHERE school_id = ? ORDER BY id DESC LIMIT 1',
+      [schoolId]
     ) as any[];
 
-    // If no new file uploaded, keep existing path
     if (existing.length > 0) {
       if (!logoPath && existing[0].logo) {
         logoPath = existing[0].logo;
@@ -1523,7 +1575,7 @@ export const updateFrontCMSSettings = async (
          whatsapp_url = ?,
          current_theme = ?,
          updated_at = NOW()
-         WHERE id = ?`,
+         WHERE school_id = ? AND id = ?`,
         [
           is_enabled ? 1 : 0,
           sidebar_enabled ? 1 : 0,
@@ -1541,17 +1593,19 @@ export const updateFrontCMSSettings = async (
           pinterest_url || '',
           whatsapp_url || '',
           current_theme || 'default',
+          schoolId,
           existing[0].id,
         ]
       );
     } else {
       await db.execute(
         `INSERT INTO front_cms_settings 
-         (is_enabled, sidebar_enabled, rtl_mode, logo, favicon, footer_text, address, google_analytics,
+         (school_id, is_enabled, sidebar_enabled, rtl_mode, logo, favicon, footer_text, address, google_analytics,
           facebook_url, twitter_url, youtube_url, linkedin_url, instagram_url, pinterest_url,
           whatsapp_url, current_theme, created_at, updated_at)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW(), NOW())`,
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW(), NOW())`,
         [
+          schoolId,
           is_enabled ? 1 : 0,
           sidebar_enabled ? 1 : 0,
           rtl_mode ? 1 : 0,
@@ -1799,11 +1853,13 @@ export const getCustomFields = async (
   next: NextFunction
 ): Promise<void> => {
   try {
+    const schoolId = getSchoolId(req as AuthRequest);
+    if (schoolId == null) return next(createError('School context required', 403));
     const { field_belongs_to } = req.query;
     const db = getDatabase();
 
-    let query = 'SELECT * FROM custom_fields WHERE 1=1';
-    const params: any[] = [];
+    let query = 'SELECT * FROM custom_fields WHERE school_id = ?';
+    const params: any[] = [schoolId];
 
     if (field_belongs_to) {
       query += ' AND field_belongs_to = ?';
@@ -1849,13 +1905,16 @@ export const createCustomField = async (
       throw createError('Field belongs to, type, name, and label are required', 400);
     }
 
+    const schoolId = getSchoolId(req as AuthRequest);
+    if (schoolId == null) return next(createError('School context required', 403));
     const db = getDatabase();
 
     const [result] = await db.execute(
       `INSERT INTO custom_fields 
-       (field_belongs_to, field_type, field_name, field_label, field_values, grid_column, is_required, is_visible, display_order, created_at, updated_at)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, NOW(), NOW())`,
+       (school_id, field_belongs_to, field_type, field_name, field_label, field_values, grid_column, is_required, is_visible, display_order, created_at, updated_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW(), NOW())`,
       [
+        schoolId,
         field_belongs_to,
         field_type,
         field_name,
@@ -1884,6 +1943,8 @@ export const updateCustomField = async (
   next: NextFunction
 ): Promise<void> => {
   try {
+    const schoolId = getSchoolId(req as AuthRequest);
+    if (schoolId == null) return next(createError('School context required', 403));
     const { id } = req.params;
     const {
       field_type,
@@ -1938,10 +1999,10 @@ export const updateCustomField = async (
     }
 
     updates.push('updated_at = NOW()');
-    params.push(id);
+    params.push(schoolId, id);
 
     await db.execute(
-      `UPDATE custom_fields SET ${updates.join(', ')} WHERE id = ?`,
+      `UPDATE custom_fields SET ${updates.join(', ')} WHERE school_id = ? AND id = ?`,
       params
     );
 
@@ -1960,10 +2021,12 @@ export const deleteCustomField = async (
   next: NextFunction
 ): Promise<void> => {
   try {
+    const schoolId = getSchoolId(req as AuthRequest);
+    if (schoolId == null) return next(createError('School context required', 403));
     const { id } = req.params;
     const db = getDatabase();
 
-    await db.execute('DELETE FROM custom_fields WHERE id = ?', [id]);
+    await db.execute('DELETE FROM custom_fields WHERE school_id = ? AND id = ?', [schoolId, id]);
 
     res.json({
       success: true,
@@ -1981,11 +2044,13 @@ export const getSystemFields = async (
   next: NextFunction
 ): Promise<void> => {
   try {
+    const schoolId = getSchoolId(req as AuthRequest);
+    if (schoolId == null) return next(createError('School context required', 403));
     const { field_belongs_to } = req.query;
     const db = getDatabase();
 
-    let query = 'SELECT * FROM system_fields WHERE 1=1';
-    const params: any[] = [];
+    let query = 'SELECT * FROM system_fields WHERE school_id = ?';
+    const params: any[] = [schoolId];
 
     if (field_belongs_to) {
       query += ' AND field_belongs_to = ?';
@@ -2014,13 +2079,15 @@ export const updateSystemFieldStatus = async (
   next: NextFunction
 ): Promise<void> => {
   try {
+    const schoolId = getSchoolId(req as AuthRequest);
+    if (schoolId == null) return next(createError('School context required', 403));
     const { id } = req.params;
     const { is_enabled } = req.body;
     const db = getDatabase();
 
     await db.execute(
-      'UPDATE system_fields SET is_enabled = ?, updated_at = NOW() WHERE id = ?',
-      [is_enabled ? 1 : 0, id]
+      'UPDATE system_fields SET is_enabled = ?, updated_at = NOW() WHERE school_id = ? AND id = ?',
+      [is_enabled ? 1 : 0, schoolId, id]
     );
 
     res.json({
@@ -2043,7 +2110,9 @@ export const getBackupRecords = async (
   next: NextFunction
 ): Promise<void> => {
   try {
-    const records = await backupService.getBackupRecords();
+    const schoolId = getSchoolId(req as AuthRequest);
+    if (schoolId == null) return next(createError('School context required', 403));
+    const records = await backupService.getBackupRecords(schoolId);
     res.json({
       success: true,
       data: records,
@@ -2059,14 +2128,16 @@ export const createBackup = async (
   next: NextFunction
 ): Promise<void> => {
   try {
+    const schoolId = getSchoolId(req as AuthRequest);
+    if (schoolId == null) return next(createError('School context required', 403));
     const userId = req.user?.id ? Number(req.user.id) : undefined;
     const backup = await backupService.createBackup({
       userId,
       backupType: 'manual',
+      schoolId,
     });
 
-    // Clean up old backups
-    await backupService.cleanupOldBackups();
+    await backupService.cleanupOldBackups(schoolId);
 
     res.json({
       success: true,
@@ -2084,12 +2155,14 @@ export const downloadBackup = async (
   next: NextFunction
 ): Promise<void> => {
   try {
+    const schoolId = getSchoolId(req as AuthRequest);
+    if (schoolId == null) return next(createError('School context required', 403));
     const { id } = req.params;
     const db = getDatabase();
 
     const [records] = await db.execute(
-      'SELECT file_path, backup_name FROM backup_records WHERE id = ?',
-      [id]
+      'SELECT file_path, backup_name FROM backup_records WHERE school_id = ? AND id = ?',
+      [schoolId, id]
     ) as any[];
 
     if (records.length === 0) {
@@ -2122,12 +2195,14 @@ export const restoreBackup = async (
   next: NextFunction
 ): Promise<void> => {
   try {
+    const schoolId = getSchoolId(req as AuthRequest);
+    if (schoolId == null) return next(createError('School context required', 403));
     const { id } = req.params;
     const db = getDatabase();
 
     const [records] = await db.execute(
-      'SELECT file_path FROM backup_records WHERE id = ?',
-      [id]
+      'SELECT file_path FROM backup_records WHERE school_id = ? AND id = ?',
+      [schoolId, id]
     ) as any[];
 
     if (records.length === 0) {
@@ -2153,8 +2228,10 @@ export const deleteBackup = async (
   next: NextFunction
 ): Promise<void> => {
   try {
+    const schoolId = getSchoolId(req as AuthRequest);
+    if (schoolId == null) return next(createError('School context required', 403));
     const { id } = req.params;
-    await backupService.deleteBackup(Number(id));
+    await backupService.deleteBackup(Number(id), schoolId);
 
     res.json({
       success: true,
@@ -2171,7 +2248,9 @@ export const getBackupSettings = async (
   next: NextFunction
 ): Promise<void> => {
   try {
-    const settings = await backupService.getBackupSettings();
+    const schoolId = getSchoolId(req as AuthRequest);
+    if (schoolId == null) return next(createError('School context required', 403));
+    const settings = await backupService.getBackupSettings(schoolId);
     res.json({
       success: true,
       data: settings,
@@ -2187,13 +2266,15 @@ export const updateBackupSettings = async (
   next: NextFunction
 ): Promise<void> => {
   try {
+    const schoolId = getSchoolId(req as AuthRequest);
+    if (schoolId == null) return next(createError('School context required', 403));
     const { auto_backup_enabled, backup_frequency, backup_time, keep_backups } = req.body;
     await backupService.updateBackupSettings({
       auto_backup_enabled,
       backup_frequency,
       backup_time,
       keep_backups,
-    });
+    }, schoolId);
 
     res.json({
       success: true,
@@ -2210,7 +2291,9 @@ export const generateCronSecretKey = async (
   next: NextFunction
 ): Promise<void> => {
   try {
-    const secretKey = await backupService.generateCronSecretKey();
+    const schoolId = getSchoolId(req as AuthRequest);
+    if (schoolId == null) return next(createError('School context required', 403));
+    const secretKey = await backupService.generateCronSecretKey(schoolId);
     res.json({
       success: true,
       message: 'Cron secret key generated successfully',

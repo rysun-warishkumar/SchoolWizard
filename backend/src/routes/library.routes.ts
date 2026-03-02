@@ -4,12 +4,12 @@ import {
   getLibraryMembers, addStudentMember, addStaffMember, removeLibraryMember,
   getBookIssues, issueBook, returnBook,
 } from '../controllers/library.controller';
-import { authenticate } from '../middleware/auth';
+import { authenticate, requireSchool } from '../middleware/auth';
 import { checkPermission } from '../middleware/permissions';
 
 const router = express.Router();
 
-router.use(authenticate);
+router.use(authenticate, requireSchool);
 
 // Book Routes
 router.get('/books', checkPermission('library', 'view'), getBooks);

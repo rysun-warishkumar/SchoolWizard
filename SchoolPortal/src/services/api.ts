@@ -2,11 +2,30 @@ import axios from 'axios';
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:5000';
 
+/** Get school_id from URL (e.g. ?school_id=1) so each school sees only their website. */
+export function getSchoolIdFromUrl(): number | null {
+  if (typeof window === 'undefined') return null;
+  const params = new URLSearchParams(window.location.search);
+  const id = params.get('school_id');
+  if (id == null || id === '') return null;
+  const n = parseInt(id, 10);
+  return Number.isNaN(n) ? null : n;
+}
+
 export const apiClient = axios.create({
   baseURL: API_BASE_URL,
   headers: {
     'Content-Type': 'application/json',
   },
+});
+
+// Append school_id to all public API requests when present in URL (multi-tenant)
+apiClient.interceptors.request.use((config) => {
+  const schoolId = getSchoolIdFromUrl();
+  if (schoolId != null && config.params !== false) {
+    config.params = { ...config.params, school_id: schoolId };
+  }
+  return config;
 });
 
 export interface WebsiteSettings {

@@ -31,12 +31,12 @@ import {
   deleteTimetableEntry,
   getTeacherTimetable,
 } from '../controllers/academics.controller';
-import { authenticate } from '../middleware/auth';
+import { authenticate, requireSchool } from '../middleware/auth';
 import { checkPermission } from '../middleware/permissions';
 
 const router = express.Router();
 
-router.use(authenticate);
+router.use(authenticate, requireSchool);
 
 // Classes
 router.get('/classes', checkPermission('academics', 'view'), getClasses);

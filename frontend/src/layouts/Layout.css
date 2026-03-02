@@ -26,6 +26,16 @@
   height: 100%;
 }
 
+.layout-trial-banner {
+  flex-shrink: 0;
+  padding: var(--spacing-sm) var(--spacing-xl);
+  background: linear-gradient(90deg, var(--primary-light, #dbeafe) 0%, var(--primary-color, #2563eb) 100%);
+  color: var(--primary-dark, #1e3a8a);
+  font-size: var(--font-size-sm);
+  font-weight: 500;
+  text-align: center;
+}
+
 .layout.sidebar-collapsed .layout-main {
   margin-left: var(--sidebar-width-collapsed);
   width: calc(100% - var(--sidebar-width-collapsed));

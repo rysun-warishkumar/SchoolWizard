@@ -25,12 +25,12 @@ import {
   removeFeesGroupAssignment,
   downloadInvoicePDF,
 } from '../controllers/fees.controller';
-import { authenticate } from '../middleware/auth';
+import { authenticate, requireSchool } from '../middleware/auth';
 import { checkPermission, checkPermissionOrStudentOwnData } from '../middleware/permissions';
 
 const router = express.Router();
 
-router.use(authenticate);
+router.use(authenticate, requireSchool);
 
 // Fees Types
 router.get('/fees-types', checkPermission('fees', 'view'), getFeesTypes);

@@ -1,6 +1,7 @@
 import { Request, Response, NextFunction } from 'express';
 import { getDatabase } from '../config/database';
 import { createError } from '../middleware/errorHandler';
+import { AuthRequest, getSchoolId } from '../middleware/auth';
 import multer from 'multer';
 import path from 'path';
 import { fileURLToPath } from 'url';
@@ -39,6 +40,8 @@ export const upload = multer({
 
 export const getSubjectStatus = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
   try {
+    const schoolId = getSchoolId(req as AuthRequest);
+    if (schoolId == null) throw createError('School context required', 403);
     const { class_id, section_id, subject_id, teacher_id, status } = req.query;
     const db = getDatabase();
 
@@ -51,13 +54,13 @@ export const getSubjectStatus = async (req: Request, res: Response, next: NextFu
              st.first_name as teacher_first_name,
              st.last_name as teacher_last_name
       FROM subject_status ss
-      INNER JOIN classes c ON ss.class_id = c.id
-      INNER JOIN sections s ON ss.section_id = s.id
-      INNER JOIN subjects sub ON ss.subject_id = sub.id
-      LEFT JOIN staff st ON ss.teacher_id = st.id
-      WHERE 1=1
+      INNER JOIN classes c ON ss.class_id = c.id AND c.school_id = ?
+      INNER JOIN sections s ON ss.section_id = s.id AND s.school_id = ?
+      INNER JOIN subjects sub ON ss.subject_id = sub.id AND sub.school_id = ?
+      LEFT JOIN staff st ON ss.teacher_id = st.id AND st.school_id = ?
+      WHERE ss.school_id = ?
     `;
-    const params: any[] = [];
+    const params: any[] = [schoolId, schoolId, schoolId, schoolId, schoolId];
 
     if (class_id) {
       query += ' AND ss.class_id = ?';
@@ -92,6 +95,8 @@ export const getSubjectStatus = async (req: Request, res: Response, next: NextFu
 
 export const getSubjectStatusById = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
   try {
+    const schoolId = getSchoolId(req as AuthRequest);
+    if (schoolId == null) throw createError('School context required', 403);
     const { id } = req.params;
     const db = getDatabase();
 
@@ -104,12 +109,12 @@ export const getSubjectStatusById = async (req: Request, res: Response, next: Ne
               st.first_name as teacher_first_name,
               st.last_name as teacher_last_name
        FROM subject_status ss
-       INNER JOIN classes c ON ss.class_id = c.id
-       INNER JOIN sections s ON ss.section_id = s.id
-       INNER JOIN subjects sub ON ss.subject_id = sub.id
-       LEFT JOIN staff st ON ss.teacher_id = st.id
-       WHERE ss.id = ?`,
-      [id]
+       INNER JOIN classes c ON ss.class_id = c.id AND c.school_id = ?
+       INNER JOIN sections s ON ss.section_id = s.id AND s.school_id = ?
+       INNER JOIN subjects sub ON ss.subject_id = sub.id AND sub.school_id = ?
+       LEFT JOIN staff st ON ss.teacher_id = st.id AND st.school_id = ?
+       WHERE ss.school_id = ? AND ss.id = ?`,
+      [schoolId, schoolId, schoolId, schoolId, schoolId, id]
     ) as any[];
 
     if (statuses.length === 0) {
@@ -124,6 +129,8 @@ export const getSubjectStatusById = async (req: Request, res: Response, next: Ne
 
 export const createSubjectStatus = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
   try {
+    const schoolId = getSchoolId(req as AuthRequest);
+    if (schoolId == null) throw createError('School context required', 403);
     const { class_id, section_id, subject_id, teacher_id, topic_name, start_date, completion_date, status, completion_percentage, notes } = req.body;
     const db = getDatabase();
 
@@ -133,9 +140,10 @@ export const createSubjectStatus = async (req: Request, res: Response, next: Nex
 
     const [result] = await db.execute(
       `INSERT INTO subject_status 
-       (class_id, section_id, subject_id, teacher_id, topic_name, start_date, completion_date, status, completion_percentage, notes, created_at)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW())`,
+       (school_id, class_id, section_id, subject_id, teacher_id, topic_name, start_date, completion_date, status, completion_percentage, notes, created_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW())`,
       [
+        schoolId,
         class_id,
         section_id,
         subject_id,
@@ -161,6 +169,8 @@ export const createSubjectStatus = async (req: Request, res: Response, next: Nex
 
 export const updateSubjectStatus = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
   try {
+    const schoolId = getSchoolId(req as AuthRequest);
+    if (schoolId == null) throw createError('School context required', 403);
     const { id } = req.params;
     const { topic_name, start_date, completion_date, status, completion_percentage, notes, teacher_id } = req.body;
     const db = getDatabase();
@@ -202,10 +212,10 @@ export const updateSubjectStatus = async (req: Request, res: Response, next: Nex
     }
 
     updateFields.push('updated_at = NOW()');
-    params.push(id);
+    params.push(id, schoolId);
 
     await db.execute(
-      `UPDATE subject_status SET ${updateFields.join(', ')} WHERE id = ?`,
+      `UPDATE subject_status SET ${updateFields.join(', ')} WHERE id = ? AND school_id = ?`,
       params
     );
 
@@ -217,10 +227,12 @@ export const updateSubjectStatus = async (req: Request, res: Response, next: Nex
 
 export const deleteSubjectStatus = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
   try {
+    const schoolId = getSchoolId(req as AuthRequest);
+    if (schoolId == null) throw createError('School context required', 403);
     const { id } = req.params;
     const db = getDatabase();
 
-    await db.execute('DELETE FROM subject_status WHERE id = ?', [id]);
+    await db.execute('DELETE FROM subject_status WHERE id = ? AND school_id = ?', [id, schoolId]);
 
     res.json({ success: true, message: 'Subject status deleted successfully' });
   } catch (error) {
@@ -232,6 +244,8 @@ export const deleteSubjectStatus = async (req: Request, res: Response, next: Nex
 
 export const getLessonPlans = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
   try {
+    const schoolId = getSchoolId(req as AuthRequest);
+    if (schoolId == null) throw createError('School context required', 403);
     const { class_id, section_id, subject_id, teacher_id, status, start_date, end_date } = req.query;
     const db = getDatabase();
 
@@ -243,16 +257,16 @@ export const getLessonPlans = async (req: Request, res: Response, next: NextFunc
              sub.code as subject_code,
              st.first_name as teacher_first_name,
              st.last_name as teacher_last_name,
-             (SELECT COUNT(*) FROM lesson_plan_topics lpt WHERE lpt.lesson_plan_id = lp.id) as topics_count,
-             (SELECT COUNT(*) FROM lesson_plan_attachments lpa WHERE lpa.lesson_plan_id = lp.id) as attachments_count
+             (SELECT COUNT(*) FROM lesson_plan_topics lpt WHERE lpt.lesson_plan_id = lp.id AND lpt.school_id = ?) as topics_count,
+             (SELECT COUNT(*) FROM lesson_plan_attachments lpa WHERE lpa.lesson_plan_id = lp.id AND lpa.school_id = ?) as attachments_count
       FROM lesson_plans lp
-      INNER JOIN classes c ON lp.class_id = c.id
-      INNER JOIN sections s ON lp.section_id = s.id
-      INNER JOIN subjects sub ON lp.subject_id = sub.id
-      LEFT JOIN staff st ON lp.teacher_id = st.id
-      WHERE 1=1
+      INNER JOIN classes c ON lp.class_id = c.id AND c.school_id = ?
+      INNER JOIN sections s ON lp.section_id = s.id AND s.school_id = ?
+      INNER JOIN subjects sub ON lp.subject_id = sub.id AND sub.school_id = ?
+      LEFT JOIN staff st ON lp.teacher_id = st.id AND st.school_id = ?
+      WHERE lp.school_id = ?
     `;
-    const params: any[] = [];
+    const params: any[] = [schoolId, schoolId, schoolId, schoolId, schoolId, schoolId];
 
     if (class_id) {
       query += ' AND lp.class_id = ?';
@@ -291,6 +305,8 @@ export const getLessonPlans = async (req: Request, res: Response, next: NextFunc
 
 export const getLessonPlanById = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
   try {
+    const schoolId = getSchoolId(req as AuthRequest);
+    if (schoolId == null) throw createError('School context required', 403);
     const { id } = req.params;
     const db = getDatabase();
 
@@ -303,28 +319,26 @@ export const getLessonPlanById = async (req: Request, res: Response, next: NextF
               st.first_name as teacher_first_name,
               st.last_name as teacher_last_name
        FROM lesson_plans lp
-       INNER JOIN classes c ON lp.class_id = c.id
-       INNER JOIN sections s ON lp.section_id = s.id
-       INNER JOIN subjects sub ON lp.subject_id = sub.id
-       LEFT JOIN staff st ON lp.teacher_id = st.id
-       WHERE lp.id = ?`,
-      [id]
+       INNER JOIN classes c ON lp.class_id = c.id AND c.school_id = ?
+       INNER JOIN sections s ON lp.section_id = s.id AND s.school_id = ?
+       INNER JOIN subjects sub ON lp.subject_id = sub.id AND sub.school_id = ?
+       LEFT JOIN staff st ON lp.teacher_id = st.id AND st.school_id = ?
+       WHERE lp.school_id = ? AND lp.id = ?`,
+      [schoolId, schoolId, schoolId, schoolId, schoolId, id]
     ) as any[];
 
     if (plans.length === 0) {
       throw createError('Lesson plan not found', 404);
     }
 
-    // Get topics
     const [topics] = await db.execute(
-      'SELECT * FROM lesson_plan_topics WHERE lesson_plan_id = ? ORDER BY topic_order',
-      [id]
+      'SELECT * FROM lesson_plan_topics WHERE school_id = ? AND lesson_plan_id = ? ORDER BY topic_order',
+      [schoolId, id]
     ) as any[];
 
-    // Get attachments
     const [attachments] = await db.execute(
-      'SELECT * FROM lesson_plan_attachments WHERE lesson_plan_id = ? ORDER BY uploaded_at DESC',
-      [id]
+      'SELECT * FROM lesson_plan_attachments WHERE school_id = ? AND lesson_plan_id = ? ORDER BY uploaded_at DESC',
+      [schoolId, id]
     ) as any[];
 
     res.json({
@@ -342,6 +356,8 @@ export const getLessonPlanById = async (req: Request, res: Response, next: NextF
 
 export const createLessonPlan = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
   try {
+    const schoolId = getSchoolId(req as AuthRequest);
+    if (schoolId == null) throw createError('School context required', 403);
     const {
       class_id,
       section_id,
@@ -367,10 +383,11 @@ export const createLessonPlan = async (req: Request, res: Response, next: NextFu
 
     const [result] = await db.execute(
       `INSERT INTO lesson_plans 
-       (class_id, section_id, subject_id, teacher_id, lesson_title, lesson_date, topic, learning_objectives, 
+       (school_id, class_id, section_id, subject_id, teacher_id, lesson_title, lesson_date, topic, learning_objectives, 
         teaching_methods, materials_needed, activities, homework, assessment, notes, status, created_at)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW())`,
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW())`,
       [
+        schoolId,
         class_id,
         section_id,
         subject_id,
@@ -401,6 +418,8 @@ export const createLessonPlan = async (req: Request, res: Response, next: NextFu
 
 export const updateLessonPlan = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
   try {
+    const schoolId = getSchoolId(req as AuthRequest);
+    if (schoolId == null) throw createError('School context required', 403);
     const { id } = req.params;
     const {
       lesson_title,
@@ -475,9 +494,9 @@ export const updateLessonPlan = async (req: Request, res: Response, next: NextFu
     }
 
     updateFields.push('updated_at = NOW()');
-    params.push(id);
+    params.push(id, schoolId);
 
-    await db.execute(`UPDATE lesson_plans SET ${updateFields.join(', ')} WHERE id = ?`, params);
+    await db.execute(`UPDATE lesson_plans SET ${updateFields.join(', ')} WHERE id = ? AND school_id = ?`, params);
 
     res.json({ success: true, message: 'Lesson plan updated successfully' });
   } catch (error) {
@@ -487,10 +506,12 @@ export const updateLessonPlan = async (req: Request, res: Response, next: NextFu
 
 export const deleteLessonPlan = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
   try {
+    const schoolId = getSchoolId(req as AuthRequest);
+    if (schoolId == null) throw createError('School context required', 403);
     const { id } = req.params;
     const db = getDatabase();
 
-    await db.execute('DELETE FROM lesson_plans WHERE id = ?', [id]);
+    await db.execute('DELETE FROM lesson_plans WHERE id = ? AND school_id = ?', [id, schoolId]);
 
     res.json({ success: true, message: 'Lesson plan deleted successfully' });
   } catch (error) {
@@ -502,11 +523,13 @@ export const deleteLessonPlan = async (req: Request, res: Response, next: NextFu
 
 export const getLessonPlanTopics = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
   try {
+    const schoolId = getSchoolId(req as AuthRequest);
+    if (schoolId == null) throw createError('School context required', 403);
     const { lesson_plan_id } = req.query;
     const db = getDatabase();
 
-    let query = 'SELECT * FROM lesson_plan_topics WHERE 1=1';
-    const params: any[] = [];
+    let query = 'SELECT * FROM lesson_plan_topics WHERE school_id = ?';
+    const params: any[] = [schoolId];
 
     if (lesson_plan_id) {
       query += ' AND lesson_plan_id = ?';
@@ -525,6 +548,8 @@ export const getLessonPlanTopics = async (req: Request, res: Response, next: Nex
 
 export const createLessonPlanTopic = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
   try {
+    const schoolId = getSchoolId(req as AuthRequest);
+    if (schoolId == null) throw createError('School context required', 403);
     const { lesson_plan_id, topic_name, topic_order, estimated_duration, status, notes } = req.body;
     const db = getDatabase();
 
@@ -534,9 +559,10 @@ export const createLessonPlanTopic = async (req: Request, res: Response, next: N
 
     const [result] = await db.execute(
       `INSERT INTO lesson_plan_topics 
-       (lesson_plan_id, topic_name, topic_order, estimated_duration, status, notes, created_at)
-       VALUES (?, ?, ?, ?, ?, ?, NOW())`,
+       (school_id, lesson_plan_id, topic_name, topic_order, estimated_duration, status, notes, created_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, NOW())`,
       [
+        schoolId,
         lesson_plan_id,
         topic_name,
         topic_order || 0,
@@ -558,6 +584,8 @@ export const createLessonPlanTopic = async (req: Request, res: Response, next: N
 
 export const updateLessonPlanTopic = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
   try {
+    const schoolId = getSchoolId(req as AuthRequest);
+    if (schoolId == null) throw createError('School context required', 403);
     const { id } = req.params;
     const { topic_name, topic_order, estimated_duration, status, notes } = req.body;
     const db = getDatabase();
@@ -590,9 +618,9 @@ export const updateLessonPlanTopic = async (req: Request, res: Response, next: N
       throw createError('No fields to update', 400);
     }
 
-    params.push(id);
+    params.push(id, schoolId);
 
-    await db.execute(`UPDATE lesson_plan_topics SET ${updateFields.join(', ')} WHERE id = ?`, params);
+    await db.execute(`UPDATE lesson_plan_topics SET ${updateFields.join(', ')} WHERE id = ? AND school_id = ?`, params);
 
     res.json({ success: true, message: 'Topic updated successfully' });
   } catch (error) {
@@ -602,10 +630,12 @@ export const updateLessonPlanTopic = async (req: Request, res: Response, next: N
 
 export const deleteLessonPlanTopic = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
   try {
+    const schoolId = getSchoolId(req as AuthRequest);
+    if (schoolId == null) throw createError('School context required', 403);
     const { id } = req.params;
     const db = getDatabase();
 
-    await db.execute('DELETE FROM lesson_plan_topics WHERE id = ?', [id]);
+    await db.execute('DELETE FROM lesson_plan_topics WHERE id = ? AND school_id = ?', [id, schoolId]);
 
     res.json({ success: true, message: 'Topic deleted successfully' });
   } catch (error) {
@@ -617,6 +647,8 @@ export const deleteLessonPlanTopic = async (req: Request, res: Response, next: N
 
 export const uploadLessonPlanAttachment = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
   try {
+    const schoolId = getSchoolId(req as AuthRequest);
+    if (schoolId == null) throw createError('School context required', 403);
     const { lesson_plan_id } = req.body;
     const file = req.file;
 
@@ -632,9 +664,10 @@ export const uploadLessonPlanAttachment = async (req: Request, res: Response, ne
 
     const [result] = await db.execute(
       `INSERT INTO lesson_plan_attachments 
-       (lesson_plan_id, file_name, file_path, file_type, file_size, uploaded_at)
-       VALUES (?, ?, ?, ?, ?, NOW())`,
+       (school_id, lesson_plan_id, file_name, file_path, file_type, file_size, uploaded_at)
+       VALUES (?, ?, ?, ?, ?, ?, NOW())`,
       [
+        schoolId,
         lesson_plan_id,
         file.originalname,
         `/uploads/lesson-plans/${file.filename}`,
@@ -655,17 +688,18 @@ export const uploadLessonPlanAttachment = async (req: Request, res: Response, ne
 
 export const deleteLessonPlanAttachment = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
   try {
+    const schoolId = getSchoolId(req as AuthRequest);
+    if (schoolId == null) throw createError('School context required', 403);
     const { id } = req.params;
     const db = getDatabase();
 
-    // Get file path before deleting
-    const [attachments] = await db.execute('SELECT file_path FROM lesson_plan_attachments WHERE id = ?', [id]) as any[];
+    const [attachments] = await db.execute('SELECT file_path FROM lesson_plan_attachments WHERE id = ? AND school_id = ?', [id, schoolId]) as any[];
 
     if (attachments.length === 0) {
       throw createError('Attachment not found', 404);
     }
 
-    await db.execute('DELETE FROM lesson_plan_attachments WHERE id = ?', [id]);
+    await db.execute('DELETE FROM lesson_plan_attachments WHERE id = ? AND school_id = ?', [id, schoolId]);
 
     // TODO: Delete physical file from filesystem
 

@@ -4,7 +4,7 @@ import {
   getImportantDates, createImportantDate, updateImportantDate, deleteImportantDate,
   getContactDetails, updateContactDetails,
 } from '../controllers/admissionManagement.controller';
-import { authenticate, authorize } from '../middleware/auth';
+import { authenticate, authorize, requireSchool } from '../middleware/auth';
 import { checkPermission } from '../middleware/permissions';
 
 const router = express.Router();
@@ -12,8 +12,9 @@ const router = express.Router();
 // Public route for creating inquiries (no auth required)
 router.post('/inquiries', createInquiry);
 
-// Admin routes - require authentication and admin/superadmin role
+// Admin routes - require authentication, school context, and admin/superadmin role
 router.use(authenticate);
+router.use(requireSchool);
 router.use(authorize('superadmin', 'admin'));
 
 // Inquiry routes

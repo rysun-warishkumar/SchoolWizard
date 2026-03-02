@@ -1,5 +1,6 @@
-import { ReactNode, useState, useEffect } from 'react';
+import { ReactNode, useState, useEffect, useMemo } from 'react';
 import { useLocation } from 'react-router-dom';
+import { useAuth } from '../contexts/AuthContext';
 import Sidebar from '../components/layout/Sidebar';
 import Header from '../components/layout/Header';
 import './Layout.css';
@@ -10,9 +11,20 @@ interface LayoutProps {
 
 const Layout: React.FC<LayoutProps> = ({ children }) => {
   const location = useLocation();
+  const { user } = useAuth();
   const isChatPage = location.pathname === '/chat';
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
   const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState(false);
+
+  const trialDaysLeft = useMemo(() => {
+    if (!user?.trialEndsAt || user.schoolStatus !== 'trial') return null;
+    const end = new Date(user.trialEndsAt);
+    const now = new Date();
+    if (end <= now) return 0;
+    return Math.ceil((end.getTime() - now.getTime()) / (24 * 60 * 60 * 1000));
+  }, [user?.trialEndsAt, user?.schoolStatus]);
+
+  const showTrialBanner = user?.schoolId != null && user.schoolStatus === 'trial' && trialDaysLeft != null && trialDaysLeft > 0;
 
   // Close mobile sidebar when route changes
   useEffect(() => {
@@ -53,6 +65,11 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
           onMobileClose={() => setIsMobileSidebarOpen(false)}
         />
         <div className="layout-main">
+          {showTrialBanner && (
+            <div className="layout-trial-banner" role="status">
+              {trialDaysLeft} day{trialDaysLeft === 1 ? '' : 's'} left in your free trial. Contact us to upgrade.
+            </div>
+          )}
           <main className={`layout-content ${isChatPage ? 'chat-layout' : ''}`}>{children}</main>
         </div>
       </div>

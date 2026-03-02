@@ -66,9 +66,9 @@
   display: none;
 }
 
-.sidebar-nav {
+/* .sidebar-nav {
   padding: var(--spacing-lg) 0;
-}
+} */
 
 .sidebar-menu {
   list-style: none;

@@ -1,21 +1,25 @@
 import { Request, Response, NextFunction } from 'express';
 import { getDatabase } from '../config/database';
 import { createError } from '../middleware/errorHandler';
+import { AuthRequest, getSchoolId } from '../middleware/auth';
 
 // ========== Contact Messages ==========
 
 export const getContactMessages = async (req: Request, res: Response, next: NextFunction) => {
   try {
+    const schoolId = getSchoolId(req as AuthRequest);
+    if (schoolId == null) throw createError('School context required', 403);
     const db = getDatabase();
     const { status } = req.query;
     
-    let query = 'SELECT * FROM contact_messages ORDER BY created_at DESC';
-    const params: any[] = [];
+    let query = 'SELECT * FROM contact_messages WHERE school_id = ?';
+    const params: any[] = [schoolId];
     
     if (status) {
-      query = 'SELECT * FROM contact_messages WHERE status = ? ORDER BY created_at DESC';
+      query += ' AND status = ?';
       params.push(status);
     }
+    query += ' ORDER BY created_at DESC';
     
     const [messages] = await db.execute(query, params);
     res.json({ success: true, data: Array.isArray(messages) ? messages : [] });
@@ -26,10 +30,12 @@ export const getContactMessages = async (req: Request, res: Response, next: Next
 
 export const getContactMessage = async (req: Request, res: Response, next: NextFunction) => {
   try {
+    const schoolId = getSchoolId(req as AuthRequest);
+    if (schoolId == null) throw createError('School context required', 403);
     const db = getDatabase();
     const { id } = req.params;
     
-    const [messages] = await db.execute('SELECT * FROM contact_messages WHERE id = ?', [String(id)]);
+    const [messages] = await db.execute('SELECT * FROM contact_messages WHERE school_id = ? AND id = ?', [schoolId, String(id)]);
     
     if (!messages || (Array.isArray(messages) && messages.length === 0)) {
       return next(createError('Contact message not found', 404));
@@ -43,6 +49,8 @@ export const getContactMessage = async (req: Request, res: Response, next: NextF
 
 export const createContactMessage = async (req: Request, res: Response, next: NextFunction) => {
   try {
+    const schoolId = getSchoolId(req as AuthRequest);
+    if (schoolId == null) throw createError('School context required', 403);
     const db = getDatabase();
     const { name, email, phone, subject, message } = req.body;
     
@@ -50,19 +58,18 @@ export const createContactMessage = async (req: Request, res: Response, next: Ne
       return next(createError('Name, email, and message are required', 400));
     }
     
-    // Validate email format
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     if (!emailRegex.test(email)) {
       return next(createError('Invalid email format', 400));
     }
     
     const [result] = await db.execute(
-      'INSERT INTO contact_messages (name, email, phone, subject, message, status) VALUES (?, ?, ?, ?, ?, ?)',
-      [name, email, phone || null, subject || null, message, 'new']
+      'INSERT INTO contact_messages (school_id, name, email, phone, subject, message, status) VALUES (?, ?, ?, ?, ?, ?, ?)',
+      [schoolId, name, email, phone || null, subject || null, message, 'new']
     );
     
     const insertResult = result as any;
-    const [newMessage] = await db.execute('SELECT * FROM contact_messages WHERE id = ?', [String(insertResult.insertId)]);
+    const [newMessage] = await db.execute('SELECT * FROM contact_messages WHERE school_id = ? AND id = ?', [schoolId, String(insertResult.insertId)]);
     
     res.status(201).json({ 
       success: true, 
@@ -76,6 +83,8 @@ export const createContactMessage = async (req: Request, res: Response, next: Ne
 
 export const updateContactMessageStatus = async (req: Request, res: Response, next: NextFunction) => {
   try {
+    const schoolId = getSchoolId(req as AuthRequest);
+    if (schoolId == null) throw createError('School context required', 403);
     const db = getDatabase();
     const { id } = req.params;
     const { status, notes } = req.body;
@@ -97,14 +106,14 @@ export const updateContactMessageStatus = async (req: Request, res: Response, ne
     }
     
     updateFields.push('updated_at = CURRENT_TIMESTAMP');
-    params.push(id);
+    params.push(id, schoolId);
     
     await db.execute(
-      `UPDATE contact_messages SET ${updateFields.join(', ')} WHERE id = ?`,
+      `UPDATE contact_messages SET ${updateFields.join(', ')} WHERE id = ? AND school_id = ?`,
       params
     );
     
-    const [updated] = await db.execute('SELECT * FROM contact_messages WHERE id = ?', [id]);
+    const [updated] = await db.execute('SELECT * FROM contact_messages WHERE school_id = ? AND id = ?', [schoolId, id]);
     res.json({ 
       success: true, 
       message: 'Contact message status updated successfully', 
@@ -117,16 +126,18 @@ export const updateContactMessageStatus = async (req: Request, res: Response, ne
 
 export const deleteContactMessage = async (req: Request, res: Response, next: NextFunction) => {
   try {
+    const schoolId = getSchoolId(req as AuthRequest);
+    if (schoolId == null) throw createError('School context required', 403);
     const db = getDatabase();
     const { id } = req.params;
     
-    const [messages] = await db.execute('SELECT * FROM contact_messages WHERE id = ?', [id]);
+    const [messages] = await db.execute('SELECT * FROM contact_messages WHERE school_id = ? AND id = ?', [schoolId, id]);
     
     if (!messages || (Array.isArray(messages) && messages.length === 0)) {
       return next(createError('Contact message not found', 404));
     }
     
-    await db.execute('DELETE FROM contact_messages WHERE id = ?', [id]);
+    await db.execute('DELETE FROM contact_messages WHERE id = ? AND school_id = ?', [id, schoolId]);
     res.json({ success: true, message: 'Contact message deleted successfully' });
   } catch (error: any) {
     next(createError(error.message, 500));

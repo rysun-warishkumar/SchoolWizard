@@ -325,7 +325,7 @@ const EditStudentModal: React.FC<EditStudentModalProps> = ({ studentId, classes,
                 placeholder="father@example.com"
               />
               <small style={{ color: 'var(--gray-500)', fontSize: 'var(--font-size-xs)', marginTop: 'var(--spacing-xs)', display: 'block' }}>
-                Parent account will be created automatically with this email
+                Only Father&apos;s email is used for parent portal login when enabled.
               </small>
             </div>
           </div>
@@ -358,9 +358,6 @@ const EditStudentModal: React.FC<EditStudentModalProps> = ({ studentId, classes,
                 onChange={(e) => setFormData({ ...formData, mother_email: e.target.value })}
                 placeholder="mother@example.com"
               />
-              <small style={{ color: 'var(--gray-500)', fontSize: 'var(--font-size-xs)', marginTop: 'var(--spacing-xs)', display: 'block' }}>
-                Parent account will be created automatically with this email
-              </small>
             </div>
           </div>
           <div className="form-row">
@@ -392,9 +389,6 @@ const EditStudentModal: React.FC<EditStudentModalProps> = ({ studentId, classes,
                 onChange={(e) => setFormData({ ...formData, guardian_email: e.target.value })}
                 placeholder="guardian@example.com"
               />
-              <small style={{ color: 'var(--gray-500)', fontSize: 'var(--font-size-xs)', marginTop: 'var(--spacing-xs)', display: 'block' }}>
-                Parent account will be created automatically with this email
-              </small>
             </div>
           </div>
         </div>

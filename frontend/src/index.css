@@ -1,3 +1,5 @@
+@import "./styles/common.css";
+
 * {
   margin: 0;
   padding: 0;
@@ -76,9 +78,6 @@
   --sidebar-width: 250px;
   --sidebar-width-collapsed: 70px;
 }
-
-/* Shared styles for pages (moved from module imports) */
-@import "./styles/common.css";
 
 body {
   font-family: var(--font-family);
@@ -446,7 +445,66 @@ textarea.error:focus {
   gap: var(--spacing-md);
   margin-top: var(--spacing-xl);
   padding-top: var(--spacing-lg);
-  /* border-top: 1px solid var(--gray-200); */
+}
+
+/* Form Row - horizontal layout for form groups */
+.form-row {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: var(--spacing-lg);
+  margin-bottom: var(--spacing-md);
+}
+
+.form-row > .form-group {
+  flex: 1;
+  min-width: 0;
+}
+
+/* Form Section - grouped form blocks */
+.form-section {
+  margin-bottom: var(--spacing-xl);
+}
+
+.form-section h2,
+.form-section h3 {
+  margin-bottom: var(--spacing-md);
+  color: var(--gray-800);
+  font-size: var(--font-size-lg);
+  font-weight: var(--font-weight-semibold);
+}
+
+/* Action buttons group (e.g. Edit/Delete in tables) */
+.action-buttons {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-sm);
+  flex-wrap: wrap;
+}
+
+/* Tab content panel */
+.tab-content {
+  display: block;
+  padding-top: var(--spacing-md);
+}
+
+/* Data table (alias for table-container where needed) */
+.data-table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.data-table th,
+.data-table td {
+  padding: var(--spacing-md);
+  text-align: left;
+  border-bottom: 1px solid var(--gray-200);
+}
+
+.data-table th {
+  background: var(--gray-50);
+  font-weight: var(--font-weight-semibold);
+  color: var(--gray-700);
+  font-size: var(--font-size-sm);
 }
 
 /* Required Field Indicator */

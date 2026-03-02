@@ -691,7 +691,7 @@ const Settings = () => {
                     />
                   </div>
                 </div>
-                <div className="form-row">
+                {/* <div className="form-row">
                   <div className="form-group">
                     <label>Mobile App Logo Path</label>
                     <input
@@ -701,10 +701,10 @@ const Settings = () => {
                       placeholder="/uploads/logos/app-logo.png"
                     />
                   </div>
-                </div>
+                </div> */}
               </div>
 
-              <div className="form-section">
+              {/* <div className="form-section">
                 <h3>Mobile App Settings</h3>
                 <div className="form-group">
                   <label>Mobile App API URL</label>
@@ -760,7 +760,7 @@ const Settings = () => {
                   </label>
                   <small>Check this if you have registered your Android app with Envato purchase code</small>
                 </div>
-              </div>
+              </div> */}
 
               <div className="form-actions">
                 <button type="submit" className="btn-primary">

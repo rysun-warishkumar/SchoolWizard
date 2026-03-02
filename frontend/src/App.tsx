@@ -4,6 +4,9 @@ import { ToastProvider } from './contexts/ToastContext';
 import { QueryClient, QueryClientProvider } from 'react-query';
 import Layout from './layouts/Layout';
 import Login from './pages/auth/Login';
+import RegisterSchool from './pages/auth/RegisterSchool';
+import TrialExpired from './pages/auth/TrialExpired';
+import PlatformAdmin from './pages/platform/PlatformAdmin';
 import Dashboard from './pages/Dashboard';
 import Users from './pages/users/Users';
 import Roles from './pages/roles/Roles';
@@ -102,6 +105,8 @@ function App() {
           <Router>
             <Routes>
               <Route path="/login" element={<Login />} />
+              <Route path="/register-school" element={<RegisterSchool />} />
+              <Route path="/trial-expired" element={<TrialExpired />} />
               {/* Root redirect to dashboard */}
               <Route path="/" element={<Navigate to="/dashboard" replace />} />
               {/* Protected Admin Routes - These will only match if user is authenticated */}
@@ -144,6 +149,7 @@ function App() {
                         <Route path="/front-cms-website" element={<FrontCmsWebsite />} />
                         <Route path="/admission-inquiries" element={<AdmissionInquiries />} />
                         <Route path="/contact-messages" element={<ContactMessages />} />
+                        <Route path="/platform" element={<PlatformAdmin />} />
                         {/* More routes will be added as modules are developed */}
                       </Routes>
                     </Layout>

@@ -10,6 +10,7 @@ interface AuthContextType {
   logout: () => void;
   updateUser: (userData: Partial<User>) => void;
   isAuthenticated: boolean;
+  isTrialExpired: boolean;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -71,6 +72,12 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     }
   };
 
+  const isTrialExpired =
+    !!user &&
+    user.schoolId != null &&
+    (user.schoolStatus === 'expired' ||
+      (user.trialEndsAt != null && new Date(user.trialEndsAt) < new Date()));
+
   const value: AuthContextType = {
     user,
     token,
@@ -79,6 +86,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     logout,
     updateUser,
     isAuthenticated: !!token && !!user,
+    isTrialExpired,
   };
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

@@ -26,12 +26,12 @@ import {
   getStudentExamResult,
   publishExamResults,
 } from '../controllers/onlineExaminations_results';
-import { authenticate } from '../middleware/auth';
+import { authenticate, requireSchool } from '../middleware/auth';
 import { checkPermission } from '../middleware/permissions';
 
 const router = express.Router();
 
-router.use(authenticate);
+router.use(authenticate, requireSchool);
 
 // Student Online Exams Route (no permission check - students can access their own exams)
 router.get('/my-online-exams', getMyOnlineExams);

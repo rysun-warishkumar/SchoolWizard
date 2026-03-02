@@ -6,100 +6,30 @@
   box-sizing: border-box;
 }
 
-.page-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: var(--spacing-xl);
-}
-
-.page-header h1 {
-  margin: 0;
-  color: var(--gray-800);
+.homework-page .page-header h1 {
   font-size: var(--font-size-3xl);
 }
 
-.filters-section {
+.homework-page .filters-section {
   background: var(--gray-50);
   padding: var(--spacing-lg);
-  border-radius: var(--border-radius);
+  border-radius: var(--radius-md);
   margin-bottom: var(--spacing-lg);
 }
 
-.form-row {
-  display: flex !important;
-  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+.homework-page .form-row {
+  display: flex;
+  flex-wrap: wrap;
   gap: var(--spacing-md);
 }
 
-.form-group {
-  display: flex;
-  flex-direction: column;
-  gap: var(--spacing-xs);
-}
-
-.form-group label {
-  font-weight: 500;
-  color: var(--gray-700);
-  font-size: var(--font-size-sm);
-}
-
-.form-group input,
-.form-group select,
-.form-group textarea {
-  padding: var(--spacing-sm);
-  border: 1px solid var(--gray-300);
-  border-radius: var(--border-radius-sm);
-  font-size: var(--font-size-base);
-  font-family: inherit;
-}
-
-.form-group input:focus,
-.form-group select:focus,
-.form-group textarea:focus {
-  outline: none;
-  border-color: var(--primary-color);
-  box-shadow: 0 0 0 2px rgba(var(--primary-color-rgb), 0.1);
-}
-
-.form-group small {
-  font-size: var(--font-size-xs);
-  color: var(--gray-500);
-  margin-top: var(--spacing-xs);
-}
-
-.form-actions {
-  display: flex;
+.homework-page .form-actions {
   justify-content: flex-end;
-  gap: var(--spacing-md);
-  margin-top: var(--spacing-lg);
   padding-top: var(--spacing-md);
   border-top: 1px solid var(--gray-200);
 }
 
-.required {
-  color: var(--danger-color);
-}
-
-.empty-state {
-  text-align: center;
-  padding: var(--spacing-xl);
-  color: var(--gray-500);
-  font-style: italic;
-}
-
-.loading {
-  text-align: center;
-  padding: var(--spacing-xl);
-  color: var(--gray-600);
-}
-
-.action-buttons {
-  display: flex;
-  gap: var(--spacing-xs);
-}
-
-.action-buttons button {
+.homework-page .action-buttons button {
   padding: var(--spacing-xs) var(--spacing-sm);
   border: none;
   border-radius: var(--border-radius-sm);
@@ -114,12 +44,12 @@
   border-radius: var(--border-radius-sm);
 }
 
-.btn-secondary {
+.homework-page .btn-secondary {
   background: var(--primary-color);
   color: var(--white);
 }
 
-.btn-secondary:hover {
+.homework-page .btn-secondary:hover {
   opacity: 0.8;
   transform: scale(1.05);
 }

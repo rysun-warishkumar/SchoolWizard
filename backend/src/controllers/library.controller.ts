@@ -1,12 +1,14 @@
 import { Request, Response, NextFunction } from 'express';
 import { getDatabase } from '../config/database';
 import { createError } from '../middleware/errorHandler';
-import { AuthRequest } from '../middleware/auth';
+import { AuthRequest, getSchoolId } from '../middleware/auth';
 
 // ========== Books ==========
 
 export const getBooks = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
   try {
+    const schoolId = getSchoolId(req as AuthRequest);
+    if (schoolId == null) throw createError('School context required', 403);
     const db = getDatabase();
     const { search, subject_id, available_only } = req.query;
 
@@ -14,10 +16,10 @@ export const getBooks = async (req: Request, res: Response, next: NextFunction):
       SELECT b.*,
              s.name as subject_name
       FROM books b
-      LEFT JOIN subjects s ON b.subject_id = s.id
-      WHERE 1=1
+      LEFT JOIN subjects s ON b.subject_id = s.id AND s.school_id = ?
+      WHERE b.school_id = ?
     `;
-    const params: any[] = [];
+    const params: any[] = [schoolId, schoolId];
 
     if (search) {
       query += ' AND (b.book_title LIKE ? OR b.book_no LIKE ? OR b.isbn_no LIKE ? OR b.author LIKE ?)';
@@ -49,6 +51,8 @@ export const getBooks = async (req: Request, res: Response, next: NextFunction):
 
 export const getBookById = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
   try {
+    const schoolId = getSchoolId(req as AuthRequest);
+    if (schoolId == null) throw createError('School context required', 403);
     const { id } = req.params;
     const db = getDatabase();
 
@@ -56,9 +60,9 @@ export const getBookById = async (req: Request, res: Response, next: NextFunctio
       `SELECT b.*,
               s.name as subject_name
        FROM books b
-       LEFT JOIN subjects s ON b.subject_id = s.id
-       WHERE b.id = ?`,
-      [id]
+       LEFT JOIN subjects s ON b.subject_id = s.id AND s.school_id = ?
+       WHERE b.id = ? AND b.school_id = ?`,
+      [schoolId, id, schoolId]
     ) as any[];
 
     if (books.length === 0) {
@@ -76,6 +80,8 @@ export const getBookById = async (req: Request, res: Response, next: NextFunctio
 
 export const createBook = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
   try {
+    const schoolId = getSchoolId(req as AuthRequest);
+    if (schoolId == null) throw createError('School context required', 403);
     const {
       book_title,
       book_no,
@@ -95,15 +101,14 @@ export const createBook = async (req: Request, res: Response, next: NextFunction
     }
 
     const db = getDatabase();
-
-    // Set available_qty equal to qty for new books
     const available_qty = qty;
 
     await db.execute(
       `INSERT INTO books
-       (book_title, book_no, isbn_no, publisher, author, subject_id, rack_no, qty, available_qty, book_price, inward_date, description)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+       (school_id, book_title, book_no, isbn_no, publisher, author, subject_id, rack_no, qty, available_qty, book_price, inward_date, description)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       [
+        schoolId,
         book_title.trim(),
         book_no?.trim() || null,
         isbn_no?.trim() || null,
@@ -134,6 +139,8 @@ export const createBook = async (req: Request, res: Response, next: NextFunction
 
 export const updateBook = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
   try {
+    const schoolId = getSchoolId(req as AuthRequest);
+    if (schoolId == null) throw createError('School context required', 403);
     const { id } = req.params;
     const {
       book_title,
@@ -155,8 +162,7 @@ export const updateBook = async (req: Request, res: Response, next: NextFunction
 
     const db = getDatabase();
 
-    // Get current book to calculate available_qty
-    const [currentBook] = await db.execute('SELECT qty, available_qty FROM books WHERE id = ?', [id]) as any[];
+    const [currentBook] = await db.execute('SELECT qty, available_qty FROM books WHERE id = ? AND school_id = ?', [id, schoolId]) as any[];
 
     if (currentBook.length === 0) {
       throw createError('Book not found', 404);
@@ -171,7 +177,7 @@ export const updateBook = async (req: Request, res: Response, next: NextFunction
       `UPDATE books
        SET book_title = ?, book_no = ?, isbn_no = ?, publisher = ?, author = ?, subject_id = ?,
            rack_no = ?, qty = ?, available_qty = ?, book_price = ?, inward_date = ?, description = ?
-       WHERE id = ?`,
+       WHERE id = ? AND school_id = ?`,
       [
         book_title.trim(),
         book_no?.trim() || null,
@@ -186,6 +192,7 @@ export const updateBook = async (req: Request, res: Response, next: NextFunction
         inward_date || null,
         description?.trim() || null,
         id,
+        schoolId,
       ]
     );
 
@@ -204,20 +211,21 @@ export const updateBook = async (req: Request, res: Response, next: NextFunction
 
 export const deleteBook = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
   try {
+    const schoolId = getSchoolId(req as AuthRequest);
+    if (schoolId == null) throw createError('School context required', 403);
     const { id } = req.params;
     const db = getDatabase();
 
-    // Check if book has any active issues
     const [issues] = await db.execute(
-      'SELECT COUNT(*) as count FROM book_issues WHERE book_id = ? AND return_status = "issued"',
-      [id]
+      'SELECT COUNT(*) as count FROM book_issues WHERE book_id = ? AND school_id = ? AND return_status = "issued"',
+      [id, schoolId]
     ) as any[];
 
     if (issues[0].count > 0) {
       throw createError('Cannot delete book with active issues. Please return all issued books first.', 400);
     }
 
-    await db.execute('DELETE FROM books WHERE id = ?', [id]);
+    await db.execute('DELETE FROM books WHERE id = ? AND school_id = ?', [id, schoolId]);
 
     res.json({
       success: true,
@@ -232,6 +240,8 @@ export const deleteBook = async (req: Request, res: Response, next: NextFunction
 
 export const getLibraryMembers = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
   try {
+    const schoolId = getSchoolId(req as AuthRequest);
+    if (schoolId == null) throw createError('School context required', 403);
     const db = getDatabase();
     const { member_type, search } = req.query;
 
@@ -258,13 +268,13 @@ export const getLibraryMembers = async (req: Request, res: Response, next: NextF
                ELSE NULL
              END as section_name
       FROM library_members lm
-      LEFT JOIN students s ON lm.student_id = s.id
-      LEFT JOIN staff st ON lm.staff_id = st.id
-      LEFT JOIN classes c ON s.class_id = c.id
-      LEFT JOIN sections sec ON s.section_id = sec.id
-      WHERE 1=1
+      LEFT JOIN students s ON lm.student_id = s.id AND s.school_id = ?
+      LEFT JOIN staff st ON lm.staff_id = st.id AND st.school_id = ?
+      LEFT JOIN classes c ON s.class_id = c.id AND c.school_id = ?
+      LEFT JOIN sections sec ON s.section_id = sec.id AND sec.school_id = ?
+      WHERE lm.school_id = ?
     `;
-    const params: any[] = [];
+    const params: any[] = [schoolId, schoolId, schoolId, schoolId, schoolId];
 
     if (member_type) {
       query += ' AND lm.member_type = ?';
@@ -295,6 +305,8 @@ export const getLibraryMembers = async (req: Request, res: Response, next: NextF
 
 export const addStudentMember = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
   try {
+    const schoolId = getSchoolId(req as AuthRequest);
+    if (schoolId == null) throw createError('School context required', 403);
     const { student_id } = req.body;
 
     if (!student_id) {
@@ -302,20 +314,17 @@ export const addStudentMember = async (req: Request, res: Response, next: NextFu
     }
 
     const db = getDatabase();
-    const userId = (req as AuthRequest).user?.id;
 
-    // Check if student already exists as member
     const [existing] = await db.execute(
-      'SELECT id FROM library_members WHERE student_id = ?',
-      [student_id]
+      'SELECT id FROM library_members WHERE student_id = ? AND school_id = ?',
+      [student_id, schoolId]
     ) as any[];
 
     if (existing.length > 0) {
       throw createError('Student is already a library member', 409);
     }
 
-    // Generate member code
-    const [student] = await db.execute('SELECT admission_no FROM students WHERE id = ?', [student_id]) as any[];
+    const [student] = await db.execute('SELECT admission_no FROM students WHERE id = ? AND school_id = ?', [student_id, schoolId]) as any[];
     if (student.length === 0) {
       throw createError('Student not found', 404);
     }
@@ -323,9 +332,9 @@ export const addStudentMember = async (req: Request, res: Response, next: NextFu
     const memberCode = `STU-${student[0].admission_no}`;
 
     await db.execute(
-      `INSERT INTO library_members (member_type, student_id, member_code, joined_date, status)
-       VALUES ('student', ?, ?, CURDATE(), 'active')`,
-      [student_id, memberCode]
+      `INSERT INTO library_members (school_id, member_type, student_id, member_code, joined_date, status)
+       VALUES (?, 'student', ?, ?, CURDATE(), 'active')`,
+      [schoolId, student_id, memberCode]
     );
 
     res.status(201).json({
@@ -343,6 +352,8 @@ export const addStudentMember = async (req: Request, res: Response, next: NextFu
 
 export const addStaffMember = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
   try {
+    const schoolId = getSchoolId(req as AuthRequest);
+    if (schoolId == null) throw createError('School context required', 403);
     const { staff_id } = req.body;
 
     if (!staff_id) {
@@ -351,18 +362,16 @@ export const addStaffMember = async (req: Request, res: Response, next: NextFunc
 
     const db = getDatabase();
 
-    // Check if staff already exists as member
     const [existing] = await db.execute(
-      'SELECT id FROM library_members WHERE staff_id = ?',
-      [staff_id]
+      'SELECT id FROM library_members WHERE staff_id = ? AND school_id = ?',
+      [staff_id, schoolId]
     ) as any[];
 
     if (existing.length > 0) {
       throw createError('Staff is already a library member', 409);
     }
 
-    // Generate member code
-    const [staff] = await db.execute('SELECT staff_id FROM staff WHERE id = ?', [staff_id]) as any[];
+    const [staff] = await db.execute('SELECT staff_id FROM staff WHERE id = ? AND school_id = ?', [staff_id, schoolId]) as any[];
     if (staff.length === 0) {
       throw createError('Staff not found', 404);
     }
@@ -370,9 +379,9 @@ export const addStaffMember = async (req: Request, res: Response, next: NextFunc
     const memberCode = `STAFF-${staff[0].staff_id}`;
 
     await db.execute(
-      `INSERT INTO library_members (member_type, staff_id, member_code, joined_date, status)
-       VALUES ('staff', ?, ?, CURDATE(), 'active')`,
-      [staff_id, memberCode]
+      `INSERT INTO library_members (school_id, member_type, staff_id, member_code, joined_date, status)
+       VALUES (?, 'staff', ?, ?, CURDATE(), 'active')`,
+      [schoolId, staff_id, memberCode]
     );
 
     res.status(201).json({
@@ -390,20 +399,21 @@ export const addStaffMember = async (req: Request, res: Response, next: NextFunc
 
 export const removeLibraryMember = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
   try {
+    const schoolId = getSchoolId(req as AuthRequest);
+    if (schoolId == null) throw createError('School context required', 403);
     const { id } = req.params;
     const db = getDatabase();
 
-    // Check if member has any active issues
     const [issues] = await db.execute(
-      'SELECT COUNT(*) as count FROM book_issues WHERE member_id = ? AND return_status = "issued"',
-      [id]
+      'SELECT COUNT(*) as count FROM book_issues WHERE member_id = ? AND school_id = ? AND return_status = "issued"',
+      [id, schoolId]
     ) as any[];
 
     if (issues[0].count > 0) {
       throw createError('Cannot remove member with active book issues. Please return all books first.', 400);
     }
 
-    await db.execute('DELETE FROM library_members WHERE id = ?', [id]);
+    await db.execute('DELETE FROM library_members WHERE id = ? AND school_id = ?', [id, schoolId]);
 
     res.json({
       success: true,
@@ -418,6 +428,8 @@ export const removeLibraryMember = async (req: Request, res: Response, next: Nex
 
 export const getBookIssues = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
   try {
+    const schoolId = getSchoolId(req as AuthRequest);
+    if (schoolId == null) throw createError('School context required', 403);
     const db = getDatabase();
     const { member_id, book_id, return_status, search } = req.query;
 
@@ -436,15 +448,15 @@ export const getBookIssues = async (req: Request, res: Response, next: NextFunct
              u1.name as issued_by_name,
              u2.name as returned_by_name
       FROM book_issues bi
-      INNER JOIN books b ON bi.book_id = b.id
-      INNER JOIN library_members lm ON bi.member_id = lm.id
-      LEFT JOIN students s ON lm.student_id = s.id
-      LEFT JOIN staff st ON lm.staff_id = st.id
+      INNER JOIN books b ON bi.book_id = b.id AND b.school_id = ?
+      INNER JOIN library_members lm ON bi.member_id = lm.id AND lm.school_id = ?
+      LEFT JOIN students s ON lm.student_id = s.id AND s.school_id = ?
+      LEFT JOIN staff st ON lm.staff_id = st.id AND st.school_id = ?
       LEFT JOIN users u1 ON bi.issued_by = u1.id
       LEFT JOIN users u2 ON bi.returned_by = u2.id
-      WHERE 1=1
+      WHERE bi.school_id = ?
     `;
-    const params: any[] = [];
+    const params: any[] = [schoolId, schoolId, schoolId, schoolId, schoolId];
 
     if (member_id) {
       query += ' AND bi.member_id = ?';
@@ -486,6 +498,8 @@ export const getBookIssues = async (req: Request, res: Response, next: NextFunct
 
 export const issueBook = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
   try {
+    const schoolId = getSchoolId(req as AuthRequest);
+    if (schoolId == null) throw createError('School context required', 403);
     const { book_id, member_id, issue_date, due_date } = req.body;
 
     if (!book_id || !member_id || !issue_date || !due_date) {
@@ -495,8 +509,7 @@ export const issueBook = async (req: Request, res: Response, next: NextFunction)
     const db = getDatabase();
     const userId = (req as AuthRequest).user?.id;
 
-    // Check if book is available
-    const [book] = await db.execute('SELECT available_qty FROM books WHERE id = ?', [book_id]) as any[];
+    const [book] = await db.execute('SELECT available_qty FROM books WHERE id = ? AND school_id = ?', [book_id, schoolId]) as any[];
     if (book.length === 0) {
       throw createError('Book not found', 404);
     }
@@ -504,23 +517,20 @@ export const issueBook = async (req: Request, res: Response, next: NextFunction)
       throw createError('Book is not available', 400);
     }
 
-    // Check if member exists
-    const [member] = await db.execute('SELECT id FROM library_members WHERE id = ? AND status = "active"', [member_id]) as any[];
+    const [member] = await db.execute('SELECT id FROM library_members WHERE id = ? AND school_id = ? AND status = "active"', [member_id, schoolId]) as any[];
     if (member.length === 0) {
       throw createError('Library member not found or inactive', 404);
     }
 
-    // Issue the book
     await db.execute(
-      `INSERT INTO book_issues (book_id, member_id, issue_date, due_date, return_status, issued_by)
-       VALUES (?, ?, ?, ?, 'issued', ?)`,
-      [book_id, member_id, issue_date, due_date, userId || null]
+      `INSERT INTO book_issues (school_id, book_id, member_id, issue_date, due_date, return_status, issued_by)
+       VALUES (?, ?, ?, ?, ?, 'issued', ?)`,
+      [schoolId, book_id, member_id, issue_date, due_date, userId || null]
     );
 
-    // Decrease available quantity
     await db.execute(
-      'UPDATE books SET available_qty = available_qty - 1 WHERE id = ?',
-      [book_id]
+      'UPDATE books SET available_qty = available_qty - 1 WHERE id = ? AND school_id = ?',
+      [book_id, schoolId]
     );
 
     res.status(201).json({
@@ -534,6 +544,8 @@ export const issueBook = async (req: Request, res: Response, next: NextFunction)
 
 export const returnBook = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
   try {
+    const schoolId = getSchoolId(req as AuthRequest);
+    if (schoolId == null) throw createError('School context required', 403);
     const { id } = req.params;
     const { return_date, return_status, fine_amount, remarks } = req.body;
 
@@ -544,10 +556,9 @@ export const returnBook = async (req: Request, res: Response, next: NextFunction
     const db = getDatabase();
     const userId = (req as AuthRequest).user?.id;
 
-    // Get issue details
     const [issues] = await db.execute(
-      'SELECT book_id, return_status FROM book_issues WHERE id = ?',
-      [id]
+      'SELECT book_id, return_status FROM book_issues WHERE id = ? AND school_id = ?',
+      [id, schoolId]
     ) as any[];
 
     if (issues.length === 0) {
@@ -560,11 +571,10 @@ export const returnBook = async (req: Request, res: Response, next: NextFunction
 
     const bookId = issues[0].book_id;
 
-    // Update issue record
     await db.execute(
       `UPDATE book_issues
        SET return_date = ?, return_status = ?, fine_amount = ?, remarks = ?, returned_by = ?
-       WHERE id = ?`,
+       WHERE id = ? AND school_id = ?`,
       [
         return_date,
         return_status || 'returned',
@@ -572,13 +582,13 @@ export const returnBook = async (req: Request, res: Response, next: NextFunction
         remarks?.trim() || null,
         userId || null,
         id,
+        schoolId,
       ]
     );
 
-    // Increase available quantity
     await db.execute(
-      'UPDATE books SET available_qty = available_qty + 1 WHERE id = ?',
-      [bookId]
+      'UPDATE books SET available_qty = available_qty + 1 WHERE id = ? AND school_id = ?',
+      [bookId, schoolId]
     );
 
     res.json({

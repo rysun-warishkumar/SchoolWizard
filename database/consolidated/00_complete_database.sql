@@ -102,8 +102,9 @@ INSERT INTO sessions (name, start_date, end_date, is_current) VALUES
 ON DUPLICATE KEY UPDATE name=name;
 
 -- Create Default Admin User (password: admin123 - should be changed after first login)
+-- Hash below is bcrypt for 'admin123' (verified for local and production login)
 INSERT INTO users (email, password, name, role_id, is_active, created_at) VALUES
-('admin@schoolwizard.com', '$2a$10$N9qo8uLOickgx2ZMRZoMyeIjZAgcfl7p92ldGxad68LJZdL17lhWy', 'System Administrator', 1, 1, NOW())
+('admin@schoolwizard.com', '$2a$10$LO7O/f4lNC5tHZf1yr1ObuiD/r8PiQN9SQZ22rXSLicXXoo/oB1Ca', 'System Administrator', 1, 1, NOW())
 ON DUPLICATE KEY UPDATE 
   password = VALUES(password),
   name = VALUES(name),
@@ -3491,6 +3492,25 @@ CREATE TABLE IF NOT EXISTS contact_messages (
   replied_at TIMESTAMP NULL,
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
   updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  INDEX idx_status (status),
+  INDEX idx_created_at (created_at),
+  INDEX idx_email (email)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- Marketing Inquiries Table (enquiries from marketing website: Contact & Get Started forms)
+CREATE TABLE IF NOT EXISTS marketing_inquiries (
+  id INT PRIMARY KEY AUTO_INCREMENT,
+  name VARCHAR(255) NOT NULL,
+  email VARCHAR(255) NOT NULL,
+  subject VARCHAR(255) NULL,
+  message TEXT NULL,
+  company VARCHAR(255) NULL,
+  enquiry_type ENUM('contact', 'get_started') DEFAULT 'contact',
+  status ENUM('new', 'read', 'replied', 'archived') DEFAULT 'new',
+  notes TEXT NULL,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  INDEX idx_enquiry_type (enquiry_type),
   INDEX idx_status (status),
   INDEX idx_created_at (created_at),
   INDEX idx_email (email)

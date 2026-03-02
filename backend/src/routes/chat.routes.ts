@@ -5,13 +5,13 @@ import {
   sendMessage,
   getUsers,
 } from '../controllers/chat.controller';
-import { authenticate } from '../middleware/auth';
+import { authenticate, requireSchool } from '../middleware/auth';
 import { checkPermission } from '../middleware/permissions';
 // import { chatRateLimiter } from '../middleware/rateLimiter'; // Commented out - rate limiting disabled
 
 const router = express.Router();
 
-router.use(authenticate);
+router.use(authenticate, requireSchool);
 
 // Chat Routes with specific rate limiting - COMMENTED OUT
 router.get('/conversations', /* chatRateLimiter, */ checkPermission('chat', 'view'), getConversations);

@@ -6,11 +6,13 @@ import { admissionManagementService, ImportantDate, ContactDetails } from '../..
 import { galleryManagementService, GalleryCategory, GalleryImage } from '../../services/api/galleryManagementService';
 import { newsEventsManagementService, NewsArticle, Event } from '../../services/api/newsEventsManagementService';
 import { useToast } from '../../contexts/ToastContext';
+import { useAuth } from '../../contexts/AuthContext';
 import Modal from '../../components/common/Modal';
 import './FrontCmsWebsite.css';
 import '../aboutUsPage/AboutUsPage.css';
 
 const FrontCmsWebsite: React.FC = () => {
+  const { user } = useAuth();
   const { showToast } = useToast();
   const queryClient = useQueryClient();
   const [activeTab, setActiveTab] = useState<'header' | 'banners' | 'about-us' | 'admission' | 'gallery' | 'news' | 'events'>('header');
@@ -979,11 +981,40 @@ const FrontCmsWebsite: React.FC = () => {
     return <div className="loading">Loading...</div>;
   }
 
+  // Public school website URL (School Portal) with current school_id – opens in new tab. Do not use API URL (backend).
+  const publicWebsiteBaseUrl = (() => {
+    const envUrl = import.meta.env.VITE_PUBLIC_WEBSITE_URL;
+    if (envUrl) return envUrl;
+    const origin = window.location.origin;
+    // In local dev, admin often runs on 5173 and School Portal on 5174 – default to 5174 when on localhost
+    if (origin.startsWith('http://localhost:') || origin.startsWith('http://127.0.0.1:')) {
+      return 'http://localhost:5174';
+    }
+    return origin;
+  })();
+  const schoolWebsiteUrl =
+    user?.schoolId != null
+      ? `${publicWebsiteBaseUrl}${publicWebsiteBaseUrl.includes('?') ? '&' : '?'}school_id=${user.schoolId}`
+      : null;
+
   return (
     <div className="front-cms-website">
-      <div className="page-header">
-        <h1>Front CMS Website Management</h1>
-        <p>Configure your school website header, homepage banners, and about us page</p>
+      <div className="page-header page-header-with-action">
+        <div className="page-header-text">
+          <h1>Front CMS Website Management</h1>
+          <p>Configure your school website header, homepage banners, and about us page</p>
+        </div>
+        {schoolWebsiteUrl && (
+          <a
+            href={schoolWebsiteUrl}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="btn-view-school-website"
+          >
+            <i className="fas fa-external-link-alt" aria-hidden />
+            View School Website
+          </a>
+        )}
       </div>
 
       <div className="tabs">

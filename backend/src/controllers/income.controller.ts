@@ -1,7 +1,7 @@
 import { Request, Response, NextFunction } from 'express';
 import { getDatabase } from '../config/database';
 import { createError } from '../middleware/errorHandler';
-import { AuthRequest } from '../middleware/auth';
+import { AuthRequest, getSchoolId } from '../middleware/auth';
 
 // ========== Income Heads ==========
 export const getIncomeHeads = async (
@@ -10,9 +10,12 @@ export const getIncomeHeads = async (
   next: NextFunction
 ): Promise<void> => {
   try {
+    const schoolId = getSchoolId(req as AuthRequest);
+    if (schoolId == null) throw createError('School context required', 403);
     const db = getDatabase();
     const [incomeHeads] = await db.execute(
-      'SELECT * FROM income_heads ORDER BY name ASC'
+      'SELECT * FROM income_heads WHERE school_id = ? ORDER BY name ASC',
+      [schoolId]
     ) as any[];
     res.json({ success: true, data: incomeHeads });
   } catch (error) {
@@ -26,6 +29,8 @@ export const createIncomeHead = async (
   next: NextFunction
 ): Promise<void> => {
   try {
+    const schoolId = getSchoolId(req as AuthRequest);
+    if (schoolId == null) throw createError('School context required', 403);
     const { name, description } = req.body;
     if (!name || name.trim() === '') {
       throw createError('Income head name is required', 400);
@@ -33,13 +38,13 @@ export const createIncomeHead = async (
 
     const db = getDatabase();
     const [result] = await db.execute(
-      'INSERT INTO income_heads (name, description) VALUES (?, ?)',
-      [name.trim(), description || null]
+      'INSERT INTO income_heads (school_id, name, description) VALUES (?, ?, ?)',
+      [schoolId, name.trim(), description || null]
     ) as any;
 
     const [newIncomeHead] = await db.execute(
-      'SELECT * FROM income_heads WHERE id = ?',
-      [result.insertId]
+      'SELECT * FROM income_heads WHERE id = ? AND school_id = ?',
+      [result.insertId, schoolId]
     ) as any[];
 
     res.status(201).json({
@@ -59,16 +64,18 @@ export const getIncome = async (
   next: NextFunction
 ): Promise<void> => {
   try {
+    const schoolId = getSchoolId(req as AuthRequest);
+    if (schoolId == null) throw createError('School context required', 403);
     const { date_from, date_to, search, page = 1, limit = 20 } = req.query;
     const db = getDatabase();
 
     let query = `
       SELECT i.*, ih.name as income_head_name
       FROM income i
-      INNER JOIN income_heads ih ON i.income_head_id = ih.id
-      WHERE 1=1
+      INNER JOIN income_heads ih ON i.income_head_id = ih.id AND ih.school_id = ?
+      WHERE i.school_id = ?
     `;
-    const params: any[] = [];
+    const params: any[] = [schoolId, schoolId];
 
     if (date_from) {
       query += ' AND i.date >= ?';
@@ -93,9 +100,8 @@ export const getIncome = async (
 
     const [income] = await db.execute(query, params) as any[];
 
-    // Get total count
-    let countQuery = 'SELECT COUNT(*) as total FROM income WHERE 1=1';
-    const countParams: any[] = [];
+    let countQuery = 'SELECT COUNT(*) as total FROM income WHERE school_id = ?';
+    const countParams: any[] = [schoolId];
 
     if (date_from) {
       countQuery += ' AND date >= ?';
@@ -134,6 +140,8 @@ export const createIncome = async (
   next: NextFunction
 ): Promise<void> => {
   try {
+    const schoolId = getSchoolId(req);
+    if (schoolId == null) throw createError('School context required', 403);
     const { income_head_id, name, invoice_number, date, amount, document_path, description } =
       req.body;
 
@@ -148,9 +156,10 @@ export const createIncome = async (
     const createdBy = req.user?.id || null;
 
     const [result] = await db.execute(
-      `INSERT INTO income (income_head_id, name, invoice_number, date, amount, document_path, description, created_by)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+      `INSERT INTO income (school_id, income_head_id, name, invoice_number, date, amount, document_path, description, created_by)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       [
+        schoolId,
         income_head_id,
         name.trim(),
         invoice_number || null,
@@ -166,8 +175,8 @@ export const createIncome = async (
       `SELECT i.*, ih.name as income_head_name
        FROM income i
        INNER JOIN income_heads ih ON i.income_head_id = ih.id
-       WHERE i.id = ?`,
-      [result.insertId]
+       WHERE i.id = ? AND i.school_id = ?`,
+      [result.insertId, schoolId]
     ) as any[];
 
     res.status(201).json({
@@ -187,16 +196,19 @@ export const getRecentIncome = async (
   next: NextFunction
 ): Promise<void> => {
   try {
+    const schoolId = getSchoolId(req as AuthRequest);
+    if (schoolId == null) throw createError('School context required', 403);
     const { limit = 10 } = req.query;
     const db = getDatabase();
 
     const [income] = await db.execute(
       `SELECT i.*, ih.name as income_head_name
        FROM income i
-       INNER JOIN income_heads ih ON i.income_head_id = ih.id
+       INNER JOIN income_heads ih ON i.income_head_id = ih.id AND ih.school_id = ?
+       WHERE i.school_id = ?
        ORDER BY i.created_at DESC
        LIMIT ?`,
-      [Number(limit)]
+      [schoolId, schoolId, Number(limit)]
     ) as any[];
 
     res.json({ success: true, data: income });

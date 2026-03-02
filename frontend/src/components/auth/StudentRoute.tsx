@@ -8,7 +8,7 @@ interface StudentRouteProps {
 }
 
 const StudentRoute: React.FC<StudentRouteProps> = ({ children }) => {
-  const { isAuthenticated, loading, user } = useAuth();
+  const { isAuthenticated, loading, user, isTrialExpired } = useAuth();
 
   if (loading) {
     return (
@@ -20,6 +20,10 @@ const StudentRoute: React.FC<StudentRouteProps> = ({ children }) => {
 
   if (!isAuthenticated) {
     return <Navigate to="/login" replace />;
+  }
+
+  if (isTrialExpired) {
+    return <Navigate to="/trial-expired" replace />;
   }
 
   if (user?.role !== 'student') {

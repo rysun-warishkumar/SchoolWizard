@@ -8,7 +8,7 @@ interface ProtectedRouteProps {
 }
 
 const ProtectedRoute: React.FC<ProtectedRouteProps> = ({ children, allowedRoles }) => {
-  const { isAuthenticated, loading, user } = useAuth();
+  const { isAuthenticated, loading, user, isTrialExpired } = useAuth();
 
   if (loading) {
     return (
@@ -20,6 +20,11 @@ const ProtectedRoute: React.FC<ProtectedRouteProps> = ({ children, allowedRoles 
 
   if (!isAuthenticated) {
     return <Navigate to="/login" replace />;
+  }
+
+  // School users with expired trial see the trial-expired page (platform admin has no schoolId)
+  if (isTrialExpired) {
+    return <Navigate to="/trial-expired" replace />;
   }
 
   // If user is a student, redirect to student panel

@@ -109,7 +109,11 @@ const Sidebar = ({ isCollapsed, onToggle, isMobileOpen = false, onMobileClose }:
 
   // Filter menu items based on user permissions
   const menuItems = allMenuItems.filter((item) => {
-    // Superadmin always has access
+    // Superadmin (with school) always has access to normal modules
+    if (user?.role === 'superadmin' && user?.schoolId != null) return true;
+    // Platform admin (no school) sees only Platform Admin link; filter out others for them below
+    if (user?.isPlatformAdmin) return false;
+    // Superadmin with school gets all items
     if (user?.role === 'superadmin') return true;
     
     // Check if user has view permission for this module
@@ -119,6 +123,12 @@ const Sidebar = ({ isCollapsed, onToggle, isMobileOpen = false, onMobileClose }:
     const modulePermissions = userPermissions[moduleName];
     return modulePermissions && modulePermissions.length > 0 && modulePermissions.includes('view');
   });
+
+  // Platform Admin link only for platform superadmin (role superadmin + no school_id)
+  // Derive from role/schoolId so it works even if isPlatformAdmin was not in stored login response
+  const showPlatformAdmin =
+    user?.isPlatformAdmin === true ||
+    (user?.role === 'superadmin' && (user?.schoolId == null || user?.schoolId === undefined));
 
   return (
     <aside className={`sidebar ${isCollapsed ? 'collapsed' : ''} ${isMobileOpen ? 'open' : ''}`}>
@@ -138,6 +148,18 @@ const Sidebar = ({ isCollapsed, onToggle, isMobileOpen = false, onMobileClose }:
       </div>
       <nav className="sidebar-nav">
         <ul className="sidebar-menu">
+          {showPlatformAdmin && (
+            <li>
+              <NavLink
+                to="/platform"
+                className={({ isActive }) => (isActive ? 'active' : '')}
+                title={isCollapsed ? 'Platform Admin' : ''}
+              >
+                <span className="menu-icon">⚙</span>
+                {!isCollapsed && <span className="menu-label">Platform Admin</span>}
+              </NavLink>
+            </li>
+          )}
           {menuItems.map((item) => (
             <li key={item.path}>
               <NavLink

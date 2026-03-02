@@ -8,12 +8,12 @@ import {
   downloadFile,
   upload,
 } from '../controllers/downloadCenter.controller';
-import { authenticate } from '../middleware/auth';
+import { authenticate, requireSchool } from '../middleware/auth';
 import { checkPermission } from '../middleware/permissions';
 
 const router = express.Router();
 
-router.use(authenticate);
+router.use(authenticate, requireSchool);
 
 // Download Content Routes
 router.get('/', checkPermission('download-center', 'view'), getDownloadContents);

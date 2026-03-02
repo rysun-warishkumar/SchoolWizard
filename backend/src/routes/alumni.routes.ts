@@ -17,13 +17,12 @@ import {
   upload,
   uploadEventImage,
 } from '../controllers/alumni.controller';
-import { authenticate } from '../middleware/auth';
+import { authenticate, requireSchool } from '../middleware/auth';
 import { checkPermission } from '../middleware/permissions';
 
 const router = express.Router();
 
-// All routes require authentication
-router.use(authenticate);
+router.use(authenticate, requireSchool);
 
 // Alumni Records
 router.get('/alumni', checkPermission('alumni', 'view'), getAlumni);

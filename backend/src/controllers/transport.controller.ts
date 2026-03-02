@@ -1,14 +1,18 @@
 import { Request, Response, NextFunction } from 'express';
 import { getDatabase } from '../config/database';
 import { createError } from '../middleware/errorHandler';
+import { AuthRequest, getSchoolId } from '../middleware/auth';
 
 // ========== Routes ==========
 
 export const getRoutes = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
   try {
+    const schoolId = getSchoolId(req as AuthRequest);
+    if (schoolId == null) throw createError('School context required', 403);
     const db = getDatabase();
     const [routes] = await db.execute(
-      'SELECT * FROM routes ORDER BY title ASC'
+      'SELECT * FROM routes WHERE school_id = ? ORDER BY title ASC',
+      [schoolId]
     ) as any[];
 
     res.json({
@@ -22,6 +26,8 @@ export const getRoutes = async (req: Request, res: Response, next: NextFunction)
 
 export const createRoute = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
   try {
+    const schoolId = getSchoolId(req as AuthRequest);
+    if (schoolId == null) throw createError('School context required', 403);
     const { title, fare, description } = req.body;
 
     if (!title) {
@@ -34,8 +40,8 @@ export const createRoute = async (req: Request, res: Response, next: NextFunctio
 
     const db = getDatabase();
     const [result] = await db.execute(
-      'INSERT INTO routes (title, fare, description) VALUES (?, ?, ?)',
-      [title.trim(), fare || 0, description?.trim() || null]
+      'INSERT INTO routes (school_id, title, fare, description) VALUES (?, ?, ?, ?)',
+      [schoolId, title.trim(), fare || 0, description?.trim() || null]
     ) as any;
 
     res.status(201).json({
@@ -53,6 +59,8 @@ export const createRoute = async (req: Request, res: Response, next: NextFunctio
 
 export const updateRoute = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
   try {
+    const schoolId = getSchoolId(req as AuthRequest);
+    if (schoolId == null) throw createError('School context required', 403);
     const { id } = req.params;
     const { title, fare, description } = req.body;
 
@@ -66,8 +74,8 @@ export const updateRoute = async (req: Request, res: Response, next: NextFunctio
 
     const db = getDatabase();
     await db.execute(
-      'UPDATE routes SET title = ?, fare = ?, description = ? WHERE id = ?',
-      [title.trim(), fare || 0, description?.trim() || null, id]
+      'UPDATE routes SET title = ?, fare = ?, description = ? WHERE id = ? AND school_id = ?',
+      [title.trim(), fare || 0, description?.trim() || null, id, schoolId]
     );
 
     res.json({
@@ -84,10 +92,12 @@ export const updateRoute = async (req: Request, res: Response, next: NextFunctio
 
 export const deleteRoute = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
   try {
+    const schoolId = getSchoolId(req as AuthRequest);
+    if (schoolId == null) throw createError('School context required', 403);
     const { id } = req.params;
     const db = getDatabase();
 
-    await db.execute('DELETE FROM routes WHERE id = ?', [id]);
+    await db.execute('DELETE FROM routes WHERE id = ? AND school_id = ?', [id, schoolId]);
 
     res.json({
       success: true,
@@ -102,9 +112,12 @@ export const deleteRoute = async (req: Request, res: Response, next: NextFunctio
 
 export const getVehicles = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
   try {
+    const schoolId = getSchoolId(req as AuthRequest);
+    if (schoolId == null) throw createError('School context required', 403);
     const db = getDatabase();
     const [vehicles] = await db.execute(
-      'SELECT * FROM vehicles ORDER BY vehicle_no ASC'
+      'SELECT * FROM vehicles WHERE school_id = ? ORDER BY vehicle_no ASC',
+      [schoolId]
     ) as any[];
 
     res.json({
@@ -118,6 +131,8 @@ export const getVehicles = async (req: Request, res: Response, next: NextFunctio
 
 export const createVehicle = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
   try {
+    const schoolId = getSchoolId(req as AuthRequest);
+    if (schoolId == null) throw createError('School context required', 403);
     const { vehicle_no, vehicle_model, year_made, driver_name, driver_license, driver_contact, note } = req.body;
 
     if (!vehicle_no) {
@@ -126,9 +141,10 @@ export const createVehicle = async (req: Request, res: Response, next: NextFunct
 
     const db = getDatabase();
     const [result] = await db.execute(
-      `INSERT INTO vehicles (vehicle_no, vehicle_model, year_made, driver_name, driver_license, driver_contact, note)
-       VALUES (?, ?, ?, ?, ?, ?, ?)`,
+      `INSERT INTO vehicles (school_id, vehicle_no, vehicle_model, year_made, driver_name, driver_license, driver_contact, note)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
       [
+        schoolId,
         vehicle_no.trim(),
         vehicle_model?.trim() || null,
         year_made || null,
@@ -154,6 +170,8 @@ export const createVehicle = async (req: Request, res: Response, next: NextFunct
 
 export const updateVehicle = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
   try {
+    const schoolId = getSchoolId(req as AuthRequest);
+    if (schoolId == null) throw createError('School context required', 403);
     const { id } = req.params;
     const { vehicle_no, vehicle_model, year_made, driver_name, driver_license, driver_contact, note } = req.body;
 
@@ -165,7 +183,7 @@ export const updateVehicle = async (req: Request, res: Response, next: NextFunct
     await db.execute(
       `UPDATE vehicles 
        SET vehicle_no = ?, vehicle_model = ?, year_made = ?, driver_name = ?, driver_license = ?, driver_contact = ?, note = ?
-       WHERE id = ?`,
+       WHERE id = ? AND school_id = ?`,
       [
         vehicle_no.trim(),
         vehicle_model?.trim() || null,
@@ -175,6 +193,7 @@ export const updateVehicle = async (req: Request, res: Response, next: NextFunct
         driver_contact?.trim() || null,
         note?.trim() || null,
         id,
+        schoolId,
       ]
     );
 
@@ -192,10 +211,12 @@ export const updateVehicle = async (req: Request, res: Response, next: NextFunct
 
 export const deleteVehicle = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
   try {
+    const schoolId = getSchoolId(req as AuthRequest);
+    if (schoolId == null) throw createError('School context required', 403);
     const { id } = req.params;
     const db = getDatabase();
 
-    await db.execute('DELETE FROM vehicles WHERE id = ?', [id]);
+    await db.execute('DELETE FROM vehicles WHERE id = ? AND school_id = ?', [id, schoolId]);
 
     res.json({
       success: true,
@@ -210,6 +231,8 @@ export const deleteVehicle = async (req: Request, res: Response, next: NextFunct
 
 export const getVehicleAssignments = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
   try {
+    const schoolId = getSchoolId(req as AuthRequest);
+    if (schoolId == null) throw createError('School context required', 403);
     const db = getDatabase();
     const { route_id, vehicle_id } = req.query;
 
@@ -221,11 +244,11 @@ export const getVehicleAssignments = async (req: Request, res: Response, next: N
              v.vehicle_model,
              v.driver_name
       FROM vehicle_assignments va
-      LEFT JOIN routes r ON va.route_id = r.id
-      LEFT JOIN vehicles v ON va.vehicle_id = v.id
-      WHERE 1=1
+      LEFT JOIN routes r ON va.route_id = r.id AND r.school_id = ?
+      LEFT JOIN vehicles v ON va.vehicle_id = v.id AND v.school_id = ?
+      WHERE va.school_id = ?
     `;
-    const params: any[] = [];
+    const params: any[] = [schoolId, schoolId, schoolId];
 
     if (route_id) {
       query += ' AND va.route_id = ?';
@@ -252,6 +275,8 @@ export const getVehicleAssignments = async (req: Request, res: Response, next: N
 
 export const createVehicleAssignment = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
   try {
+    const schoolId = getSchoolId(req as AuthRequest);
+    if (schoolId == null) throw createError('School context required', 403);
     const { route_id, vehicle_id } = req.body;
 
     if (!route_id || !vehicle_id) {
@@ -260,10 +285,9 @@ export const createVehicleAssignment = async (req: Request, res: Response, next:
 
     const db = getDatabase();
 
-    // Check if assignment already exists
     const [existing] = await db.execute(
-      'SELECT id FROM vehicle_assignments WHERE route_id = ? AND vehicle_id = ?',
-      [route_id, vehicle_id]
+      'SELECT id FROM vehicle_assignments WHERE route_id = ? AND vehicle_id = ? AND school_id = ?',
+      [route_id, vehicle_id, schoolId]
     ) as any[];
 
     if (existing.length > 0) {
@@ -271,8 +295,8 @@ export const createVehicleAssignment = async (req: Request, res: Response, next:
     }
 
     const [result] = await db.execute(
-      'INSERT INTO vehicle_assignments (route_id, vehicle_id) VALUES (?, ?)',
-      [route_id, vehicle_id]
+      'INSERT INTO vehicle_assignments (school_id, route_id, vehicle_id) VALUES (?, ?, ?)',
+      [schoolId, route_id, vehicle_id]
     ) as any;
 
     res.status(201).json({
@@ -293,10 +317,12 @@ export const createVehicleAssignment = async (req: Request, res: Response, next:
 
 export const deleteVehicleAssignment = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
   try {
+    const schoolId = getSchoolId(req as AuthRequest);
+    if (schoolId == null) throw createError('School context required', 403);
     const { id } = req.params;
     const db = getDatabase();
 
-    await db.execute('DELETE FROM vehicle_assignments WHERE id = ?', [id]);
+    await db.execute('DELETE FROM vehicle_assignments WHERE id = ? AND school_id = ?', [id, schoolId]);
 
     res.json({
       success: true,

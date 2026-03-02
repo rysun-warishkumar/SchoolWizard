@@ -4,12 +4,12 @@ import {
   getRoomTypes, createRoomType, updateRoomType, deleteRoomType,
   getHostelRooms, createHostelRoom, updateHostelRoom, deleteHostelRoom,
 } from '../controllers/hostel.controller';
-import { authenticate } from '../middleware/auth';
+import { authenticate, requireSchool } from '../middleware/auth';
 import { checkPermission } from '../middleware/permissions';
 
 const router = express.Router();
 
-router.use(authenticate);
+router.use(authenticate, requireSchool);
 
 // Hostels Routes
 router.get('/hostels', checkPermission('hostel', 'view'), getHostels);

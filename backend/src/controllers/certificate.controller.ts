@@ -1,7 +1,7 @@
 import { Request, Response, NextFunction } from 'express';
 import { getDatabase } from '../config/database';
 import { createError } from '../middleware/errorHandler';
-import { AuthRequest } from '../middleware/auth';
+import { AuthRequest, getSchoolId } from '../middleware/auth';
 import multer from 'multer';
 import path from 'path';
 import fs from 'fs';
@@ -48,9 +48,12 @@ export const upload = multer({
 
 export const getCertificateTemplates = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
   try {
+    const schoolId = getSchoolId(req as AuthRequest);
+    if (schoolId == null) throw createError('School context required', 403);
     const db = getDatabase();
     const [templates] = await db.execute(
-      'SELECT * FROM certificate_templates ORDER BY name ASC'
+      'SELECT * FROM certificate_templates WHERE school_id = ? ORDER BY name ASC',
+      [schoolId]
     ) as any[];
 
     res.json({
@@ -64,11 +67,13 @@ export const getCertificateTemplates = async (req: Request, res: Response, next:
 
 export const getCertificateTemplateById = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
   try {
+    const schoolId = getSchoolId(req as AuthRequest);
+    if (schoolId == null) throw createError('School context required', 403);
     const { id } = req.params;
     const db = getDatabase();
     const [templates] = await db.execute(
-      'SELECT * FROM certificate_templates WHERE id = ?',
-      [id]
+      'SELECT * FROM certificate_templates WHERE id = ? AND school_id = ?',
+      [id, schoolId]
     ) as any[];
 
     if (templates.length === 0) {
@@ -86,6 +91,8 @@ export const getCertificateTemplateById = async (req: Request, res: Response, ne
 
 export const createCertificateTemplate = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
   try {
+    const schoolId = getSchoolId(req as AuthRequest);
+    if (schoolId == null) throw createError('School context required', 403);
     const {
       name,
       header_left_text,
@@ -109,7 +116,6 @@ export const createCertificateTemplate = async (req: Request, res: Response, nex
 
     const db = getDatabase();
 
-    // Handle background image upload
     let backgroundImage = null;
     if (req.files && Array.isArray(req.files) && req.files.length > 0) {
       const file = req.files[0] as any;
@@ -118,11 +124,12 @@ export const createCertificateTemplate = async (req: Request, res: Response, nex
 
     const [result] = await db.execute(
       `INSERT INTO certificate_templates 
-       (name, header_left_text, header_center_text, header_right_text, body_text,
+       (school_id, name, header_left_text, header_center_text, header_right_text, body_text,
         footer_left_text, footer_center_text, footer_right_text, header_height,
         footer_height, body_height, body_width, student_photo_enabled, photo_height, background_image)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       [
+        schoolId,
         name.trim(),
         header_left_text?.trim() || null,
         header_center_text?.trim() || null,
@@ -153,6 +160,8 @@ export const createCertificateTemplate = async (req: Request, res: Response, nex
 
 export const updateCertificateTemplate = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
   try {
+    const schoolId = getSchoolId(req as AuthRequest);
+    if (schoolId == null) throw createError('School context required', 403);
     const { id } = req.params;
     const {
       name,
@@ -173,10 +182,9 @@ export const updateCertificateTemplate = async (req: Request, res: Response, nex
 
     const db = getDatabase();
 
-    // Check if template exists
     const [existing] = await db.execute(
-      'SELECT * FROM certificate_templates WHERE id = ?',
-      [id]
+      'SELECT * FROM certificate_templates WHERE id = ? AND school_id = ?',
+      [id, schoolId]
     ) as any[];
 
     if (existing.length === 0) {
@@ -205,7 +213,7 @@ export const updateCertificateTemplate = async (req: Request, res: Response, nex
        body_text = ?, footer_left_text = ?, footer_center_text = ?, footer_right_text = ?,
        header_height = ?, footer_height = ?, body_height = ?, body_width = ?,
        student_photo_enabled = ?, photo_height = ?, background_image = ?
-       WHERE id = ?`,
+       WHERE id = ? AND school_id = ?`,
       [
         name?.trim() || existing[0].name,
         header_left_text?.trim() || null,
@@ -225,6 +233,7 @@ export const updateCertificateTemplate = async (req: Request, res: Response, nex
         photo_height ? parseInt(photo_height) : existing[0].photo_height,
         backgroundImage,
         id,
+        schoolId,
       ]
     );
 
@@ -239,20 +248,20 @@ export const updateCertificateTemplate = async (req: Request, res: Response, nex
 
 export const deleteCertificateTemplate = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
   try {
+    const schoolId = getSchoolId(req as AuthRequest);
+    if (schoolId == null) throw createError('School context required', 403);
     const { id } = req.params;
     const db = getDatabase();
 
-    // Check if template exists
     const [existing] = await db.execute(
-      'SELECT * FROM certificate_templates WHERE id = ?',
-      [id]
+      'SELECT * FROM certificate_templates WHERE id = ? AND school_id = ?',
+      [id, schoolId]
     ) as any[];
 
     if (existing.length === 0) {
       throw createError('Certificate template not found', 404);
     }
 
-    // Delete background image if exists
     if (existing[0].background_image) {
       const filePath = path.join(__dirname, '../..', existing[0].background_image);
       if (fs.existsSync(filePath)) {
@@ -260,7 +269,7 @@ export const deleteCertificateTemplate = async (req: Request, res: Response, nex
       }
     }
 
-    await db.execute('DELETE FROM certificate_templates WHERE id = ?', [id]);
+    await db.execute('DELETE FROM certificate_templates WHERE id = ? AND school_id = ?', [id, schoolId]);
 
     res.json({
       success: true,
@@ -275,9 +284,12 @@ export const deleteCertificateTemplate = async (req: Request, res: Response, nex
 
 export const getIdCardTemplates = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
   try {
+    const schoolId = getSchoolId(req as AuthRequest);
+    if (schoolId == null) throw createError('School context required', 403);
     const db = getDatabase();
     const [templates] = await db.execute(
-      'SELECT * FROM id_card_templates ORDER BY name ASC'
+      'SELECT * FROM id_card_templates WHERE school_id = ? ORDER BY name ASC',
+      [schoolId]
     ) as any[];
 
     res.json({
@@ -291,11 +303,13 @@ export const getIdCardTemplates = async (req: Request, res: Response, next: Next
 
 export const getIdCardTemplateById = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
   try {
+    const schoolId = getSchoolId(req as AuthRequest);
+    if (schoolId == null) throw createError('School context required', 403);
     const { id } = req.params;
     const db = getDatabase();
     const [templates] = await db.execute(
-      'SELECT * FROM id_card_templates WHERE id = ?',
-      [id]
+      'SELECT * FROM id_card_templates WHERE id = ? AND school_id = ?',
+      [id, schoolId]
     ) as any[];
 
     if (templates.length === 0) {
@@ -313,6 +327,8 @@ export const getIdCardTemplateById = async (req: Request, res: Response, next: N
 
 export const createIdCardTemplate = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
   try {
+    const schoolId = getSchoolId(req as AuthRequest);
+    if (schoolId == null) throw createError('School context required', 403);
     const {
       name,
       school_name,
@@ -338,7 +354,6 @@ export const createIdCardTemplate = async (req: Request, res: Response, next: Ne
 
     const db = getDatabase();
 
-    // Handle file uploads (background_image, logo, signature)
     let backgroundImage = null;
     let logo = null;
     let signature = null;
@@ -361,12 +376,13 @@ export const createIdCardTemplate = async (req: Request, res: Response, next: Ne
 
     const [result] = await db.execute(
       `INSERT INTO id_card_templates 
-       (name, background_image, logo, signature, school_name, address, phone, email,
+       (school_id, name, background_image, logo, signature, school_name, address, phone, email,
         id_card_title, header_color, admission_number_enabled, student_name_enabled,
         class_enabled, father_name_enabled, mother_name_enabled, student_address_enabled,
         phone_enabled, date_of_birth_enabled, blood_group_enabled)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       [
+        schoolId,
         name.trim(),
         backgroundImage,
         logo,
@@ -401,6 +417,8 @@ export const createIdCardTemplate = async (req: Request, res: Response, next: Ne
 
 export const updateIdCardTemplate = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
   try {
+    const schoolId = getSchoolId(req as AuthRequest);
+    if (schoolId == null) throw createError('School context required', 403);
     const { id } = req.params;
     const {
       name,
@@ -423,10 +441,9 @@ export const updateIdCardTemplate = async (req: Request, res: Response, next: Ne
 
     const db = getDatabase();
 
-    // Check if template exists
     const [existing] = await db.execute(
-      'SELECT * FROM id_card_templates WHERE id = ?',
-      [id]
+      'SELECT * FROM id_card_templates WHERE id = ? AND school_id = ?',
+      [id, schoolId]
     ) as any[];
 
     if (existing.length === 0) {
@@ -480,7 +497,7 @@ export const updateIdCardTemplate = async (req: Request, res: Response, next: Ne
        admission_number_enabled = ?, student_name_enabled = ?, class_enabled = ?,
        father_name_enabled = ?, mother_name_enabled = ?, student_address_enabled = ?,
        phone_enabled = ?, date_of_birth_enabled = ?, blood_group_enabled = ?
-       WHERE id = ?`,
+       WHERE id = ? AND school_id = ?`,
       [
         name?.trim() || existing[0].name,
         backgroundImage,
@@ -520,6 +537,7 @@ export const updateIdCardTemplate = async (req: Request, res: Response, next: Ne
           ? (blood_group_enabled === 'true' || blood_group_enabled === true)
           : existing[0].blood_group_enabled,
         id,
+        schoolId,
       ]
     );
 
@@ -534,20 +552,20 @@ export const updateIdCardTemplate = async (req: Request, res: Response, next: Ne
 
 export const deleteIdCardTemplate = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
   try {
+    const schoolId = getSchoolId(req as AuthRequest);
+    if (schoolId == null) throw createError('School context required', 403);
     const { id } = req.params;
     const db = getDatabase();
 
-    // Check if template exists
     const [existing] = await db.execute(
-      'SELECT * FROM id_card_templates WHERE id = ?',
-      [id]
+      'SELECT * FROM id_card_templates WHERE id = ? AND school_id = ?',
+      [id, schoolId]
     ) as any[];
 
     if (existing.length === 0) {
       throw createError('ID card template not found', 404);
     }
 
-    // Delete uploaded files if they exist
     const filesToDelete = [
       existing[0].background_image,
       existing[0].logo,
@@ -561,7 +579,7 @@ export const deleteIdCardTemplate = async (req: Request, res: Response, next: Ne
       }
     });
 
-    await db.execute('DELETE FROM id_card_templates WHERE id = ?', [id]);
+    await db.execute('DELETE FROM id_card_templates WHERE id = ? AND school_id = ?', [id, schoolId]);
 
     res.json({
       success: true,
@@ -576,6 +594,8 @@ export const deleteIdCardTemplate = async (req: Request, res: Response, next: Ne
 
 export const generateCertificate = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
   try {
+    const schoolId = getSchoolId(req as AuthRequest);
+    if (schoolId == null) throw createError('School context required', 403);
     const { template_id, student_ids } = req.body;
 
     if (!template_id || !student_ids || !Array.isArray(student_ids) || student_ids.length === 0) {
@@ -584,10 +604,9 @@ export const generateCertificate = async (req: Request, res: Response, next: Nex
 
     const db = getDatabase();
 
-    // Get template
     const [templates] = await db.execute(
-      'SELECT * FROM certificate_templates WHERE id = ?',
-      [template_id]
+      'SELECT * FROM certificate_templates WHERE id = ? AND school_id = ?',
+      [template_id, schoolId]
     ) as any[];
 
     if (templates.length === 0) {
@@ -596,7 +615,6 @@ export const generateCertificate = async (req: Request, res: Response, next: Nex
 
     const template = templates[0];
 
-    // Get students
     const placeholders = student_ids.map(() => '?').join(',');
     const [students] = await db.execute(
       `SELECT s.*, 
@@ -604,10 +622,10 @@ export const generateCertificate = async (req: Request, res: Response, next: Nex
        sec.name as section_name,
        CONCAT(c.name, ' - ', sec.name) as class_section
        FROM students s
-       LEFT JOIN classes c ON s.class_id = c.id
-       LEFT JOIN sections sec ON s.section_id = sec.id
-       WHERE s.id IN (${placeholders})`,
-      student_ids
+       LEFT JOIN classes c ON s.class_id = c.id AND c.school_id = ?
+       LEFT JOIN sections sec ON s.section_id = sec.id AND sec.school_id = ?
+       WHERE s.school_id = ? AND s.id IN (${placeholders})`,
+      [schoolId, schoolId, schoolId, ...student_ids]
     ) as any[];
 
     if (students.length === 0) {
@@ -630,6 +648,8 @@ export const generateCertificate = async (req: Request, res: Response, next: Nex
 
 export const generateIdCard = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
   try {
+    const schoolId = getSchoolId(req as AuthRequest);
+    if (schoolId == null) throw createError('School context required', 403);
     const { template_id, student_ids } = req.body;
 
     if (!template_id || !student_ids || !Array.isArray(student_ids) || student_ids.length === 0) {
@@ -638,10 +658,9 @@ export const generateIdCard = async (req: Request, res: Response, next: NextFunc
 
     const db = getDatabase();
 
-    // Get template
     const [templates] = await db.execute(
-      'SELECT * FROM id_card_templates WHERE id = ?',
-      [template_id]
+      'SELECT * FROM id_card_templates WHERE id = ? AND school_id = ?',
+      [template_id, schoolId]
     ) as any[];
 
     if (templates.length === 0) {
@@ -650,7 +669,6 @@ export const generateIdCard = async (req: Request, res: Response, next: NextFunc
 
     const template = templates[0];
 
-    // Get students
     const placeholders = student_ids.map(() => '?').join(',');
     const [students] = await db.execute(
       `SELECT s.*, 
@@ -658,10 +676,10 @@ export const generateIdCard = async (req: Request, res: Response, next: NextFunc
        sec.name as section_name,
        CONCAT(c.name, ' - ', sec.name) as class_section
        FROM students s
-       LEFT JOIN classes c ON s.class_id = c.id
-       LEFT JOIN sections sec ON s.section_id = sec.id
-       WHERE s.id IN (${placeholders})`,
-      student_ids
+       LEFT JOIN classes c ON s.class_id = c.id AND c.school_id = ?
+       LEFT JOIN sections sec ON s.section_id = sec.id AND sec.school_id = ?
+       WHERE s.school_id = ? AND s.id IN (${placeholders})`,
+      [schoolId, schoolId, schoolId, ...student_ids]
     ) as any[];
 
     if (students.length === 0) {

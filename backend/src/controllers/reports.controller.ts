@@ -1,12 +1,14 @@
 import { Request, Response, NextFunction } from 'express';
 import { getDatabase } from '../config/database';
 import { createError } from '../middleware/errorHandler';
-import { AuthRequest } from '../middleware/auth';
+import { AuthRequest, getSchoolId } from '../middleware/auth';
 
 // ========== Student Reports ==========
 
 export const getStudentListReport = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
   try {
+    const schoolId = getSchoolId(req as AuthRequest);
+    if (schoolId == null) throw createError('School context required', 403);
     const { class_id, section_id, status, search } = req.query;
     const db = getDatabase();
 
@@ -27,13 +29,13 @@ export const getStudentListReport = async (req: Request, res: Response, next: Ne
         sc.name as category_name,
         sh.name as house_name
       FROM students s
-      LEFT JOIN classes c ON s.class_id = c.id
-      LEFT JOIN sections sec ON s.section_id = sec.id
-      LEFT JOIN student_categories sc ON s.category_id = sc.id
-      LEFT JOIN student_houses sh ON s.house_id = sh.id
-      WHERE 1=1
+      LEFT JOIN classes c ON s.class_id = c.id AND c.school_id = ?
+      LEFT JOIN sections sec ON s.section_id = sec.id AND sec.school_id = ?
+      LEFT JOIN student_categories sc ON s.category_id = sc.id AND sc.school_id = ?
+      LEFT JOIN student_houses sh ON s.house_id = sh.id AND sh.school_id = ?
+      WHERE s.school_id = ?
     `;
-    const params: any[] = [];
+    const params: any[] = [schoolId, schoolId, schoolId, schoolId, schoolId];
 
     if (class_id) {
       query += ' AND s.class_id = ?';
@@ -77,6 +79,8 @@ export const getStudentListReport = async (req: Request, res: Response, next: Ne
 
 export const getStudentAttendanceReport = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
   try {
+    const schoolId = getSchoolId(req as AuthRequest);
+    if (schoolId == null) throw createError('School context required', 403);
     const { class_id, section_id, month, year, student_id } = req.query;
     const db = getDatabase();
 
@@ -102,14 +106,14 @@ export const getStudentAttendanceReport = async (req: Request, res: Response, ne
            NULLIF(COUNT(sa.id), 0)), 2
         ) as attendance_percentage
       FROM students s
-      LEFT JOIN classes c ON s.class_id = c.id
-      LEFT JOIN sections sec ON s.section_id = sec.id
-      LEFT JOIN student_attendance sa ON s.id = sa.student_id 
+      LEFT JOIN classes c ON s.class_id = c.id AND c.school_id = ?
+      LEFT JOIN sections sec ON s.section_id = sec.id AND sec.school_id = ?
+      LEFT JOIN student_attendance sa ON s.id = sa.student_id AND sa.school_id = ?
         AND MONTH(sa.attendance_date) = ? 
         AND YEAR(sa.attendance_date) = ?
-      WHERE s.status = 'active'
+      WHERE s.school_id = ? AND s.status = 'active'
     `;
-    const params: any[] = [month, year];
+    const params: any[] = [schoolId, schoolId, schoolId, month, year, schoolId];
 
     if (class_id) {
       query += ' AND s.class_id = ?';
@@ -141,6 +145,8 @@ export const getStudentAttendanceReport = async (req: Request, res: Response, ne
 
 export const getStudentExamResultsReport = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
   try {
+    const schoolId = getSchoolId(req as AuthRequest);
+    if (schoolId == null) throw createError('School context required', 403);
     const { exam_id, class_id, section_id, student_id } = req.query;
     const db = getDatabase();
 
@@ -162,13 +168,13 @@ export const getStudentExamResultsReport = async (req: Request, res: Response, n
         em.grade,
         em.remarks
       FROM exam_marks em
-      INNER JOIN students s ON em.student_id = s.id
-      INNER JOIN classes c ON s.class_id = c.id
-      INNER JOIN sections sec ON s.section_id = sec.id
-      INNER JOIN subjects sub ON em.subject_id = sub.id
-      WHERE em.exam_id = ?
+      INNER JOIN students s ON em.student_id = s.id AND s.school_id = ?
+      INNER JOIN classes c ON s.class_id = c.id AND c.school_id = ?
+      INNER JOIN sections sec ON s.section_id = sec.id AND sec.school_id = ?
+      INNER JOIN subjects sub ON em.subject_id = sub.id AND sub.school_id = ?
+      WHERE em.school_id = ? AND em.exam_id = ?
     `;
-    const params: any[] = [exam_id];
+    const params: any[] = [schoolId, schoolId, schoolId, schoolId, schoolId, exam_id];
 
     if (class_id) {
       query += ' AND s.class_id = ?';
@@ -235,6 +241,8 @@ export const getStudentExamResultsReport = async (req: Request, res: Response, n
 
 export const getStudentFeesReport = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
   try {
+    const schoolId = getSchoolId(req as AuthRequest);
+    if (schoolId == null) throw createError('School context required', 403);
     const { class_id, section_id, student_id, start_date, end_date, payment_status } = req.query;
     const db = getDatabase();
 
@@ -254,13 +262,13 @@ export const getStudentFeesReport = async (req: Request, res: Response, next: Ne
         fm.fee_name,
         fm.amount as fee_amount
       FROM fee_payments fp
-      INNER JOIN students s ON fp.student_id = s.id
-      INNER JOIN classes c ON s.class_id = c.id
-      INNER JOIN sections sec ON s.section_id = sec.id
-      INNER JOIN fee_master fm ON fp.fee_master_id = fm.id
-      WHERE 1=1
+      INNER JOIN students s ON fp.student_id = s.id AND s.school_id = ?
+      INNER JOIN classes c ON s.class_id = c.id AND c.school_id = ?
+      INNER JOIN sections sec ON s.section_id = sec.id AND sec.school_id = ?
+      INNER JOIN fee_master fm ON fp.fee_master_id = fm.id AND fm.school_id = ?
+      WHERE fp.school_id = ?
     `;
-    const params: any[] = [];
+    const params: any[] = [schoolId, schoolId, schoolId, schoolId, schoolId];
 
     if (class_id) {
       query += ' AND s.class_id = ?';
@@ -314,6 +322,8 @@ export const getStudentFeesReport = async (req: Request, res: Response, next: Ne
 
 export const getStaffListReport = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
   try {
+    const schoolId = getSchoolId(req as AuthRequest);
+    if (schoolId == null) throw createError('School context required', 403);
     const { role_id, department_id, status, search } = req.query;
     const db = getDatabase();
 
@@ -334,11 +344,11 @@ export const getStaffListReport = async (req: Request, res: Response, next: Next
         des.name as designation_name
       FROM staff s
       LEFT JOIN roles r ON s.role_id = r.id
-      LEFT JOIN departments d ON s.department_id = d.id
-      LEFT JOIN designations des ON s.designation_id = des.id
-      WHERE 1=1
+      LEFT JOIN departments d ON s.department_id = d.id AND d.school_id = ?
+      LEFT JOIN designations des ON s.designation_id = des.id AND des.school_id = ?
+      WHERE s.school_id = ?
     `;
-    const params: any[] = [];
+    const params: any[] = [schoolId, schoolId, schoolId];
 
     if (role_id) {
       query += ' AND s.role_id = ?';
@@ -379,6 +389,8 @@ export const getStaffListReport = async (req: Request, res: Response, next: Next
 
 export const getStaffPayrollReport = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
   try {
+    const schoolId = getSchoolId(req as AuthRequest);
+    if (schoolId == null) throw createError('School context required', 403);
     const { staff_id, month, year, status } = req.query;
     const db = getDatabase();
 
@@ -404,12 +416,12 @@ export const getStaffPayrollReport = async (req: Request, res: Response, next: N
         p.status as payment_status,
         p.payment_date
       FROM payroll p
-      INNER JOIN staff s ON p.staff_id = s.id
+      INNER JOIN staff s ON p.staff_id = s.id AND s.school_id = ?
       LEFT JOIN roles r ON s.role_id = r.id
-      LEFT JOIN departments d ON s.department_id = d.id
-      WHERE p.month = ? AND p.year = ?
+      LEFT JOIN departments d ON s.department_id = d.id AND d.school_id = ?
+      WHERE p.school_id = ? AND p.month = ? AND p.year = ?
     `;
-    const params: any[] = [Number(month), Number(year)];
+    const params: any[] = [schoolId, schoolId, schoolId, Number(month), Number(year)];
 
     if (staff_id) {
       query += ' AND p.staff_id = ?';
@@ -457,6 +469,8 @@ export const getStaffPayrollReport = async (req: Request, res: Response, next: N
 
 export const getStaffLeaveReport = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
   try {
+    const schoolId = getSchoolId(req as AuthRequest);
+    if (schoolId == null) throw createError('School context required', 403);
     const { staff_id, leave_type_id, status, start_date, end_date } = req.query;
     const db = getDatabase();
 
@@ -476,12 +490,12 @@ export const getStaffLeaveReport = async (req: Request, res: Response, next: Nex
         lr.apply_date as applied_at,
         u.name as approved_by_name
       FROM leave_requests lr
-      INNER JOIN staff s ON lr.staff_id = s.id
-      INNER JOIN leave_types lt ON lr.leave_type_id = lt.id
+      INNER JOIN staff s ON lr.staff_id = s.id AND s.school_id = ?
+      INNER JOIN leave_types lt ON lr.leave_type_id = lt.id AND lt.school_id = ?
       LEFT JOIN users u ON lr.approved_by = u.id
-      WHERE 1=1
+      WHERE lr.school_id = ?
     `;
-    const params: any[] = [];
+    const params: any[] = [schoolId, schoolId, schoolId];
 
     if (staff_id) {
       query += ' AND lr.staff_id = ?';
@@ -523,6 +537,8 @@ export const getStaffLeaveReport = async (req: Request, res: Response, next: Nex
 
 export const getFeesCollectionReport = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
   try {
+    const schoolId = getSchoolId(req as AuthRequest);
+    if (schoolId == null) throw createError('School context required', 403);
     const { start_date, end_date, fee_type, class_id } = req.query;
     const db = getDatabase();
 
@@ -536,12 +552,12 @@ export const getFeesCollectionReport = async (req: Request, res: Response, next:
         COUNT(fp.id) as payment_count,
         SUM(fp.amount) as total_amount
       FROM fee_payments fp
-      INNER JOIN fee_master fm ON fp.fee_master_id = fm.id
-      INNER JOIN students s ON fp.student_id = s.id
-      LEFT JOIN classes c ON s.class_id = c.id
-      WHERE fp.payment_status = 'paid'
+      INNER JOIN fee_master fm ON fp.fee_master_id = fm.id AND fm.school_id = ?
+      INNER JOIN students s ON fp.student_id = s.id AND s.school_id = ?
+      LEFT JOIN classes c ON s.class_id = c.id AND c.school_id = ?
+      WHERE fp.school_id = ? AND fp.payment_status = 'paid'
     `;
-    const params: any[] = [];
+    const params: any[] = [schoolId, schoolId, schoolId, schoolId];
 
     if (start_date && end_date) {
       query += ' AND fp.payment_date BETWEEN ? AND ?';
@@ -577,6 +593,8 @@ export const getFeesCollectionReport = async (req: Request, res: Response, next:
 
 export const getIncomeReport = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
   try {
+    const schoolId = getSchoolId(req as AuthRequest);
+    if (schoolId == null) throw createError('School context required', 403);
     const { start_date, end_date, income_head_id } = req.query;
     const db = getDatabase();
 
@@ -589,10 +607,10 @@ export const getIncomeReport = async (req: Request, res: Response, next: NextFun
         i.invoice_number,
         i.description
       FROM income i
-      INNER JOIN income_heads ih ON i.income_head_id = ih.id
-      WHERE 1=1
+      INNER JOIN income_heads ih ON i.income_head_id = ih.id AND ih.school_id = ?
+      WHERE i.school_id = ?
     `;
-    const params: any[] = [];
+    const params: any[] = [schoolId, schoolId];
 
     if (start_date && end_date) {
       query += ' AND i.income_date BETWEEN ? AND ?';
@@ -629,6 +647,8 @@ export const getIncomeReport = async (req: Request, res: Response, next: NextFun
 
 export const getExpenseReport = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
   try {
+    const schoolId = getSchoolId(req as AuthRequest);
+    if (schoolId == null) throw createError('School context required', 403);
     const { start_date, end_date, expense_head_id } = req.query;
     const db = getDatabase();
 
@@ -642,10 +662,10 @@ export const getExpenseReport = async (req: Request, res: Response, next: NextFu
         e.invoice_number,
         e.description
       FROM expenses e
-      INNER JOIN expense_heads eh ON e.expense_head_id = eh.id
-      WHERE 1=1
+      INNER JOIN expense_heads eh ON e.expense_head_id = eh.id AND eh.school_id = ?
+      WHERE e.school_id = ?
     `;
-    const params: any[] = [];
+    const params: any[] = [schoolId, schoolId];
 
     if (start_date && end_date) {
       query += ' AND e.expense_date BETWEEN ? AND ?';
@@ -682,6 +702,8 @@ export const getExpenseReport = async (req: Request, res: Response, next: NextFu
 
 export const getFinancialSummaryReport = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
   try {
+    const schoolId = getSchoolId(req as AuthRequest);
+    if (schoolId == null) throw createError('School context required', 403);
     const { start_date, end_date } = req.query;
     const db = getDatabase();
 
@@ -689,25 +711,22 @@ export const getFinancialSummaryReport = async (req: Request, res: Response, nex
       throw createError('Start date and end date are required', 400);
     }
 
-    // Fees Collection
     const [feesResult] = await db.execute(
       `SELECT SUM(amount) as total FROM fee_payments 
-       WHERE payment_status = 'paid' AND payment_date BETWEEN ? AND ?`,
-      [start_date, end_date]
+       WHERE school_id = ? AND payment_status = 'paid' AND payment_date BETWEEN ? AND ?`,
+      [schoolId, start_date, end_date]
     ) as any[];
 
-    // Income
     const [incomeResult] = await db.execute(
       `SELECT SUM(amount) as total FROM income 
-       WHERE income_date BETWEEN ? AND ?`,
-      [start_date, end_date]
+       WHERE school_id = ? AND income_date BETWEEN ? AND ?`,
+      [schoolId, start_date, end_date]
     ) as any[];
 
-    // Expenses
     const [expenseResult] = await db.execute(
       `SELECT SUM(amount) as total FROM expenses 
-       WHERE expense_date BETWEEN ? AND ?`,
-      [start_date, end_date]
+       WHERE school_id = ? AND expense_date BETWEEN ? AND ?`,
+      [schoolId, start_date, end_date]
     ) as any[];
 
     const feesTotal = parseFloat(feesResult[0]?.total || 0);
@@ -739,6 +758,8 @@ export const getFinancialSummaryReport = async (req: Request, res: Response, nex
 
 export const getLibraryBookIssueReport = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
   try {
+    const schoolId = getSchoolId(req as AuthRequest);
+    if (schoolId == null) throw createError('School context required', 403);
     const { start_date, end_date, book_id, member_id, return_status } = req.query;
     const db = getDatabase();
 
@@ -759,13 +780,13 @@ export const getLibraryBookIssueReport = async (req: Request, res: Response, nex
         END as member_name,
         lm.member_type
       FROM book_issues bi
-      INNER JOIN books b ON bi.book_id = b.id
-      INNER JOIN library_members lm ON bi.member_id = lm.id
-      LEFT JOIN students s ON lm.student_id = s.id
-      LEFT JOIN staff st ON lm.staff_id = st.id
-      WHERE 1=1
+      INNER JOIN books b ON bi.book_id = b.id AND b.school_id = ?
+      INNER JOIN library_members lm ON bi.member_id = lm.id AND lm.school_id = ?
+      LEFT JOIN students s ON lm.student_id = s.id AND s.school_id = ?
+      LEFT JOIN staff st ON lm.staff_id = st.id AND st.school_id = ?
+      WHERE bi.school_id = ?
     `;
-    const params: any[] = [];
+    const params: any[] = [schoolId, schoolId, schoolId, schoolId, schoolId];
 
     if (start_date && end_date) {
       query += ' AND bi.issue_date BETWEEN ? AND ?';
@@ -804,6 +825,8 @@ export const getLibraryBookIssueReport = async (req: Request, res: Response, nex
 
 export const getTransportReport = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
   try {
+    const schoolId = getSchoolId(req as AuthRequest);
+    if (schoolId == null) throw createError('School context required', 403);
     const { route_id, vehicle_id } = req.query;
     const db = getDatabase();
 
@@ -816,21 +839,21 @@ export const getTransportReport = async (req: Request, res: Response, next: Next
         s.last_name,
         c.name as class_name,
         sec.name as section_name,
-        r.route_name,
+        r.title as route_name,
         r.fare,
-        v.vehicle_number,
+        v.vehicle_no as vehicle_number,
         v.vehicle_model,
         v.driver_name,
-        v.driver_phone
+        v.driver_contact as driver_phone
       FROM vehicle_assignments va
-      INNER JOIN students s ON va.student_id = s.id
-      LEFT JOIN classes c ON s.class_id = c.id
-      LEFT JOIN sections sec ON s.section_id = sec.id
-      INNER JOIN routes r ON va.route_id = r.id
-      INNER JOIN vehicles v ON va.vehicle_id = v.id
-      WHERE 1=1
+      INNER JOIN students s ON va.student_id = s.id AND s.school_id = ?
+      LEFT JOIN classes c ON s.class_id = c.id AND c.school_id = ?
+      LEFT JOIN sections sec ON s.section_id = sec.id AND sec.school_id = ?
+      INNER JOIN routes r ON va.route_id = r.id AND r.school_id = ?
+      INNER JOIN vehicles v ON va.vehicle_id = v.id AND v.school_id = ?
+      WHERE va.school_id = ?
     `;
-    const params: any[] = [];
+    const params: any[] = [schoolId, schoolId, schoolId, schoolId, schoolId, schoolId];
 
     if (route_id) {
       query += ' AND va.route_id = ?';
@@ -859,6 +882,8 @@ export const getTransportReport = async (req: Request, res: Response, next: Next
 
 export const getInventoryReport = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
   try {
+    const schoolId = getSchoolId(req as AuthRequest);
+    if (schoolId == null) throw createError('School context required', 403);
     const { item_id, category_id, store_id, start_date, end_date } = req.query;
     const db = getDatabase();
 
@@ -867,24 +892,22 @@ export const getInventoryReport = async (req: Request, res: Response, next: Next
         ii.id,
         ii.issue_date,
         ii.quantity,
-        ii.notes,
-        i.item_name,
-        i.item_code,
-        ic.category_name,
-        ist.store_name,
+        ii.note as notes,
+        i.name as item_name,
+        i.id as item_code,
+        ic.name as category_name,
         s.admission_no,
         CONCAT(s.first_name, ' ', COALESCE(s.last_name, '')) as student_name,
         st.staff_id,
         CONCAT(st.first_name, ' ', COALESCE(st.last_name, '')) as staff_name
       FROM item_issues ii
-      INNER JOIN items i ON ii.item_id = i.id
-      LEFT JOIN item_categories ic ON i.category_id = ic.id
-      LEFT JOIN item_stores ist ON i.store_id = ist.id
-      LEFT JOIN students s ON ii.student_id = s.id
-      LEFT JOIN staff st ON ii.staff_id = st.id
-      WHERE 1=1
+      INNER JOIN items i ON ii.item_id = i.id AND i.school_id = ?
+      LEFT JOIN item_categories ic ON ii.category_id = ic.id AND ic.school_id = ?
+      LEFT JOIN students s ON ii.user_type = 'student' AND ii.user_id = s.id AND s.school_id = ?
+      LEFT JOIN staff st ON ii.user_type = 'staff' AND ii.user_id = st.id AND st.school_id = ?
+      WHERE ii.school_id = ?
     `;
-    const params: any[] = [];
+    const params: any[] = [schoolId, schoolId, schoolId, schoolId, schoolId];
 
     if (item_id) {
       query += ' AND ii.item_id = ?';
@@ -892,13 +915,8 @@ export const getInventoryReport = async (req: Request, res: Response, next: Next
     }
 
     if (category_id) {
-      query += ' AND i.category_id = ?';
+      query += ' AND ii.category_id = ?';
       params.push(category_id);
-    }
-
-    if (store_id) {
-      query += ' AND i.store_id = ?';
-      params.push(store_id);
     }
 
     if (start_date && end_date) {
@@ -923,6 +941,8 @@ export const getInventoryReport = async (req: Request, res: Response, next: Next
 
 export const getAdmissionEnquiryReport = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
   try {
+    const schoolId = getSchoolId(req as AuthRequest);
+    if (schoolId == null) throw createError('School context required', 403);
     const { start_date, end_date, source, status } = req.query;
     const db = getDatabase();
 
@@ -939,12 +959,12 @@ export const getAdmissionEnquiryReport = async (req: Request, res: Response, nex
         r.name as reference_name,
         u.name as assigned_to_name
       FROM admission_enquiries ae
-      LEFT JOIN sources s ON ae.source_id = s.id
-      LEFT JOIN front_office_references r ON ae.reference_id = r.id
-      LEFT JOIN users u ON ae.assigned_to = u.id
-      WHERE 1=1
+      LEFT JOIN front_office_sources s ON ae.source_id = s.id AND s.school_id = ?
+      LEFT JOIN front_office_references r ON ae.reference_id = r.id AND r.school_id = ?
+      LEFT JOIN users u ON ae.assigned_to = u.id AND u.school_id = ?
+      WHERE ae.school_id = ?
     `;
-    const params: any[] = [];
+    const params: any[] = [schoolId, schoolId, schoolId, schoolId];
 
     if (start_date && end_date) {
       query += ' AND ae.enquiry_date BETWEEN ? AND ?';

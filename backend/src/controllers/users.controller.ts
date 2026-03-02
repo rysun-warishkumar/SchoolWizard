@@ -2,7 +2,7 @@ import { Request, Response, NextFunction } from 'express';
 import bcrypt from 'bcryptjs';
 import { getDatabase } from '../config/database';
 import { createError } from '../middleware/errorHandler';
-import { AuthRequest } from '../middleware/auth';
+import { AuthRequest, getSchoolId } from '../middleware/auth';
 import { resetParentPassword } from '../services/parentUserService';
 
 export const getUsers = async (
@@ -11,6 +11,8 @@ export const getUsers = async (
   next: NextFunction
 ): Promise<void> => {
   try {
+    const schoolId = getSchoolId(req as AuthRequest);
+    if (schoolId == null) throw createError('School context required', 403);
     const { role, search, page = 1, limit = 10 } = req.query;
     const db = getDatabase();
 
@@ -19,9 +21,9 @@ export const getUsers = async (
              r.name as role, r.name as role_name
       FROM users u
       LEFT JOIN roles r ON u.role_id = r.id
-      WHERE 1=1
+      WHERE u.school_id = ?
     `;
-    const params: any[] = [];
+    const params: any[] = [schoolId];
 
     if (role) {
       query += ' AND r.name = ?';
@@ -36,21 +38,19 @@ export const getUsers = async (
 
     query += ' ORDER BY u.created_at DESC';
 
-    // Add pagination
     const offset = (Number(page) - 1) * Number(limit);
     query += ' LIMIT ? OFFSET ?';
     params.push(Number(limit), offset);
 
     const [users] = await db.execute(query, params) as any[];
 
-    // Get total count
     let countQuery = `
       SELECT COUNT(*) as total
       FROM users u
       LEFT JOIN roles r ON u.role_id = r.id
-      WHERE 1=1
+      WHERE u.school_id = ?
     `;
-    const countParams: any[] = [];
+    const countParams: any[] = [schoolId];
 
     if (role) {
       countQuery += ' AND r.name = ?';
@@ -87,6 +87,8 @@ export const getUserById = async (
   next: NextFunction
 ): Promise<void> => {
   try {
+    const schoolId = getSchoolId(req as AuthRequest);
+    if (schoolId == null) throw createError('School context required', 403);
     const { id } = req.params;
     const db = getDatabase();
 
@@ -94,8 +96,8 @@ export const getUserById = async (
       `SELECT u.*, r.name as role, r.name as role_name, r.description as role_description
        FROM users u
        LEFT JOIN roles r ON u.role_id = r.id
-       WHERE u.id = ?`,
-      [id]
+       WHERE u.id = ? AND u.school_id = ?`,
+      [id, schoolId]
     ) as any[];
 
     if (users.length === 0) {
@@ -121,13 +123,14 @@ export const createUser = async (
   next: NextFunction
 ): Promise<void> => {
   try {
+    const schoolId = getSchoolId(req as AuthRequest);
+    if (schoolId == null) throw createError('School context required', 403);
     const { email, password, name, role_id } = req.body;
 
     if (!email || !password || !name || !role_id) {
       throw createError('Email, password, name, and role_id are required', 400);
     }
 
-    // Validate email format
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     if (!emailRegex.test(email)) {
       throw createError('Invalid email format', 400);
@@ -135,17 +138,15 @@ export const createUser = async (
 
     const db = getDatabase();
 
-    // Check if user exists
     const [existingUsers] = await db.execute(
-      'SELECT id FROM users WHERE email = ?',
-      [email]
+      'SELECT id FROM users WHERE email = ? AND school_id = ?',
+      [email, schoolId]
     ) as any[];
 
     if (existingUsers.length > 0) {
       throw createError('User with this email already exists', 400);
     }
 
-    // Verify role exists
     const [roles] = await db.execute(
       'SELECT id FROM roles WHERE id = ?',
       [role_id]
@@ -155,22 +156,19 @@ export const createUser = async (
       throw createError('Invalid role', 400);
     }
 
-    // Hash password
     const hashedPassword = await bcrypt.hash(password, 10);
 
-    // Create user
     const [result] = await db.execute(
-      'INSERT INTO users (email, password, name, role_id, is_active, created_at) VALUES (?, ?, ?, ?, 1, NOW())',
-      [email, hashedPassword, name, role_id]
+      'INSERT INTO users (school_id, email, password, name, role_id, is_active, created_at) VALUES (?, ?, ?, ?, ?, 1, NOW())',
+      [schoolId, email, hashedPassword, name, role_id]
     ) as any;
 
-    // Get created user
     const [newUsers] = await db.execute(
       `SELECT u.*, r.name as role, r.name as role_name
        FROM users u
        LEFT JOIN roles r ON u.role_id = r.id
-       WHERE u.id = ?`,
-      [result.insertId]
+       WHERE u.id = ? AND u.school_id = ?`,
+      [result.insertId, schoolId]
     ) as any[];
 
     const newUser = newUsers[0];
@@ -192,21 +190,21 @@ export const updateUser = async (
   next: NextFunction
 ): Promise<void> => {
   try {
+    const schoolId = getSchoolId(req);
+    if (schoolId == null) throw createError('School context required', 403);
     const { id } = req.params;
     const { email, name, role_id, is_active } = req.body;
     const db = getDatabase();
 
-    // Check if user exists
     const [users] = await db.execute(
-      'SELECT * FROM users WHERE id = ?',
-      [id]
+      'SELECT * FROM users WHERE id = ? AND school_id = ?',
+      [id, schoolId]
     ) as any[];
 
     if (users.length === 0) {
       throw createError('User not found', 404);
     }
 
-    // Users can only update their own profile unless they're admin
     if (req.user?.id !== id && req.user?.role !== 'superadmin' && req.user?.role !== 'admin') {
       throw createError('Not authorized to update this user', 403);
     }
@@ -253,20 +251,19 @@ export const updateUser = async (
     }
 
     updates.push('updated_at = NOW()');
-    params.push(id);
+    params.push(id, schoolId);
 
     await db.execute(
-      `UPDATE users SET ${updates.join(', ')} WHERE id = ?`,
+      `UPDATE users SET ${updates.join(', ')} WHERE id = ? AND school_id = ?`,
       params
     );
 
-    // Get updated user
     const [updatedUsers] = await db.execute(
       `SELECT u.*, r.name as role, r.name as role_name
        FROM users u
        LEFT JOIN roles r ON u.role_id = r.id
-       WHERE u.id = ?`,
-      [id]
+       WHERE u.id = ? AND u.school_id = ?`,
+      [id, schoolId]
     ) as any[];
 
     const updatedUser = updatedUsers[0];
@@ -288,25 +285,25 @@ export const deleteUser = async (
   next: NextFunction
 ): Promise<void> => {
   try {
+    const schoolId = getSchoolId(req as AuthRequest);
+    if (schoolId == null) throw createError('School context required', 403);
     const { id } = req.params;
     const db = getDatabase();
 
-    // Check if user exists
     const [users] = await db.execute(
-      'SELECT * FROM users WHERE id = ?',
-      [id]
+      'SELECT * FROM users WHERE id = ? AND school_id = ?',
+      [id, schoolId]
     ) as any[];
 
     if (users.length === 0) {
       throw createError('User not found', 404);
     }
 
-    // Prevent deleting superadmin
     if (users[0].role_id === 1) {
       throw createError('Cannot delete superadmin user', 403);
     }
 
-    await db.execute('DELETE FROM users WHERE id = ?', [id]);
+    await db.execute('DELETE FROM users WHERE id = ? AND school_id = ?', [id, schoolId]);
 
     res.json({
       success: true,
@@ -323,20 +320,20 @@ export const toggleUserStatus = async (
   next: NextFunction
 ): Promise<void> => {
   try {
+    const schoolId = getSchoolId(req as AuthRequest);
+    if (schoolId == null) throw createError('School context required', 403);
     const { id } = req.params;
     const db = getDatabase();
 
-    // Check if user exists
     const [users] = await db.execute(
-      'SELECT * FROM users WHERE id = ?',
-      [id]
+      'SELECT * FROM users WHERE id = ? AND school_id = ?',
+      [id, schoolId]
     ) as any[];
 
     if (users.length === 0) {
       throw createError('User not found', 404);
     }
 
-    // Prevent disabling superadmin
     if (users[0].role_id === 1) {
       throw createError('Cannot disable superadmin user', 403);
     }
@@ -344,8 +341,8 @@ export const toggleUserStatus = async (
     const newStatus = users[0].is_active ? 0 : 1;
 
     await db.execute(
-      'UPDATE users SET is_active = ?, updated_at = NOW() WHERE id = ?',
-      [newStatus, id]
+      'UPDATE users SET is_active = ?, updated_at = NOW() WHERE id = ? AND school_id = ?',
+      [newStatus, id, schoolId]
     );
 
     res.json({
@@ -370,6 +367,8 @@ export const getParentUsers = async (
   next: NextFunction
 ): Promise<void> => {
   try {
+    const schoolId = getSchoolId(req as AuthRequest);
+    if (schoolId == null) throw createError('School context required', 403);
     const { search, page = 1, limit = 10 } = req.query;
     const db = getDatabase();
 
@@ -379,10 +378,10 @@ export const getParentUsers = async (
              GROUP_CONCAT(DISTINCT CONCAT(s.first_name, ' ', IFNULL(s.last_name, ''), ' (', s.admission_no, ')') SEPARATOR ', ') as children_names
       FROM users u
       LEFT JOIN roles r ON u.role_id = r.id
-      LEFT JOIN students s ON (s.father_email = u.email OR s.mother_email = u.email OR s.guardian_email = u.email)
-      WHERE r.name = 'parent'
+      LEFT JOIN students s ON (s.father_email = u.email OR s.mother_email = u.email OR s.guardian_email = u.email) AND s.school_id = ?
+      WHERE r.name = 'parent' AND u.school_id = ?
     `;
-    const params: any[] = [];
+    const params: any[] = [schoolId, schoolId];
 
     if (search) {
       query += ' AND (u.name LIKE ? OR u.email LIKE ?)';
@@ -392,21 +391,19 @@ export const getParentUsers = async (
 
     query += ' GROUP BY u.id ORDER BY u.created_at DESC';
 
-    // Add pagination
     const offset = (Number(page) - 1) * Number(limit);
     query += ' LIMIT ? OFFSET ?';
     params.push(Number(limit), offset);
 
     const [parents] = await db.execute(query, params) as any[];
 
-    // Get total count
     let countQuery = `
       SELECT COUNT(DISTINCT u.id) as total
       FROM users u
       LEFT JOIN roles r ON u.role_id = r.id
-      WHERE r.name = 'parent'
+      WHERE r.name = 'parent' AND u.school_id = ?
     `;
-    const countParams: any[] = [];
+    const countParams: any[] = [schoolId];
 
     if (search) {
       countQuery += ' AND (u.name LIKE ? OR u.email LIKE ?)';
@@ -441,10 +438,12 @@ export const resetParentUserPassword = async (
   next: NextFunction
 ): Promise<void> => {
   try {
+    const schoolId = getSchoolId(req);
+    if (schoolId == null) throw createError('School context required', 403);
     const { id } = req.params;
     const { send_email = true } = req.body;
 
-    const result = await resetParentPassword(Number(id), send_email);
+    const result = await resetParentPassword(Number(id), send_email, schoolId);
 
     res.json({
       success: true,

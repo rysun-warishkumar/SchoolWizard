@@ -39,7 +39,6 @@ export const login = async (
     ) as any[];
 
     if (users.length === 0) {
-      // Log for debugging
       if (process.env.NODE_ENV === 'development') {
         console.log('Login attempt failed: User not found or inactive', { email });
       }
@@ -47,38 +46,76 @@ export const login = async (
     }
 
     const user = users[0];
-    
-    // Log for debugging (without password)
+
     if (process.env.NODE_ENV === 'development') {
       console.log('User found:', { id: user.id, email: user.email, hasPassword: !!user.password });
     }
-    
+
     const isPasswordValid = await bcrypt.compare(password, user.password);
 
     if (!isPasswordValid) {
-      // Log for debugging
       if (process.env.NODE_ENV === 'development') {
         console.log('Login attempt failed: Invalid password', { email });
       }
       throw createError('Invalid credentials', 401);
     }
 
-    // Get user role
     const [roles] = await db.execute(
       'SELECT * FROM roles WHERE id = ?',
       [user.role_id]
     ) as any[];
 
+    const roleName = roles[0]?.name || 'user';
+    const schoolId = user.school_id ?? null;
+    const isPlatformAdmin = roleName === 'superadmin' && (schoolId == null);
+
+    // Load school and enforce trial (only for school users, not platform admin)
+    if (schoolId != null) {
+      const [schools] = await db.execute(
+        'SELECT id, name, status, trial_ends_at FROM schools WHERE id = ?',
+        [schoolId]
+      ) as any[];
+      const school = schools[0];
+      if (school) {
+        const now = new Date();
+        const trialEnded = school.status === 'expired' ||
+          (school.status === 'trial' && school.trial_ends_at && new Date(school.trial_ends_at) < now);
+        if (trialEnded) {
+          throw createError('Trial expired. Please contact us to upgrade.', 401);
+        }
+      }
+    }
+
     const token = jwt.sign(
       {
         id: user.id,
         email: user.email,
-        role: roles[0]?.name || 'user',
+        role: roleName,
         roleId: user.role_id,
+        schoolId: schoolId ?? undefined,
+        isPlatformAdmin: isPlatformAdmin || undefined,
       },
       JWT_SECRET,
       { expiresIn: JWT_EXPIRE }
     );
+
+    // Load school info for response (for school users)
+    let schoolInfo: { id: number; name: string; status: string; trialEndsAt: string | null } | null = null;
+    if (schoolId != null) {
+      const [schools] = await db.execute(
+        'SELECT id, name, status, trial_ends_at FROM schools WHERE id = ?',
+        [schoolId]
+      ) as any[];
+      const s = schools[0];
+      if (s) {
+        schoolInfo = {
+          id: s.id,
+          name: s.name,
+          status: s.status,
+          trialEndsAt: s.trial_ends_at ? new Date(s.trial_ends_at).toISOString() : null,
+        };
+      }
+    }
 
     res.json({
       success: true,
@@ -87,9 +124,15 @@ export const login = async (
         id: user.id,
         email: user.email,
         name: user.name,
-        role: roles[0]?.name || 'user',
+        role: roleName,
         roleId: user.role_id,
+        schoolId: schoolId ?? undefined,
+        schoolName: schoolInfo?.name,
+        schoolStatus: schoolInfo?.status,
+        trialEndsAt: schoolInfo?.trialEndsAt,
+        isPlatformAdmin: isPlatformAdmin || undefined,
       },
+      school: schoolInfo,
     });
   } catch (error) {
     next(error);
@@ -199,6 +242,27 @@ export const getCurrentUser = async (
     }
 
     const user = users[0];
+    const schoolId = user.school_id ?? null;
+    let schoolInfo: { id: number; name: string; status: string; trialEndsAt: string | null } | null = null;
+    if (schoolId != null) {
+      try {
+        const [schools] = await db.execute(
+          'SELECT id, name, status, trial_ends_at FROM schools WHERE id = ?',
+          [schoolId]
+        ) as any[];
+        const s = schools[0];
+        if (s) {
+          schoolInfo = {
+            id: s.id,
+            name: s.name,
+            status: s.status,
+            trialEndsAt: s.trial_ends_at ? new Date(s.trial_ends_at).toISOString() : null,
+          };
+        }
+      } catch {
+        // Schools table may not exist before Phase 1 migration
+      }
+    }
 
     res.json({
       success: true,
@@ -208,7 +272,13 @@ export const getCurrentUser = async (
         name: user.name,
         role: user.role || user.role_name,
         roleId: user.role_id,
+        schoolId: schoolId ?? undefined,
+        schoolName: schoolInfo?.name,
+        schoolStatus: schoolInfo?.status,
+        trialEndsAt: schoolInfo?.trialEndsAt,
+        isPlatformAdmin: (user.role_name === 'superadmin' && schoolId == null) || undefined,
       },
+      school: schoolInfo,
     });
   } catch (error) {
     next(error);

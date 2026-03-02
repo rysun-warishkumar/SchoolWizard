@@ -1,12 +1,15 @@
 import { Request, Response, NextFunction } from 'express';
 import { getDatabase } from '../config/database';
 import { createError } from '../middleware/errorHandler';
+import { AuthRequest, getSchoolId } from '../middleware/auth';
 
 // ========== Setup ==========
 export const getPurposes = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
   try {
+    const schoolId = getSchoolId(req as AuthRequest);
+    if (schoolId == null) throw createError('School context required', 403);
     const db = getDatabase();
-    const [purposes] = await db.execute('SELECT * FROM front_office_purposes ORDER BY name ASC') as any[];
+    const [purposes] = await db.execute('SELECT * FROM front_office_purposes WHERE school_id = ? ORDER BY name ASC', [schoolId]) as any[];
     res.json({ success: true, data: purposes });
   } catch (error) {
     next(error);
@@ -15,12 +18,14 @@ export const getPurposes = async (req: Request, res: Response, next: NextFunctio
 
 export const createPurpose = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
   try {
+    const schoolId = getSchoolId(req as AuthRequest);
+    if (schoolId == null) throw createError('School context required', 403);
     const { name, description } = req.body;
     if (!name) throw createError('Purpose name is required', 400);
     const db = getDatabase();
     const [result] = await db.execute(
-      'INSERT INTO front_office_purposes (name, description, created_at) VALUES (?, ?, NOW())',
-      [name, description || null]
+      'INSERT INTO front_office_purposes (school_id, name, description, created_at) VALUES (?, ?, ?, NOW())',
+      [schoolId, name, description || null]
     ) as any[];
     res.status(201).json({ success: true, message: 'Purpose created successfully', data: { id: result.insertId, name, description } });
   } catch (error) {
@@ -30,8 +35,10 @@ export const createPurpose = async (req: Request, res: Response, next: NextFunct
 
 export const getComplainTypes = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
   try {
+    const schoolId = getSchoolId(req as AuthRequest);
+    if (schoolId == null) throw createError('School context required', 403);
     const db = getDatabase();
-    const [types] = await db.execute('SELECT * FROM front_office_complain_types ORDER BY name ASC') as any[];
+    const [types] = await db.execute('SELECT * FROM front_office_complain_types WHERE school_id = ? ORDER BY name ASC', [schoolId]) as any[];
     res.json({ success: true, data: types });
   } catch (error) {
     next(error);
@@ -40,12 +47,14 @@ export const getComplainTypes = async (req: Request, res: Response, next: NextFu
 
 export const createComplainType = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
   try {
+    const schoolId = getSchoolId(req as AuthRequest);
+    if (schoolId == null) throw createError('School context required', 403);
     const { name, description } = req.body;
     if (!name) throw createError('Complain type name is required', 400);
     const db = getDatabase();
     const [result] = await db.execute(
-      'INSERT INTO front_office_complain_types (name, description, created_at) VALUES (?, ?, NOW())',
-      [name, description || null]
+      'INSERT INTO front_office_complain_types (school_id, name, description, created_at) VALUES (?, ?, ?, NOW())',
+      [schoolId, name, description || null]
     ) as any[];
     res.status(201).json({ success: true, message: 'Complain type created successfully', data: { id: result.insertId, name, description } });
   } catch (error) {
@@ -55,8 +64,10 @@ export const createComplainType = async (req: Request, res: Response, next: Next
 
 export const getSources = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
   try {
+    const schoolId = getSchoolId(req as AuthRequest);
+    if (schoolId == null) throw createError('School context required', 403);
     const db = getDatabase();
-    const [sources] = await db.execute('SELECT * FROM front_office_sources ORDER BY name ASC') as any[];
+    const [sources] = await db.execute('SELECT * FROM front_office_sources WHERE school_id = ? ORDER BY name ASC', [schoolId]) as any[];
     res.json({ success: true, data: sources });
   } catch (error) {
     next(error);
@@ -65,12 +76,14 @@ export const getSources = async (req: Request, res: Response, next: NextFunction
 
 export const createSource = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
   try {
+    const schoolId = getSchoolId(req as AuthRequest);
+    if (schoolId == null) throw createError('School context required', 403);
     const { name, description } = req.body;
     if (!name) throw createError('Source name is required', 400);
     const db = getDatabase();
     const [result] = await db.execute(
-      'INSERT INTO front_office_sources (name, description, created_at) VALUES (?, ?, NOW())',
-      [name, description || null]
+      'INSERT INTO front_office_sources (school_id, name, description, created_at) VALUES (?, ?, ?, NOW())',
+      [schoolId, name, description || null]
     ) as any[];
     res.status(201).json({ success: true, message: 'Source created successfully', data: { id: result.insertId, name, description } });
   } catch (error) {
@@ -80,8 +93,10 @@ export const createSource = async (req: Request, res: Response, next: NextFuncti
 
 export const getReferences = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
   try {
+    const schoolId = getSchoolId(req as AuthRequest);
+    if (schoolId == null) throw createError('School context required', 403);
     const db = getDatabase();
-    const [references] = await db.execute('SELECT * FROM front_office_references ORDER BY name ASC') as any[];
+    const [references] = await db.execute('SELECT * FROM front_office_references WHERE school_id = ? ORDER BY name ASC', [schoolId]) as any[];
     res.json({ success: true, data: references });
   } catch (error) {
     next(error);
@@ -90,12 +105,14 @@ export const getReferences = async (req: Request, res: Response, next: NextFunct
 
 export const createReference = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
   try {
+    const schoolId = getSchoolId(req as AuthRequest);
+    if (schoolId == null) throw createError('School context required', 403);
     const { name, description } = req.body;
     if (!name) throw createError('Reference name is required', 400);
     const db = getDatabase();
     const [result] = await db.execute(
-      'INSERT INTO front_office_references (name, description, created_at) VALUES (?, ?, NOW())',
-      [name, description || null]
+      'INSERT INTO front_office_references (school_id, name, description, created_at) VALUES (?, ?, ?, NOW())',
+      [schoolId, name, description || null]
     ) as any[];
     res.status(201).json({ success: true, message: 'Reference created successfully', data: { id: result.insertId, name, description } });
   } catch (error) {
@@ -106,6 +123,8 @@ export const createReference = async (req: Request, res: Response, next: NextFun
 // ========== Admission Enquiry ==========
 export const getAdmissionEnquiries = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
   try {
+    const schoolId = getSchoolId(req as AuthRequest);
+    if (schoolId == null) throw createError('School context required', 403);
     const { status, source_id, search } = req.query;
     const db = getDatabase();
     let query = `
@@ -113,13 +132,13 @@ export const getAdmissionEnquiries = async (req: Request, res: Response, next: N
        c.name as class_name, s.name as source_name, r.name as reference_name,
        u.name as assigned_name
        FROM admission_enquiries ae
-       LEFT JOIN classes c ON ae.class_id = c.id
-       LEFT JOIN front_office_sources s ON ae.source_id = s.id
-       LEFT JOIN front_office_references r ON ae.reference_id = r.id
+       LEFT JOIN classes c ON ae.class_id = c.id AND c.school_id = ?
+       LEFT JOIN front_office_sources s ON ae.source_id = s.id AND s.school_id = ?
+       LEFT JOIN front_office_references r ON ae.reference_id = r.id AND r.school_id = ?
        LEFT JOIN users u ON ae.assigned_to = u.id
-       WHERE 1=1
+       WHERE ae.school_id = ?
     `;
-    const params: any[] = [];
+    const params: any[] = [schoolId, schoolId, schoolId, schoolId];
 
     if (status) {
       query += ' AND ae.status = ?';
@@ -147,6 +166,8 @@ export const getAdmissionEnquiries = async (req: Request, res: Response, next: N
 
 export const createAdmissionEnquiry = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
   try {
+    const schoolId = getSchoolId(req as AuthRequest);
+    if (schoolId == null) throw createError('School context required', 403);
     const {
       name, phone, email, address, description, note, enquiry_date, next_follow_up_date,
       assigned_to, reference_id, source_id, class_id, number_of_child, status
@@ -159,11 +180,11 @@ export const createAdmissionEnquiry = async (req: Request, res: Response, next: 
     const db = getDatabase();
     const [result] = await db.execute(
       `INSERT INTO admission_enquiries (
-        name, phone, email, address, description, note, enquiry_date, next_follow_up_date,
+        school_id, name, phone, email, address, description, note, enquiry_date, next_follow_up_date,
         assigned_to, reference_id, source_id, class_id, number_of_child, status, created_at
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW())`,
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW())`,
       [
-        name, phone || null, email || null, address || null, description || null, note || null,
+        schoolId, name, phone || null, email || null, address || null, description || null, note || null,
         enquiry_date, next_follow_up_date || null, assigned_to || null, reference_id || null,
         source_id || null, class_id || null, number_of_child || 1, status || 'pending'
       ]
@@ -177,6 +198,8 @@ export const createAdmissionEnquiry = async (req: Request, res: Response, next: 
 
 export const updateAdmissionEnquiry = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
   try {
+    const schoolId = getSchoolId(req as AuthRequest);
+    if (schoolId == null) throw createError('School context required', 403);
     const { id } = req.params;
     const updates = req.body;
     const db = getDatabase();
@@ -202,9 +225,9 @@ export const updateAdmissionEnquiry = async (req: Request, res: Response, next: 
     }
 
     updateFields.push('updated_at = NOW()');
-    params.push(id);
+    params.push(id, schoolId);
 
-    await db.execute(`UPDATE admission_enquiries SET ${updateFields.join(', ')} WHERE id = ?`, params);
+    await db.execute(`UPDATE admission_enquiries SET ${updateFields.join(', ')} WHERE id = ? AND school_id = ?`, params);
 
     res.json({ success: true, message: 'Admission enquiry updated successfully' });
   } catch (error) {
@@ -214,9 +237,11 @@ export const updateAdmissionEnquiry = async (req: Request, res: Response, next: 
 
 export const deleteAdmissionEnquiry = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
   try {
+    const schoolId = getSchoolId(req as AuthRequest);
+    if (schoolId == null) throw createError('School context required', 403);
     const { id } = req.params;
     const db = getDatabase();
-    await db.execute('DELETE FROM admission_enquiries WHERE id = ?', [id]);
+    await db.execute('DELETE FROM admission_enquiries WHERE id = ? AND school_id = ?', [id, schoolId]);
     res.json({ success: true, message: 'Admission enquiry deleted successfully' });
   } catch (error) {
     next(error);
@@ -225,6 +250,8 @@ export const deleteAdmissionEnquiry = async (req: Request, res: Response, next: 
 
 export const addEnquiryFollowUp = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
   try {
+    const schoolId = getSchoolId(req as AuthRequest);
+    if (schoolId == null) throw createError('School context required', 403);
     const { id } = req.params;
     const { follow_up_date, next_follow_up_date, response, note } = req.body;
 
@@ -233,16 +260,18 @@ export const addEnquiryFollowUp = async (req: Request, res: Response, next: Next
     }
 
     const db = getDatabase();
+    const [enq] = await db.execute('SELECT id FROM admission_enquiries WHERE id = ? AND school_id = ?', [id, schoolId]) as any[];
+    if (enq.length === 0) throw createError('Enquiry not found', 404);
+
     const [result] = await db.execute(
-      'INSERT INTO enquiry_follow_ups (enquiry_id, follow_up_date, next_follow_up_date, response, note, created_at) VALUES (?, ?, ?, ?, ?, NOW())',
-      [id, follow_up_date, next_follow_up_date || null, response || null, note || null]
+      'INSERT INTO enquiry_follow_ups (school_id, enquiry_id, follow_up_date, next_follow_up_date, response, note, created_at) VALUES (?, ?, ?, ?, ?, ?, NOW())',
+      [schoolId, id, follow_up_date, next_follow_up_date || null, response || null, note || null]
     ) as any[];
 
-    // Update enquiry next follow up date
     if (next_follow_up_date) {
       await db.execute(
-        'UPDATE admission_enquiries SET next_follow_up_date = ? WHERE id = ?',
-        [next_follow_up_date, id]
+        'UPDATE admission_enquiries SET next_follow_up_date = ? WHERE id = ? AND school_id = ?',
+        [next_follow_up_date, id, schoolId]
       );
     }
 
@@ -255,15 +284,17 @@ export const addEnquiryFollowUp = async (req: Request, res: Response, next: Next
 // ========== Visitor Book ==========
 export const getVisitors = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
   try {
+    const schoolId = getSchoolId(req as AuthRequest);
+    if (schoolId == null) throw createError('School context required', 403);
     const { date, search } = req.query;
     const db = getDatabase();
     let query = `
       SELECT v.*, p.name as purpose_name
        FROM visitors v
-       LEFT JOIN front_office_purposes p ON v.purpose_id = p.id
-       WHERE 1=1
+       LEFT JOIN front_office_purposes p ON v.purpose_id = p.id AND p.school_id = ?
+       WHERE v.school_id = ?
     `;
-    const params: any[] = [];
+    const params: any[] = [schoolId, schoolId];
 
     if (date) {
       query += ' AND v.visit_date = ?';
@@ -286,6 +317,8 @@ export const getVisitors = async (req: Request, res: Response, next: NextFunctio
 
 export const createVisitor = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
   try {
+    const schoolId = getSchoolId(req as AuthRequest);
+    if (schoolId == null) throw createError('School context required', 403);
     const { purpose_id, name, phone, id_card, number_of_person, visit_date, in_time, out_time, note } = req.body;
 
     if (!name || !visit_date || !in_time) {
@@ -295,10 +328,10 @@ export const createVisitor = async (req: Request, res: Response, next: NextFunct
     const db = getDatabase();
     const [result] = await db.execute(
       `INSERT INTO visitors (
-        purpose_id, name, phone, id_card, number_of_person, visit_date, in_time, out_time, note, created_at
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, NOW())`,
+        school_id, purpose_id, name, phone, id_card, number_of_person, visit_date, in_time, out_time, note, created_at
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW())`,
       [
-        purpose_id || null, name, phone || null, id_card || null, number_of_person || 1,
+        schoolId, purpose_id || null, name, phone || null, id_card || null, number_of_person || 1,
         visit_date, in_time, out_time || null, note || null
       ]
     ) as any[];
@@ -311,11 +344,13 @@ export const createVisitor = async (req: Request, res: Response, next: NextFunct
 
 export const updateVisitor = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
   try {
+    const schoolId = getSchoolId(req as AuthRequest);
+    if (schoolId == null) throw createError('School context required', 403);
     const { id } = req.params;
     const { out_time } = req.body;
     const db = getDatabase();
 
-    await db.execute('UPDATE visitors SET out_time = ? WHERE id = ?', [out_time, id]);
+    await db.execute('UPDATE visitors SET out_time = ? WHERE id = ? AND school_id = ?', [out_time, id, schoolId]);
 
     res.json({ success: true, message: 'Visitor updated successfully' });
   } catch (error) {
@@ -326,10 +361,12 @@ export const updateVisitor = async (req: Request, res: Response, next: NextFunct
 // ========== Phone Call Log ==========
 export const getPhoneCallLogs = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
   try {
+    const schoolId = getSchoolId(req as AuthRequest);
+    if (schoolId == null) throw createError('School context required', 403);
     const { date, call_type, search } = req.query;
     const db = getDatabase();
-    let query = 'SELECT * FROM phone_call_logs WHERE 1=1';
-    const params: any[] = [];
+    let query = 'SELECT * FROM phone_call_logs WHERE school_id = ?';
+    const params: any[] = [schoolId];
 
     if (date) {
       query += ' AND call_date = ?';
@@ -356,6 +393,8 @@ export const getPhoneCallLogs = async (req: Request, res: Response, next: NextFu
 
 export const createPhoneCallLog = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
   try {
+    const schoolId = getSchoolId(req as AuthRequest);
+    if (schoolId == null) throw createError('School context required', 403);
     const { name, phone, call_date, call_time, description, next_follow_up_date, call_duration, note, call_type } = req.body;
 
     if (!name || !phone || !call_date) {
@@ -365,10 +404,10 @@ export const createPhoneCallLog = async (req: Request, res: Response, next: Next
     const db = getDatabase();
     const [result] = await db.execute(
       `INSERT INTO phone_call_logs (
-        name, phone, call_date, call_time, description, next_follow_up_date, call_duration, note, call_type, created_at
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, NOW())`,
+        school_id, name, phone, call_date, call_time, description, next_follow_up_date, call_duration, note, call_type, created_at
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW())`,
       [
-        name, phone, call_date, call_time || null, description || null,
+        schoolId, name, phone, call_date, call_time || null, description || null,
         next_follow_up_date || null, call_duration || null, note || null, call_type || 'incoming'
       ]
     ) as any[];
@@ -382,10 +421,12 @@ export const createPhoneCallLog = async (req: Request, res: Response, next: Next
 // ========== Postal Dispatch ==========
 export const getPostalDispatch = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
   try {
+    const schoolId = getSchoolId(req as AuthRequest);
+    if (schoolId == null) throw createError('School context required', 403);
     const { date, search } = req.query;
     const db = getDatabase();
-    let query = 'SELECT * FROM postal_dispatch WHERE 1=1';
-    const params: any[] = [];
+    let query = 'SELECT * FROM postal_dispatch WHERE school_id = ?';
+    const params: any[] = [schoolId];
 
     if (date) {
       query += ' AND dispatch_date = ?';
@@ -408,6 +449,8 @@ export const getPostalDispatch = async (req: Request, res: Response, next: NextF
 
 export const createPostalDispatch = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
   try {
+    const schoolId = getSchoolId(req as AuthRequest);
+    if (schoolId == null) throw createError('School context required', 403);
     const { to_title, reference_no, address, note, from_title, dispatch_date } = req.body;
 
     if (!to_title || !dispatch_date) {
@@ -417,9 +460,9 @@ export const createPostalDispatch = async (req: Request, res: Response, next: Ne
     const db = getDatabase();
     const [result] = await db.execute(
       `INSERT INTO postal_dispatch (
-        to_title, reference_no, address, note, from_title, dispatch_date, created_at
-      ) VALUES (?, ?, ?, ?, ?, ?, NOW())`,
-      [to_title, reference_no || null, address || null, note || null, from_title || null, dispatch_date]
+        school_id, to_title, reference_no, address, note, from_title, dispatch_date, created_at
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, NOW())`,
+      [schoolId, to_title, reference_no || null, address || null, note || null, from_title || null, dispatch_date]
     ) as any[];
 
     res.status(201).json({ success: true, message: 'Postal dispatch recorded successfully', data: { id: result.insertId } });
@@ -431,10 +474,12 @@ export const createPostalDispatch = async (req: Request, res: Response, next: Ne
 // ========== Postal Receive ==========
 export const getPostalReceive = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
   try {
+    const schoolId = getSchoolId(req as AuthRequest);
+    if (schoolId == null) throw createError('School context required', 403);
     const { date, search } = req.query;
     const db = getDatabase();
-    let query = 'SELECT * FROM postal_receive WHERE 1=1';
-    const params: any[] = [];
+    let query = 'SELECT * FROM postal_receive WHERE school_id = ?';
+    const params: any[] = [schoolId];
 
     if (date) {
       query += ' AND receive_date = ?';
@@ -457,6 +502,8 @@ export const getPostalReceive = async (req: Request, res: Response, next: NextFu
 
 export const createPostalReceive = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
   try {
+    const schoolId = getSchoolId(req as AuthRequest);
+    if (schoolId == null) throw createError('School context required', 403);
     const { from_title, reference_no, address, note, to_title, receive_date } = req.body;
 
     if (!from_title || !receive_date) {
@@ -466,9 +513,9 @@ export const createPostalReceive = async (req: Request, res: Response, next: Nex
     const db = getDatabase();
     const [result] = await db.execute(
       `INSERT INTO postal_receive (
-        from_title, reference_no, address, note, to_title, receive_date, created_at
-      ) VALUES (?, ?, ?, ?, ?, ?, NOW())`,
-      [from_title, reference_no || null, address || null, note || null, to_title || null, receive_date]
+        school_id, from_title, reference_no, address, note, to_title, receive_date, created_at
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, NOW())`,
+      [schoolId, from_title, reference_no || null, address || null, note || null, to_title || null, receive_date]
     ) as any[];
 
     res.status(201).json({ success: true, message: 'Postal receive recorded successfully', data: { id: result.insertId } });
@@ -480,6 +527,8 @@ export const createPostalReceive = async (req: Request, res: Response, next: Nex
 // ========== Complain ==========
 export const getComplains = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
   try {
+    const schoolId = getSchoolId(req as AuthRequest);
+    if (schoolId == null) throw createError('School context required', 403);
     const { status, complain_type_id, source_id, search } = req.query;
     const db = getDatabase();
     let query = `
@@ -487,12 +536,12 @@ export const getComplains = async (req: Request, res: Response, next: NextFuncti
        ct.name as complain_type_name, s.name as source_name,
        u.name as assigned_name
        FROM complains c
-       LEFT JOIN front_office_complain_types ct ON c.complain_type_id = ct.id
-       LEFT JOIN front_office_sources s ON c.source_id = s.id
+       LEFT JOIN front_office_complain_types ct ON c.complain_type_id = ct.id AND ct.school_id = ?
+       LEFT JOIN front_office_sources s ON c.source_id = s.id AND s.school_id = ?
        LEFT JOIN users u ON c.assigned_to = u.id
-       WHERE 1=1
+       WHERE c.school_id = ?
     `;
-    const params: any[] = [];
+    const params: any[] = [schoolId, schoolId, schoolId];
 
     if (status) {
       query += ' AND c.status = ?';
@@ -523,6 +572,8 @@ export const getComplains = async (req: Request, res: Response, next: NextFuncti
 
 export const createComplain = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
   try {
+    const schoolId = getSchoolId(req as AuthRequest);
+    if (schoolId == null) throw createError('School context required', 403);
     const {
       complain_type_id, source_id, complain_by, phone, complain_date, description,
       action_taken, assigned_to, note, status
@@ -535,11 +586,11 @@ export const createComplain = async (req: Request, res: Response, next: NextFunc
     const db = getDatabase();
     const [result] = await db.execute(
       `INSERT INTO complains (
-        complain_type_id, source_id, complain_by, phone, complain_date, description,
+        school_id, complain_type_id, source_id, complain_by, phone, complain_date, description,
         action_taken, assigned_to, note, status, created_at
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW())`,
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW())`,
       [
-        complain_type_id || null, source_id || null, complain_by, phone || null,
+        schoolId, complain_type_id || null, source_id || null, complain_by, phone || null,
         complain_date, description, action_taken || null, assigned_to || null,
         note || null, status || 'pending'
       ]
@@ -553,6 +604,8 @@ export const createComplain = async (req: Request, res: Response, next: NextFunc
 
 export const updateComplain = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
   try {
+    const schoolId = getSchoolId(req as AuthRequest);
+    if (schoolId == null) throw createError('School context required', 403);
     const { id } = req.params;
     const updates = req.body;
     const db = getDatabase();
@@ -577,9 +630,9 @@ export const updateComplain = async (req: Request, res: Response, next: NextFunc
     }
 
     updateFields.push('updated_at = NOW()');
-    params.push(id);
+    params.push(id, schoolId);
 
-    await db.execute(`UPDATE complains SET ${updateFields.join(', ')} WHERE id = ?`, params);
+    await db.execute(`UPDATE complains SET ${updateFields.join(', ')} WHERE id = ? AND school_id = ?`, params);
 
     res.json({ success: true, message: 'Complain updated successfully' });
   } catch (error) {

@@ -47,12 +47,12 @@ import {
   generateCronSecretKey,
   uploadBackup,
 } from '../controllers/settings.controller';
-import { authenticate, authorize } from '../middleware/auth';
+import { authenticate, authorize, requireSchool } from '../middleware/auth';
 import { checkPermission } from '../middleware/permissions';
 
 const router = express.Router();
 
-router.use(authenticate);
+router.use(authenticate, requireSchool);
 
 // General Settings - Only for admin/superadmin
 router.get('/general', authorize('superadmin', 'admin'), checkPermission('settings', 'view'), getGeneralSettings);

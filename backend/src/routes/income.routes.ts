@@ -6,19 +6,17 @@ import {
   createIncome,
   getRecentIncome,
 } from '../controllers/income.controller';
-import { authenticate } from '../middleware/auth';
+import { authenticate, requireSchool } from '../middleware/auth';
 import { checkPermission } from '../middleware/permissions';
 
 const router = express.Router();
 
-// Skip authentication for public routes - check path before applying auth
 router.use((req, res, next) => {
-  // If this is a public route, skip authentication middleware
-  if (req.path && req.path.startsWith('/public/')) {
-    return next(); // Continue without authentication
-  }
-  // Otherwise, apply authentication
-  authenticate(req, res, next);
+  if (req.path && req.path.startsWith('/public/')) return next();
+  authenticate(req, res, (err?: any) => {
+    if (err) return next(err);
+    requireSchool(req, res, next);
+  });
 });
 
 // Income Heads

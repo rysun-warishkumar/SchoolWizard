@@ -16,13 +16,12 @@ import {
   getInventoryReport,
   getAdmissionEnquiryReport,
 } from '../controllers/reports.controller';
-import { authenticate } from '../middleware/auth';
+import { authenticate, requireSchool } from '../middleware/auth';
 import { checkPermission } from '../middleware/permissions';
 
 const router = express.Router();
 
-// All routes require authentication
-router.use(authenticate);
+router.use(authenticate, requireSchool);
 
 // Student Reports
 router.get('/students/list', checkPermission('reports', 'view'), getStudentListReport);

@@ -1,14 +1,18 @@
 import { Request, Response, NextFunction } from 'express';
 import { getDatabase } from '../config/database';
 import { createError } from '../middleware/errorHandler';
+import { AuthRequest, getSchoolId } from '../middleware/auth';
 
 // ========== Hostels ==========
 
 export const getHostels = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
   try {
+    const schoolId = getSchoolId(req as AuthRequest);
+    if (schoolId == null) throw createError('School context required', 403);
     const db = getDatabase();
     const [hostels] = await db.execute(
-      'SELECT * FROM hostels ORDER BY name ASC'
+      'SELECT * FROM hostels WHERE school_id = ? ORDER BY name ASC',
+      [schoolId]
     ) as any[];
 
     res.json({
@@ -22,6 +26,8 @@ export const getHostels = async (req: Request, res: Response, next: NextFunction
 
 export const createHostel = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
   try {
+    const schoolId = getSchoolId(req as AuthRequest);
+    if (schoolId == null) throw createError('School context required', 403);
     const { name, type, address, intake, description } = req.body;
 
     if (!name || !type) {
@@ -34,8 +40,9 @@ export const createHostel = async (req: Request, res: Response, next: NextFuncti
 
     const db = getDatabase();
     const [result] = await db.execute(
-      'INSERT INTO hostels (name, type, address, intake, description) VALUES (?, ?, ?, ?, ?)',
+      'INSERT INTO hostels (school_id, name, type, address, intake, description) VALUES (?, ?, ?, ?, ?, ?)',
       [
+        schoolId,
         name.trim(),
         type,
         address?.trim() || null,
@@ -59,6 +66,8 @@ export const createHostel = async (req: Request, res: Response, next: NextFuncti
 
 export const updateHostel = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
   try {
+    const schoolId = getSchoolId(req as AuthRequest);
+    if (schoolId == null) throw createError('School context required', 403);
     const { id } = req.params;
     const { name, type, address, intake, description } = req.body;
 
@@ -72,7 +81,7 @@ export const updateHostel = async (req: Request, res: Response, next: NextFuncti
 
     const db = getDatabase();
     await db.execute(
-      'UPDATE hostels SET name = ?, type = ?, address = ?, intake = ?, description = ? WHERE id = ?',
+      'UPDATE hostels SET name = ?, type = ?, address = ?, intake = ?, description = ? WHERE id = ? AND school_id = ?',
       [
         name.trim(),
         type,
@@ -80,6 +89,7 @@ export const updateHostel = async (req: Request, res: Response, next: NextFuncti
         intake || 0,
         description?.trim() || null,
         id,
+        schoolId,
       ]
     );
 
@@ -97,10 +107,12 @@ export const updateHostel = async (req: Request, res: Response, next: NextFuncti
 
 export const deleteHostel = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
   try {
+    const schoolId = getSchoolId(req as AuthRequest);
+    if (schoolId == null) throw createError('School context required', 403);
     const { id } = req.params;
     const db = getDatabase();
 
-    await db.execute('DELETE FROM hostels WHERE id = ?', [id]);
+    await db.execute('DELETE FROM hostels WHERE id = ? AND school_id = ?', [id, schoolId]);
 
     res.json({
       success: true,
@@ -115,9 +127,12 @@ export const deleteHostel = async (req: Request, res: Response, next: NextFuncti
 
 export const getRoomTypes = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
   try {
+    const schoolId = getSchoolId(req as AuthRequest);
+    if (schoolId == null) throw createError('School context required', 403);
     const db = getDatabase();
     const [roomTypes] = await db.execute(
-      'SELECT * FROM room_types ORDER BY name ASC'
+      'SELECT * FROM room_types WHERE school_id = ? ORDER BY name ASC',
+      [schoolId]
     ) as any[];
 
     res.json({
@@ -131,6 +146,8 @@ export const getRoomTypes = async (req: Request, res: Response, next: NextFuncti
 
 export const createRoomType = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
   try {
+    const schoolId = getSchoolId(req as AuthRequest);
+    if (schoolId == null) throw createError('School context required', 403);
     const { name, description } = req.body;
 
     if (!name) {
@@ -139,8 +156,8 @@ export const createRoomType = async (req: Request, res: Response, next: NextFunc
 
     const db = getDatabase();
     const [result] = await db.execute(
-      'INSERT INTO room_types (name, description) VALUES (?, ?)',
-      [name.trim(), description?.trim() || null]
+      'INSERT INTO room_types (school_id, name, description) VALUES (?, ?, ?)',
+      [schoolId, name.trim(), description?.trim() || null]
     ) as any;
 
     res.status(201).json({
@@ -158,6 +175,8 @@ export const createRoomType = async (req: Request, res: Response, next: NextFunc
 
 export const updateRoomType = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
   try {
+    const schoolId = getSchoolId(req as AuthRequest);
+    if (schoolId == null) throw createError('School context required', 403);
     const { id } = req.params;
     const { name, description } = req.body;
 
@@ -167,8 +186,8 @@ export const updateRoomType = async (req: Request, res: Response, next: NextFunc
 
     const db = getDatabase();
     await db.execute(
-      'UPDATE room_types SET name = ?, description = ? WHERE id = ?',
-      [name.trim(), description?.trim() || null, id]
+      'UPDATE room_types SET name = ?, description = ? WHERE id = ? AND school_id = ?',
+      [name.trim(), description?.trim() || null, id, schoolId]
     );
 
     res.json({
@@ -185,10 +204,12 @@ export const updateRoomType = async (req: Request, res: Response, next: NextFunc
 
 export const deleteRoomType = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
   try {
+    const schoolId = getSchoolId(req as AuthRequest);
+    if (schoolId == null) throw createError('School context required', 403);
     const { id } = req.params;
     const db = getDatabase();
 
-    await db.execute('DELETE FROM room_types WHERE id = ?', [id]);
+    await db.execute('DELETE FROM room_types WHERE id = ? AND school_id = ?', [id, schoolId]);
 
     res.json({
       success: true,
@@ -203,6 +224,8 @@ export const deleteRoomType = async (req: Request, res: Response, next: NextFunc
 
 export const getHostelRooms = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
   try {
+    const schoolId = getSchoolId(req as AuthRequest);
+    if (schoolId == null) throw createError('School context required', 403);
     const db = getDatabase();
     const { hostel_id, room_type_id } = req.query;
 
@@ -212,11 +235,11 @@ export const getHostelRooms = async (req: Request, res: Response, next: NextFunc
              h.type as hostel_type,
              rt.name as room_type_name
       FROM hostel_rooms hr
-      LEFT JOIN hostels h ON hr.hostel_id = h.id
-      LEFT JOIN room_types rt ON hr.room_type_id = rt.id
-      WHERE 1=1
+      LEFT JOIN hostels h ON hr.hostel_id = h.id AND h.school_id = ?
+      LEFT JOIN room_types rt ON hr.room_type_id = rt.id AND rt.school_id = ?
+      WHERE hr.school_id = ?
     `;
-    const params: any[] = [];
+    const params: any[] = [schoolId, schoolId, schoolId];
 
     if (hostel_id) {
       query += ' AND hr.hostel_id = ?';
@@ -243,6 +266,8 @@ export const getHostelRooms = async (req: Request, res: Response, next: NextFunc
 
 export const createHostelRoom = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
   try {
+    const schoolId = getSchoolId(req as AuthRequest);
+    if (schoolId == null) throw createError('School context required', 403);
     const { hostel_id, room_type_id, room_no, no_of_bed, cost_per_bed, description } = req.body;
 
     if (!hostel_id || !room_type_id || !room_no || !no_of_bed || cost_per_bed === undefined) {
@@ -259,9 +284,10 @@ export const createHostelRoom = async (req: Request, res: Response, next: NextFu
 
     const db = getDatabase();
     const [result] = await db.execute(
-      `INSERT INTO hostel_rooms (hostel_id, room_type_id, room_no, no_of_bed, cost_per_bed, description)
-       VALUES (?, ?, ?, ?, ?, ?)`,
+      `INSERT INTO hostel_rooms (school_id, hostel_id, room_type_id, room_no, no_of_bed, cost_per_bed, description)
+       VALUES (?, ?, ?, ?, ?, ?, ?)`,
       [
+        schoolId,
         hostel_id,
         room_type_id,
         room_no.trim(),
@@ -286,6 +312,8 @@ export const createHostelRoom = async (req: Request, res: Response, next: NextFu
 
 export const updateHostelRoom = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
   try {
+    const schoolId = getSchoolId(req as AuthRequest);
+    if (schoolId == null) throw createError('School context required', 403);
     const { id } = req.params;
     const { hostel_id, room_type_id, room_no, no_of_bed, cost_per_bed, description } = req.body;
 
@@ -305,7 +333,7 @@ export const updateHostelRoom = async (req: Request, res: Response, next: NextFu
     await db.execute(
       `UPDATE hostel_rooms 
        SET hostel_id = ?, room_type_id = ?, room_no = ?, no_of_bed = ?, cost_per_bed = ?, description = ?
-       WHERE id = ?`,
+       WHERE id = ? AND school_id = ?`,
       [
         hostel_id,
         room_type_id,
@@ -314,6 +342,7 @@ export const updateHostelRoom = async (req: Request, res: Response, next: NextFu
         cost_per_bed,
         description?.trim() || null,
         id,
+        schoolId,
       ]
     );
 
@@ -331,10 +360,12 @@ export const updateHostelRoom = async (req: Request, res: Response, next: NextFu
 
 export const deleteHostelRoom = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
   try {
+    const schoolId = getSchoolId(req as AuthRequest);
+    if (schoolId == null) throw createError('School context required', 403);
     const { id } = req.params;
     const db = getDatabase();
 
-    await db.execute('DELETE FROM hostel_rooms WHERE id = ?', [id]);
+    await db.execute('DELETE FROM hostel_rooms WHERE id = ? AND school_id = ?', [id, schoolId]);
 
     res.json({
       success: true,

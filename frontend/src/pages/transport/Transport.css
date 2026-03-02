@@ -2,18 +2,6 @@
   padding: var(--spacing-lg);
 }
 
-.page-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: var(--spacing-lg);
-}
-
-.page-header h1 {
-  margin: 0;
-  color: var(--gray-800);
-}
-
 .transport-tabs {
   display: flex;
   gap: var(--spacing-sm);
@@ -62,99 +50,14 @@
   width: 100%;
 }
 
-.tab-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: var(--spacing-lg);
-  flex-wrap: wrap;
-  gap: var(--spacing-md);
-}
-
-.filters-section {
-  display: flex;
-  gap: var(--spacing-md);
-  flex-wrap: wrap;
-  flex: 1;
-}
-
-.filter-select {
-  padding: var(--spacing-sm) var(--spacing-md);
-  border: 1px solid var(--gray-300);
-  border-radius: var(--border-radius);
-  background-color: var(--white);
-  font-size: var(--font-size-base);
-  cursor: pointer;
-}
-
-/* Form Styles */
-.form-row {
+/* .tab-header, .filters-section use common.css; form styles use index.css */
+.transport-content .form-row {
   display: flex;
   gap: var(--spacing-lg);
-  margin-bottom: var(--spacing-md);
 }
 
-.form-row > .form-group {
-  flex: 1;
-}
-
-.form-group {
-  margin-bottom: var(--spacing-md);
-}
-
-.form-group label {
-  display: block;
-  margin-bottom: var(--spacing-xs);
-  font-weight: 500;
-  color: var(--gray-700);
-}
-
-.form-group input[type='text'],
-.form-group input[type='number'],
-.form-group select,
-.form-group textarea {
-  width: 100%;
-  padding: var(--spacing-sm);
-  border: 1px solid var(--gray-300);
-  border-radius: var(--border-radius-sm);
-  font-size: var(--font-size-base);
-}
-
-.form-group input:focus,
-.form-group select:focus,
-.form-group textarea:focus {
-  border-color: var(--primary-color);
-  outline: none;
-  box-shadow: 0 0 0 2px rgba(var(--primary-rgb), 0.2);
-}
-
-.form-group textarea {
-  resize: vertical;
-}
-
-.form-actions {
-  display: flex;
+.transport-content .form-actions {
   justify-content: flex-end;
-  gap: var(--spacing-md);
-  margin-top: var(--spacing-lg);
-}
-
-.required {
-  color: var(--danger-color);
-  margin-left: var(--spacing-xs);
-}
-
-.empty-state {
-  text-align: center;
-  color: var(--gray-500);
-  padding: var(--spacing-xl);
-  font-style: italic;
-}
-
-.loading {
-  text-align: center;
-  padding: var(--spacing-xl);
-  color: var(--primary-color);
 }
 
 .data-table {

@@ -8,12 +8,12 @@ import {
   getItemIssues, createItemIssue, returnItemIssue, deleteItemIssue,
   getAvailableStock,
 } from '../controllers/inventory.controller';
-import { authenticate } from '../middleware/auth';
+import { authenticate, requireSchool } from '../middleware/auth';
 import { checkPermission } from '../middleware/permissions';
 
 const router = express.Router();
 
-router.use(authenticate);
+router.use(authenticate, requireSchool);
 
 // Item Categories Routes
 router.get('/categories', checkPermission('inventory', 'view'), getItemCategories);

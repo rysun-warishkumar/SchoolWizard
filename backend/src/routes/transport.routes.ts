@@ -4,12 +4,12 @@ import {
   getVehicles, createVehicle, updateVehicle, deleteVehicle,
   getVehicleAssignments, createVehicleAssignment, deleteVehicleAssignment,
 } from '../controllers/transport.controller';
-import { authenticate, authorize } from '../middleware/auth';
+import { authenticate, authorize, requireSchool } from '../middleware/auth';
 import { checkPermission } from '../middleware/permissions';
 
 const router = express.Router();
 
-router.use(authenticate);
+router.use(authenticate, requireSchool);
 
 // Routes
 router.get('/routes', checkPermission('transport', 'view'), getRoutes);

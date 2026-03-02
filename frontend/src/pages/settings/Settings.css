@@ -158,10 +158,9 @@
   margin-bottom: var(--spacing-lg);
 }
 
-.form-row {
-  display: grid;
+/* .form-row use global from index.css; Settings override in media query below */
+.settings-content .form-row {
   grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
-  gap: var(--spacing-lg);
 }
 
 @media (max-width: 768px) {
@@ -230,19 +229,12 @@
   }
 }
 
-.form-group {
+/* Checkbox and help text overrides for Settings */
+.settings-content .form-group {
   margin-bottom: var(--spacing-lg);
 }
 
-.form-group label {
-  display: block;
-  margin-bottom: var(--spacing-sm);
-  font-weight: 500;
-  color: var(--gray-700);
-}
-
-/* Checkbox label alignment - for labels containing checkboxes */
-.form-group label:has(input[type="checkbox"]) {
+.settings-content .form-group label:has(input[type="checkbox"]) {
   display: flex;
   align-items: center;
   gap: var(--spacing-sm);
@@ -250,23 +242,7 @@
   margin-bottom: var(--spacing-md);
 }
 
-.form-group input[type="text"],
-.form-group input[type="email"],
-.form-group input[type="tel"],
-.form-group input[type="date"],
-.form-group input[type="number"],
-.form-group select,
-.form-group textarea {
-  width: 100%;
-  padding: var(--spacing-md);
-  border: 1px solid var(--gray-300);
-  border-radius: var(--radius-md);
-  font-size: var(--font-size-base);
-  font-family: inherit;
-  box-sizing: border-box;
-}
-
-.form-group input[type="checkbox"] {
+.settings-content .form-group input[type="checkbox"] {
   margin: 0;
   width: 18px;
   height: 18px;
@@ -274,20 +250,15 @@
   flex-shrink: 0;
 }
 
-.form-actions {
-  display: flex;
+.settings-content .form-actions {
   justify-content: flex-end;
-  margin-top: var(--spacing-xl);
 }
 
-.section-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
+.settings-content .section-header {
   margin-bottom: var(--spacing-lg);
 }
 
-.section-header h3 {
+.settings-content .section-header h3 {
   margin: 0;
 }
 
@@ -437,10 +408,8 @@
   color: var(--white);
 }
 
-.empty-state {
-  text-align: center;
+.settings-content .empty-state {
   padding: var(--spacing-2xl);
-  color: var(--gray-500);
   background: var(--gray-50);
   border-radius: var(--radius-md);
 }

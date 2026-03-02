@@ -4,15 +4,15 @@ import { createError, AuthenticationError } from './errorHandler';
 import { env } from '../config/env';
 
 // AuthRequest extends Request with user property
-// Using type intersection to ensure all Request properties are available
 export type AuthRequest = Request & {
   user?: {
     id: string;
     email: string;
     role: string;
     roleId: string;
+    schoolId?: number | null;
+    isPlatformAdmin?: boolean;
   };
-  // Explicitly include Request properties to avoid TypeScript errors
   params: any;
   body: any;
   query: any;
@@ -20,6 +20,16 @@ export type AuthRequest = Request & {
   file?: any;
   files?: any;
 };
+
+/**
+ * Get the school ID for the current request (tenant scope).
+ * Returns null for platform admin (school_id IS NULL).
+ */
+export function getSchoolId(req: AuthRequest): number | null {
+  if (!req.user?.schoolId) return null;
+  const id = req.user.schoolId;
+  return typeof id === 'number' ? id : Number(id);
+}
 
 export const authenticate = (
   req: AuthRequest,
@@ -41,9 +51,18 @@ export const authenticate = (
       email: string;
       role: string;
       roleId: string;
+      schoolId?: number;
+      isPlatformAdmin?: boolean;
     };
 
-    req.user = decoded;
+    req.user = {
+      id: decoded.id,
+      email: decoded.email,
+      role: decoded.role,
+      roleId: decoded.roleId,
+      schoolId: decoded.schoolId ?? null,
+      isPlatformAdmin: decoded.isPlatformAdmin,
+    };
     next();
   } catch (error: any) {
     if (error.name === 'JsonWebTokenError') {
@@ -68,5 +87,42 @@ export const authorize = (...roles: string[]) => {
 
     next();
   };
+};
+
+/**
+ * Restrict access to platform superadmin only (role superadmin and school_id IS NULL).
+ * Use for /api/v1/platform/* routes.
+ */
+export const requirePlatformAdmin = (
+  req: AuthRequest,
+  res: Response,
+  next: NextFunction
+): void => {
+  if (!req.user) {
+    return next(new AuthenticationError('Not authenticated'));
+  }
+  if (req.user.role !== 'superadmin' || req.user.schoolId != null) {
+    return next(createError('Platform admin access only', 403));
+  }
+  next();
+};
+
+/**
+ * Require that the user belongs to a school (tenant). Use on all tenant-scoped routes.
+ * Platform admin (school_id IS NULL) gets 403 so they cannot see other schools' data.
+ */
+export const requireSchool = (
+  req: AuthRequest,
+  res: Response,
+  next: NextFunction
+): void => {
+  if (!req.user) {
+    return next(new AuthenticationError('Not authenticated'));
+  }
+  const schoolId = getSchoolId(req);
+  if (schoolId == null) {
+    return next(createError('School context required. Use Platform Admin for platform management.', 403));
+  }
+  next();
 };
 

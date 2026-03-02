@@ -1,12 +1,14 @@
 import { Request, Response, NextFunction } from 'express';
 import { getDatabase } from '../config/database';
 import { createError } from '../middleware/errorHandler';
-import { AuthRequest } from '../middleware/auth';
+import { AuthRequest, getSchoolId } from '../middleware/auth';
 
 // ========== Calendar Events ==========
 
 export const getCalendarEvents = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
   try {
+    const schoolId = getSchoolId(req as AuthRequest);
+    if (schoolId == null) throw createError('School context required', 403);
     const { start_date, end_date } = req.query;
     const db = getDatabase();
     const userId = (req as AuthRequest).user?.id;
@@ -21,14 +23,14 @@ export const getCalendarEvents = async (req: Request, res: Response, next: NextF
       FROM calendar_events ce
       INNER JOIN users u ON ce.user_id = u.id
       LEFT JOIN roles r ON u.role_id = r.id
-      WHERE (
+      WHERE ce.school_id = ? AND (
         ce.event_type = 'public' OR
         (ce.event_type = 'private' AND ce.user_id = ?) OR
         (ce.event_type = 'role' AND ce.role_name = ? AND ce.role_name IS NOT NULL) OR
         (ce.event_type = 'protected' AND r.name IN ('superadmin', 'admin', 'teacher', 'staff'))
       )
     `;
-    const params: any[] = [userId, userRole || ''];
+    const params: any[] = [schoolId, userId, userRole || ''];
 
     if (start_date && end_date) {
       query += ' AND ce.event_date BETWEEN ? AND ?';
@@ -50,6 +52,8 @@ export const getCalendarEvents = async (req: Request, res: Response, next: NextF
 
 export const getCalendarEventById = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
   try {
+    const schoolId = getSchoolId(req as AuthRequest);
+    if (schoolId == null) throw createError('School context required', 403);
     const { id } = req.params;
     const db = getDatabase();
     const userId = (req as AuthRequest).user?.id;
@@ -64,13 +68,13 @@ export const getCalendarEventById = async (req: Request, res: Response, next: Ne
        FROM calendar_events ce
        INNER JOIN users u ON ce.user_id = u.id
        LEFT JOIN roles r ON u.role_id = r.id
-       WHERE ce.id = ? AND (
+       WHERE ce.id = ? AND ce.school_id = ? AND (
          ce.event_type = 'public' OR
          (ce.event_type = 'private' AND ce.user_id = ?) OR
          (ce.event_type = 'role' AND ce.role_name = ? AND ce.role_name IS NOT NULL) OR
          (ce.event_type = 'protected' AND r.name IN ('superadmin', 'admin', 'teacher', 'staff'))
        )`,
-      [id, userId, userRole || '']
+      [id, schoolId, userId, userRole || '']
     ) as any[];
 
     if (events.length === 0) {
@@ -88,6 +92,8 @@ export const getCalendarEventById = async (req: Request, res: Response, next: Ne
 
 export const createCalendarEvent = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
   try {
+    const schoolId = getSchoolId(req as AuthRequest);
+    if (schoolId == null) throw createError('School context required', 403);
     const { title, description, event_date, event_color, event_type, role_name } = req.body;
     const db = getDatabase();
     const userId = (req as AuthRequest).user?.id;
@@ -102,9 +108,10 @@ export const createCalendarEvent = async (req: Request, res: Response, next: Nex
 
     const [result] = await db.execute(
       `INSERT INTO calendar_events 
-       (user_id, title, description, event_date, event_color, event_type, role_name)
-       VALUES (?, ?, ?, ?, ?, ?, ?)`,
+       (school_id, user_id, title, description, event_date, event_color, event_type, role_name)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
       [
+        schoolId,
         userId,
         title.trim(),
         description?.trim() || null,
@@ -127,6 +134,8 @@ export const createCalendarEvent = async (req: Request, res: Response, next: Nex
 
 export const updateCalendarEvent = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
   try {
+    const schoolId = getSchoolId(req as AuthRequest);
+    if (schoolId == null) throw createError('School context required', 403);
     const { id } = req.params;
     const { title, description, event_date, event_color, event_type, role_name } = req.body;
     const db = getDatabase();
@@ -136,10 +145,9 @@ export const updateCalendarEvent = async (req: Request, res: Response, next: Nex
       throw createError('User not authenticated', 401);
     }
 
-    // Check if event exists and user owns it
     const [existing] = await db.execute(
-      'SELECT * FROM calendar_events WHERE id = ? AND user_id = ?',
-      [id, userId]
+      'SELECT * FROM calendar_events WHERE id = ? AND user_id = ? AND school_id = ?',
+      [id, userId, schoolId]
     ) as any[];
 
     if (existing.length === 0) {
@@ -149,7 +157,7 @@ export const updateCalendarEvent = async (req: Request, res: Response, next: Nex
     await db.execute(
       `UPDATE calendar_events SET
        title = ?, description = ?, event_date = ?, event_color = ?, event_type = ?, role_name = ?
-       WHERE id = ? AND user_id = ?`,
+       WHERE id = ? AND user_id = ? AND school_id = ?`,
       [
         title?.trim() || existing[0].title,
         description?.trim() || existing[0].description,
@@ -159,6 +167,7 @@ export const updateCalendarEvent = async (req: Request, res: Response, next: Nex
         event_type === 'role' ? role_name : null,
         id,
         userId,
+        schoolId,
       ]
     );
 
@@ -173,6 +182,8 @@ export const updateCalendarEvent = async (req: Request, res: Response, next: Nex
 
 export const deleteCalendarEvent = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
   try {
+    const schoolId = getSchoolId(req as AuthRequest);
+    if (schoolId == null) throw createError('School context required', 403);
     const { id } = req.params;
     const db = getDatabase();
     const userId = (req as AuthRequest).user?.id;
@@ -181,17 +192,16 @@ export const deleteCalendarEvent = async (req: Request, res: Response, next: Nex
       throw createError('User not authenticated', 401);
     }
 
-    // Check if event exists and user owns it
     const [existing] = await db.execute(
-      'SELECT * FROM calendar_events WHERE id = ? AND user_id = ?',
-      [id, userId]
+      'SELECT * FROM calendar_events WHERE id = ? AND user_id = ? AND school_id = ?',
+      [id, userId, schoolId]
     ) as any[];
 
     if (existing.length === 0) {
       throw createError('Calendar event not found or you do not have permission to delete it', 404);
     }
 
-    await db.execute('DELETE FROM calendar_events WHERE id = ? AND user_id = ?', [id, userId]);
+    await db.execute('DELETE FROM calendar_events WHERE id = ? AND user_id = ? AND school_id = ?', [id, userId, schoolId]);
 
     res.json({
       success: true,
@@ -206,6 +216,8 @@ export const deleteCalendarEvent = async (req: Request, res: Response, next: Nex
 
 export const getTodoTasks = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
   try {
+    const schoolId = getSchoolId(req as AuthRequest);
+    if (schoolId == null) throw createError('School context required', 403);
     const { start_date, end_date, is_completed } = req.query;
     const db = getDatabase();
     const userId = (req as AuthRequest).user?.id;
@@ -214,8 +226,8 @@ export const getTodoTasks = async (req: Request, res: Response, next: NextFuncti
       throw createError('User not authenticated', 401);
     }
 
-    let query = 'SELECT * FROM todo_tasks WHERE user_id = ?';
-    const params: any[] = [userId];
+    let query = 'SELECT * FROM todo_tasks WHERE user_id = ? AND school_id = ?';
+    const params: any[] = [userId, schoolId];
 
     if (start_date && end_date) {
       query += ' AND task_date BETWEEN ? AND ?';
@@ -245,6 +257,8 @@ export const getTodoTasks = async (req: Request, res: Response, next: NextFuncti
 
 export const getTodoTaskById = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
   try {
+    const schoolId = getSchoolId(req as AuthRequest);
+    if (schoolId == null) throw createError('School context required', 403);
     const { id } = req.params;
     const db = getDatabase();
     const userId = (req as AuthRequest).user?.id;
@@ -254,8 +268,8 @@ export const getTodoTaskById = async (req: Request, res: Response, next: NextFun
     }
 
     const [tasks] = await db.execute(
-      'SELECT * FROM todo_tasks WHERE id = ? AND user_id = ?',
-      [id, userId]
+      'SELECT * FROM todo_tasks WHERE id = ? AND user_id = ? AND school_id = ?',
+      [id, userId, schoolId]
     ) as any[];
 
     if (tasks.length === 0) {
@@ -273,6 +287,8 @@ export const getTodoTaskById = async (req: Request, res: Response, next: NextFun
 
 export const createTodoTask = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
   try {
+    const schoolId = getSchoolId(req as AuthRequest);
+    if (schoolId == null) throw createError('School context required', 403);
     const { title, task_date } = req.body;
     const db = getDatabase();
     const userId = (req as AuthRequest).user?.id;
@@ -286,8 +302,8 @@ export const createTodoTask = async (req: Request, res: Response, next: NextFunc
     }
 
     const [result] = await db.execute(
-      'INSERT INTO todo_tasks (user_id, title, task_date) VALUES (?, ?, ?)',
-      [userId, title.trim(), task_date]
+      'INSERT INTO todo_tasks (school_id, user_id, title, task_date) VALUES (?, ?, ?, ?)',
+      [schoolId, userId, title.trim(), task_date]
     ) as any;
 
     res.status(201).json({
@@ -302,6 +318,8 @@ export const createTodoTask = async (req: Request, res: Response, next: NextFunc
 
 export const updateTodoTask = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
   try {
+    const schoolId = getSchoolId(req as AuthRequest);
+    if (schoolId == null) throw createError('School context required', 403);
     const { id } = req.params;
     const { title, task_date, is_completed } = req.body;
     const db = getDatabase();
@@ -311,10 +329,9 @@ export const updateTodoTask = async (req: Request, res: Response, next: NextFunc
       throw createError('User not authenticated', 401);
     }
 
-    // Check if task exists and user owns it
     const [existing] = await db.execute(
-      'SELECT * FROM todo_tasks WHERE id = ? AND user_id = ?',
-      [id, userId]
+      'SELECT * FROM todo_tasks WHERE id = ? AND user_id = ? AND school_id = ?',
+      [id, userId, schoolId]
     ) as any[];
 
     if (existing.length === 0) {
@@ -331,10 +348,10 @@ export const updateTodoTask = async (req: Request, res: Response, next: NextFunc
 
     const updateFields = Object.keys(updateData).map(key => `${key} = ?`).join(', ');
     const updateValues = Object.values(updateData);
-    updateValues.push(id, userId);
+    updateValues.push(id, userId, schoolId);
 
     await db.execute(
-      `UPDATE todo_tasks SET ${updateFields} WHERE id = ? AND user_id = ?`,
+      `UPDATE todo_tasks SET ${updateFields} WHERE id = ? AND user_id = ? AND school_id = ?`,
       updateValues
     );
 
@@ -349,6 +366,8 @@ export const updateTodoTask = async (req: Request, res: Response, next: NextFunc
 
 export const deleteTodoTask = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
   try {
+    const schoolId = getSchoolId(req as AuthRequest);
+    if (schoolId == null) throw createError('School context required', 403);
     const { id } = req.params;
     const db = getDatabase();
     const userId = (req as AuthRequest).user?.id;
@@ -357,17 +376,16 @@ export const deleteTodoTask = async (req: Request, res: Response, next: NextFunc
       throw createError('User not authenticated', 401);
     }
 
-    // Check if task exists and user owns it
     const [existing] = await db.execute(
-      'SELECT * FROM todo_tasks WHERE id = ? AND user_id = ?',
-      [id, userId]
+      'SELECT * FROM todo_tasks WHERE id = ? AND user_id = ? AND school_id = ?',
+      [id, userId, schoolId]
     ) as any[];
 
     if (existing.length === 0) {
       throw createError('Todo task not found or you do not have permission to delete it', 404);
     }
 
-    await db.execute('DELETE FROM todo_tasks WHERE id = ? AND user_id = ?', [id, userId]);
+    await db.execute('DELETE FROM todo_tasks WHERE id = ? AND user_id = ? AND school_id = ?', [id, userId, schoolId]);
 
     res.json({
       success: true,

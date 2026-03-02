@@ -1,7 +1,7 @@
 import { Request, Response, NextFunction } from 'express';
 import { getDatabase } from '../config/database';
 import { createError } from '../middleware/errorHandler';
-import { AuthRequest } from '../middleware/auth';
+import { AuthRequest, getSchoolId } from '../middleware/auth';
 
 // ========== Marks Grades ==========
 export const getMarksGrades = async (
@@ -10,11 +10,13 @@ export const getMarksGrades = async (
   next: NextFunction
 ): Promise<void> => {
   try {
+    const schoolId = getSchoolId(req as AuthRequest);
+    if (schoolId == null) throw createError('School context required', 403);
     const { exam_type } = req.query;
     const db = getDatabase();
 
-    let query = 'SELECT * FROM marks_grades WHERE 1=1';
-    const params: any[] = [];
+    let query = 'SELECT * FROM marks_grades WHERE school_id = ?';
+    const params: any[] = [schoolId];
 
     if (exam_type) {
       query += ' AND exam_type = ?';
@@ -37,6 +39,8 @@ export const createMarksGrade = async (
   next: NextFunction
 ): Promise<void> => {
   try {
+    const schoolId = getSchoolId(req as AuthRequest);
+    if (schoolId == null) throw createError('School context required', 403);
     const { exam_type, grade_name, percent_from, percent_upto, grade_point, description } = req.body;
 
     if (!exam_type || !grade_name || percent_from === undefined || percent_upto === undefined) {
@@ -50,9 +54,10 @@ export const createMarksGrade = async (
     const db = getDatabase();
 
     const [result] = await db.execute(
-      `INSERT INTO marks_grades (exam_type, grade_name, percent_from, percent_upto, grade_point, description)
-       VALUES (?, ?, ?, ?, ?, ?)`,
+      `INSERT INTO marks_grades (school_id, exam_type, grade_name, percent_from, percent_upto, grade_point, description)
+       VALUES (?, ?, ?, ?, ?, ?, ?)`,
       [
+        schoolId,
         exam_type,
         grade_name.trim(),
         percent_from,
@@ -62,8 +67,9 @@ export const createMarksGrade = async (
       ]
     ) as any;
 
-    const [newGrade] = await db.execute('SELECT * FROM marks_grades WHERE id = ?', [
+    const [newGrade] = await db.execute('SELECT * FROM marks_grades WHERE id = ? AND school_id = ?', [
       result.insertId,
+      schoolId,
     ]) as any[];
 
     res.status(201).json({
@@ -83,9 +89,12 @@ export const getExamGroups = async (
   next: NextFunction
 ): Promise<void> => {
   try {
+    const schoolId = getSchoolId(req as AuthRequest);
+    if (schoolId == null) throw createError('School context required', 403);
     const db = getDatabase();
     const [examGroups] = await db.execute(
-      'SELECT * FROM exam_groups ORDER BY name ASC'
+      'SELECT * FROM exam_groups WHERE school_id = ? ORDER BY name ASC',
+      [schoolId]
     ) as any[];
 
     res.json({ success: true, data: examGroups });
@@ -100,23 +109,24 @@ export const getExamGroupById = async (
   next: NextFunction
 ): Promise<void> => {
   try {
+    const schoolId = getSchoolId(req as AuthRequest);
+    if (schoolId == null) throw createError('School context required', 403);
     const { id } = req.params;
     const db = getDatabase();
 
-    const [examGroups] = await db.execute('SELECT * FROM exam_groups WHERE id = ?', [id]) as any[];
+    const [examGroups] = await db.execute('SELECT * FROM exam_groups WHERE id = ? AND school_id = ?', [id, schoolId]) as any[];
 
     if (examGroups.length === 0) {
       throw createError('Exam group not found', 404);
     }
 
-    // Get exams in this group
     const [exams] = await db.execute(
       `SELECT e.*, s.name as session_name
        FROM exams e
-       INNER JOIN sessions s ON e.session_id = s.id
-       WHERE e.exam_group_id = ?
+       INNER JOIN sessions s ON e.session_id = s.id AND s.school_id = ?
+       WHERE e.school_id = ? AND e.exam_group_id = ?
        ORDER BY e.created_at DESC`,
-      [id]
+      [schoolId, schoolId, id]
     ) as any[];
 
     res.json({
@@ -137,6 +147,8 @@ export const createExamGroup = async (
   next: NextFunction
 ): Promise<void> => {
   try {
+    const schoolId = getSchoolId(req as AuthRequest);
+    if (schoolId == null) throw createError('School context required', 403);
     const { name, exam_type, description } = req.body;
 
     if (!name || name.trim() === '') {
@@ -146,12 +158,13 @@ export const createExamGroup = async (
     const db = getDatabase();
 
     const [result] = await db.execute(
-      'INSERT INTO exam_groups (name, exam_type, description) VALUES (?, ?, ?)',
-      [name.trim(), exam_type || 'general_purpose', description || null]
+      'INSERT INTO exam_groups (school_id, name, exam_type, description) VALUES (?, ?, ?, ?)',
+      [schoolId, name.trim(), exam_type || 'general_purpose', description || null]
     ) as any;
 
-    const [newExamGroup] = await db.execute('SELECT * FROM exam_groups WHERE id = ?', [
+    const [newExamGroup] = await db.execute('SELECT * FROM exam_groups WHERE id = ? AND school_id = ?', [
       result.insertId,
+      schoolId,
     ]) as any[];
 
     res.status(201).json({
@@ -171,17 +184,19 @@ export const getExams = async (
   next: NextFunction
 ): Promise<void> => {
   try {
+    const schoolId = getSchoolId(req as AuthRequest);
+    if (schoolId == null) throw createError('School context required', 403);
     const { exam_group_id, session_id } = req.query;
     const db = getDatabase();
 
     let query = `
       SELECT e.*, eg.name as exam_group_name, eg.exam_type, s.name as session_name
       FROM exams e
-      INNER JOIN exam_groups eg ON e.exam_group_id = eg.id
-      INNER JOIN sessions s ON e.session_id = s.id
-      WHERE 1=1
+      INNER JOIN exam_groups eg ON e.exam_group_id = eg.id AND eg.school_id = ?
+      INNER JOIN sessions s ON e.session_id = s.id AND s.school_id = ?
+      WHERE e.school_id = ?
     `;
-    const params: any[] = [];
+    const params: any[] = [schoolId, schoolId, schoolId];
 
     if (exam_group_id) {
       query += ' AND e.exam_group_id = ?';
@@ -208,40 +223,40 @@ export const getExamById = async (
   next: NextFunction
 ): Promise<void> => {
   try {
+    const schoolId = getSchoolId(req as AuthRequest);
+    if (schoolId == null) throw createError('School context required', 403);
     const { id } = req.params;
     const db = getDatabase();
 
     const [exams] = await db.execute(
       `SELECT e.*, eg.name as exam_group_name, eg.exam_type, s.name as session_name
        FROM exams e
-       INNER JOIN exam_groups eg ON e.exam_group_id = eg.id
-       INNER JOIN sessions s ON e.session_id = s.id
-       WHERE e.id = ?`,
-      [id]
+       INNER JOIN exam_groups eg ON e.exam_group_id = eg.id AND eg.school_id = ?
+       INNER JOIN sessions s ON e.session_id = s.id AND s.school_id = ?
+       WHERE e.id = ? AND e.school_id = ?`,
+      [schoolId, schoolId, id, schoolId]
     ) as any[];
 
     if (exams.length === 0) {
       throw createError('Exam not found', 404);
     }
 
-    // Get exam subjects
     const [subjects] = await db.execute(
       `SELECT es.*, s.name as subject_name, s.code as subject_code
        FROM exam_subjects es
-       INNER JOIN subjects s ON es.subject_id = s.id
-       WHERE es.exam_id = ?
+       INNER JOIN subjects s ON es.subject_id = s.id AND s.school_id = ?
+       WHERE es.school_id = ? AND es.exam_id = ?
        ORDER BY es.exam_date ASC, es.exam_time_from ASC`,
-      [id]
+      [schoolId, schoolId, id]
     ) as any[];
 
-    // Get assigned students
     const [students] = await db.execute(
       `SELECT es.*, s.admission_no, s.first_name, s.last_name, s.photo
        FROM exam_students es
-       INNER JOIN students s ON es.student_id = s.id
-       WHERE es.exam_id = ?
+       INNER JOIN students s ON es.student_id = s.id AND s.school_id = ?
+       WHERE es.school_id = ? AND es.exam_id = ?
        ORDER BY s.admission_no ASC`,
-      [id]
+      [schoolId, schoolId, id]
     ) as any[];
 
     res.json({
@@ -263,6 +278,8 @@ export const createExam = async (
   next: NextFunction
 ): Promise<void> => {
   try {
+    const schoolId = getSchoolId(req as AuthRequest);
+    if (schoolId == null) throw createError('School context required', 403);
     const { exam_group_id, name, session_id, is_published, description } = req.body;
 
     if (!exam_group_id || !name || !session_id) {
@@ -272,9 +289,9 @@ export const createExam = async (
     const db = getDatabase();
 
     const [result] = await db.execute(
-      `INSERT INTO exams (exam_group_id, name, session_id, is_published, description)
-       VALUES (?, ?, ?, ?, ?)`,
-      [exam_group_id, name.trim(), session_id, is_published || 0, description || null]
+      `INSERT INTO exams (school_id, exam_group_id, name, session_id, is_published, description)
+       VALUES (?, ?, ?, ?, ?, ?)`,
+      [schoolId, exam_group_id, name.trim(), session_id, is_published || 0, description || null]
     ) as any;
 
     const [newExam] = await db.execute(
@@ -282,8 +299,8 @@ export const createExam = async (
        FROM exams e
        INNER JOIN exam_groups eg ON e.exam_group_id = eg.id
        INNER JOIN sessions s ON e.session_id = s.id
-       WHERE e.id = ?`,
-      [result.insertId]
+       WHERE e.id = ? AND e.school_id = ?`,
+      [result.insertId, schoolId]
     ) as any[];
 
     res.status(201).json({
@@ -302,14 +319,15 @@ export const updateExam = async (
   next: NextFunction
 ): Promise<void> => {
   try {
+    const schoolId = getSchoolId(req as AuthRequest);
+    if (schoolId == null) throw createError('School context required', 403);
     const { id } = req.params;
     const { name, is_published, description } = req.body;
     const db = getDatabase();
 
-    // Check if exam exists
     const [existingExams] = await db.execute(
-      'SELECT id FROM exams WHERE id = ?',
-      [id]
+      'SELECT id FROM exams WHERE id = ? AND school_id = ?',
+      [id, schoolId]
     ) as any[];
 
     if (existingExams.length === 0) {
@@ -340,21 +358,20 @@ export const updateExam = async (
     }
 
     updates.push('updated_at = NOW()');
-    params.push(id);
+    params.push(id, schoolId);
 
     await db.execute(
-      `UPDATE exams SET ${updates.join(', ')} WHERE id = ?`,
+      `UPDATE exams SET ${updates.join(', ')} WHERE id = ? AND school_id = ?`,
       params
     );
 
-    // Fetch and return updated exam
     const [updatedExams] = await db.execute(
       `SELECT e.*, eg.name as exam_group_name, eg.exam_type, s.name as session_name
        FROM exams e
        INNER JOIN exam_groups eg ON e.exam_group_id = eg.id
        INNER JOIN sessions s ON e.session_id = s.id
-       WHERE e.id = ?`,
-      [id]
+       WHERE e.id = ? AND e.school_id = ?`,
+      [id, schoolId]
     ) as any[];
 
     res.json({
@@ -373,26 +390,25 @@ export const deleteExam = async (
   next: NextFunction
 ): Promise<void> => {
   try {
+    const schoolId = getSchoolId(req as AuthRequest);
+    if (schoolId == null) throw createError('School context required', 403);
     const { id } = req.params;
     const db = getDatabase();
 
-    // Check if exam exists
     const [existingExams] = await db.execute(
-      'SELECT id, name FROM exams WHERE id = ?',
-      [id]
+      'SELECT id, name FROM exams WHERE id = ? AND school_id = ?',
+      [id, schoolId]
     ) as any[];
 
     if (existingExams.length === 0) {
       throw createError('Exam not found', 404);
     }
 
-    // Delete related data first (due to foreign key constraints)
-    await db.execute('DELETE FROM exam_marks WHERE exam_id = ?', [id]);
-    await db.execute('DELETE FROM exam_students WHERE exam_id = ?', [id]);
-    await db.execute('DELETE FROM exam_subjects WHERE exam_id = ?', [id]);
-    
-    // Delete the exam
-    await db.execute('DELETE FROM exams WHERE id = ?', [id]);
+    await db.execute('DELETE FROM exam_marks WHERE exam_id = ? AND school_id = ?', [id, schoolId]);
+    await db.execute('DELETE FROM exam_students WHERE exam_id = ? AND school_id = ?', [id, schoolId]);
+    await db.execute('DELETE FROM exam_subjects WHERE exam_id = ? AND school_id = ?', [id, schoolId]);
+
+    await db.execute('DELETE FROM exams WHERE id = ? AND school_id = ?', [id, schoolId]);
 
     res.json({
       success: true,
@@ -410,6 +426,8 @@ export const getExamSubjects = async (
   next: NextFunction
 ): Promise<void> => {
   try {
+    const schoolId = getSchoolId(req as AuthRequest);
+    if (schoolId == null) throw createError('School context required', 403);
     const { exam_id } = req.query;
     const db = getDatabase();
 
@@ -420,10 +438,10 @@ export const getExamSubjects = async (
     const [subjects] = await db.execute(
       `SELECT es.*, s.name as subject_name, s.code as subject_code
        FROM exam_subjects es
-       INNER JOIN subjects s ON es.subject_id = s.id
-       WHERE es.exam_id = ?
+       INNER JOIN subjects s ON es.subject_id = s.id AND s.school_id = ?
+       WHERE es.school_id = ? AND es.exam_id = ?
        ORDER BY es.exam_date ASC, es.exam_time_from ASC`,
-      [exam_id]
+      [schoolId, schoolId, exam_id]
     ) as any[];
 
     res.json({ success: true, data: subjects });
@@ -438,6 +456,8 @@ export const createExamSubject = async (
   next: NextFunction
 ): Promise<void> => {
   try {
+    const schoolId = getSchoolId(req as AuthRequest);
+    if (schoolId == null) throw createError('School context required', 403);
     const {
       exam_id,
       subject_id,
@@ -458,9 +478,10 @@ export const createExamSubject = async (
 
     const [result] = await db.execute(
       `INSERT INTO exam_subjects 
-       (exam_id, subject_id, exam_date, exam_time_from, exam_time_to, room_number, credit_hours, max_marks, passing_marks)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+       (school_id, exam_id, subject_id, exam_date, exam_time_from, exam_time_to, room_number, credit_hours, max_marks, passing_marks)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       [
+        schoolId,
         exam_id,
         subject_id,
         exam_date || null,
@@ -477,8 +498,8 @@ export const createExamSubject = async (
       `SELECT es.*, s.name as subject_name, s.code as subject_code
        FROM exam_subjects es
        INNER JOIN subjects s ON es.subject_id = s.id
-       WHERE es.id = ?`,
-      [result.insertId]
+       WHERE es.id = ? AND es.school_id = ?`,
+      [result.insertId, schoolId]
     ) as any[];
 
     res.status(201).json({
@@ -498,6 +519,8 @@ export const getExamMarks = async (
   next: NextFunction
 ): Promise<void> => {
   try {
+    const schoolId = getSchoolId(req as AuthRequest);
+    if (schoolId == null) throw createError('School context required', 403);
     const { exam_id, exam_subject_id, student_id } = req.query;
     const db = getDatabase();
 
@@ -511,12 +534,12 @@ export const getExamMarks = async (
         es.passing_marks,
         sub.name as subject_name
       FROM exam_marks em
-      INNER JOIN students s ON em.student_id = s.id
-      INNER JOIN exam_subjects es ON em.exam_subject_id = es.id
-      INNER JOIN subjects sub ON es.subject_id = sub.id
-      WHERE 1=1
+      INNER JOIN students s ON em.student_id = s.id AND s.school_id = ?
+      INNER JOIN exam_subjects es ON em.exam_subject_id = es.id AND es.school_id = ?
+      INNER JOIN subjects sub ON es.subject_id = sub.id AND sub.school_id = ?
+      WHERE em.school_id = ?
     `;
-    const params: any[] = [];
+    const params: any[] = [schoolId, schoolId, schoolId, schoolId];
 
     if (exam_id) {
       query += ' AND em.exam_id = ?';
@@ -547,6 +570,8 @@ export const submitExamMarks = async (
   next: NextFunction
 ): Promise<void> => {
   try {
+    const schoolId = getSchoolId(req);
+    if (schoolId == null) throw createError('School context required', 403);
     const { exam_id, exam_subject_id, marks_records } = req.body;
 
     if (!exam_id || !exam_subject_id || !marks_records || !Array.isArray(marks_records)) {
@@ -560,10 +585,9 @@ export const submitExamMarks = async (
     try {
       await connection.beginTransaction();
 
-      // Get exam subject details for max marks and passing marks
       const [examSubjects] = await connection.execute(
-        'SELECT max_marks, passing_marks FROM exam_subjects WHERE id = ?',
-        [exam_subject_id]
+        'SELECT max_marks, passing_marks FROM exam_subjects WHERE id = ? AND school_id = ?',
+        [exam_subject_id, schoolId]
       ) as any[];
 
       if (examSubjects.length === 0) {
@@ -576,10 +600,9 @@ export const submitExamMarks = async (
         const { student_id, marks_obtained, note } = record;
 
         if (!student_id || marks_obtained === undefined) {
-          continue; // Skip invalid records
+          continue;
         }
 
-        // Validate marks
         if (marks_obtained < 0 || marks_obtained > max_marks) {
           throw createError(
             `Marks obtained (${marks_obtained}) must be between 0 and ${max_marks}`,
@@ -589,13 +612,13 @@ export const submitExamMarks = async (
 
         await connection.execute(
           `INSERT INTO exam_marks 
-           (exam_id, exam_subject_id, student_id, marks_obtained, note, created_by)
-           VALUES (?, ?, ?, ?, ?, ?)
+           (school_id, exam_id, exam_subject_id, student_id, marks_obtained, note, created_by)
+           VALUES (?, ?, ?, ?, ?, ?, ?)
            ON DUPLICATE KEY UPDATE 
            marks_obtained = VALUES(marks_obtained),
            note = VALUES(note),
            updated_at = NOW()`,
-          [exam_id, exam_subject_id, student_id, marks_obtained, note || null, createdBy]
+          [schoolId, exam_id, exam_subject_id, student_id, marks_obtained, note || null, createdBy]
         );
       }
 
@@ -623,6 +646,8 @@ export const getExamResults = async (
   next: NextFunction
 ): Promise<void> => {
   try {
+    const schoolId = getSchoolId(req as AuthRequest);
+    if (schoolId == null) throw createError('School context required', 403);
     const { exam_id, class_id, section_id, session_id } = req.query;
 
     if (!exam_id || !class_id || !section_id || !session_id) {
@@ -631,13 +656,12 @@ export const getExamResults = async (
 
     const db = getDatabase();
 
-    // Get exam details
     const [exams] = await db.execute(
       `SELECT e.*, eg.exam_type
        FROM exams e
-       INNER JOIN exam_groups eg ON e.exam_group_id = eg.id
-       WHERE e.id = ?`,
-      [exam_id]
+       INNER JOIN exam_groups eg ON e.exam_group_id = eg.id AND eg.school_id = ?
+       WHERE e.id = ? AND e.school_id = ?`,
+      [schoolId, exam_id, schoolId]
     ) as any[];
 
     if (exams.length === 0) {
@@ -646,29 +670,26 @@ export const getExamResults = async (
 
     const exam = exams[0];
 
-    // Get exam subjects - explicitly cast to numeric types
     const [examSubjects] = await db.execute(
       `SELECT es.*, s.name as subject_name, s.code as subject_code,
               CAST(es.max_marks AS DECIMAL(10,2)) as max_marks,
               CAST(es.passing_marks AS DECIMAL(10,2)) as passing_marks
        FROM exam_subjects es
-       INNER JOIN subjects s ON es.subject_id = s.id
-       WHERE es.exam_id = ?
+       INNER JOIN subjects s ON es.subject_id = s.id AND s.school_id = ?
+       WHERE es.school_id = ? AND es.exam_id = ?
        ORDER BY es.exam_date ASC, es.exam_time_from ASC`,
-      [exam_id]
+      [schoolId, schoolId, exam_id]
     ) as any[];
 
-    // Get students in the class-section
     const [students] = await db.execute(
       `SELECT s.*, es.roll_number as exam_roll_number
        FROM students s
-       LEFT JOIN exam_students es ON s.id = es.student_id AND es.exam_id = ?
-       WHERE s.class_id = ? AND s.section_id = ? AND s.session_id = ? AND s.is_active = 1
+       LEFT JOIN exam_students es ON s.id = es.student_id AND es.exam_id = ? AND es.school_id = ?
+       WHERE s.school_id = ? AND s.class_id = ? AND s.section_id = ? AND s.session_id = ? AND s.is_active = 1
        ORDER BY s.admission_no ASC`,
-      [exam_id, class_id, section_id, session_id]
+      [exam_id, schoolId, schoolId, class_id, section_id, session_id]
     ) as any[];
 
-    // Get all marks for this exam - explicitly cast to numeric types
     const [allMarks] = await db.execute(
       `SELECT em.*, es.subject_id, 
               CAST(es.max_marks AS DECIMAL(10,2)) as max_marks, 
@@ -676,14 +697,13 @@ export const getExamResults = async (
               CAST(em.marks_obtained AS DECIMAL(10,2)) as marks_obtained
        FROM exam_marks em
        INNER JOIN exam_subjects es ON em.exam_subject_id = es.id
-       WHERE em.exam_id = ?`,
-      [exam_id]
+       WHERE em.school_id = ? AND em.exam_id = ?`,
+      [schoolId, exam_id]
     ) as any[];
 
-    // Get marks grades for this exam type
     const [marksGrades] = await db.execute(
-      `SELECT * FROM marks_grades WHERE exam_type = ? ORDER BY percent_from DESC`,
-      [exam.exam_type]
+      `SELECT * FROM marks_grades WHERE school_id = ? AND exam_type = ? ORDER BY percent_from DESC`,
+      [schoolId, exam.exam_type]
     ) as any[];
 
     // Calculate results for each student
@@ -811,6 +831,8 @@ export const assignExamStudents = async (
   next: NextFunction
 ): Promise<void> => {
   try {
+    const schoolId = getSchoolId(req as AuthRequest);
+    if (schoolId == null) throw createError('School context required', 403);
     const { exam_id, student_ids } = req.body;
 
     if (!exam_id || !student_ids || !Array.isArray(student_ids)) {
@@ -823,17 +845,15 @@ export const assignExamStudents = async (
     try {
       await connection.beginTransaction();
 
-      // Remove existing assignments
-      await connection.execute('DELETE FROM exam_students WHERE exam_id = ?', [exam_id]);
+      await connection.execute('DELETE FROM exam_students WHERE exam_id = ? AND school_id = ?', [exam_id, schoolId]);
 
-      // Insert new assignments
       if (student_ids.length > 0) {
-        const values = student_ids.map((student_id: number) => [exam_id, student_id]);
-        const placeholders = values.map(() => '(?, ?)').join(', ');
+        const values = student_ids.map((student_id: number) => [schoolId, exam_id, student_id]);
+        const placeholders = values.map(() => '(?, ?, ?)').join(', ');
         const flatValues = values.flat();
 
         await connection.execute(
-          `INSERT INTO exam_students (exam_id, student_id) VALUES ${placeholders}`,
+          `INSERT INTO exam_students (school_id, exam_id, student_id) VALUES ${placeholders}`,
           flatValues
         );
       }
@@ -862,9 +882,12 @@ export const getAdmitCardTemplates = async (
   next: NextFunction
 ): Promise<void> => {
   try {
+    const schoolId = getSchoolId(req as AuthRequest);
+    if (schoolId == null) throw createError('School context required', 403);
     const db = getDatabase();
     const [templates] = await db.execute(
-      'SELECT * FROM admit_card_templates ORDER BY name ASC'
+      'SELECT * FROM admit_card_templates WHERE school_id = ? ORDER BY name ASC',
+      [schoolId]
     ) as any[];
 
     res.json({ success: true, data: templates });
@@ -879,10 +902,12 @@ export const getAdmitCardTemplateById = async (
   next: NextFunction
 ): Promise<void> => {
   try {
+    const schoolId = getSchoolId(req as AuthRequest);
+    if (schoolId == null) throw createError('School context required', 403);
     const { id } = req.params;
     const db = getDatabase();
 
-    const [templates] = await db.execute('SELECT * FROM admit_card_templates WHERE id = ?', [id]) as any[];
+    const [templates] = await db.execute('SELECT * FROM admit_card_templates WHERE id = ? AND school_id = ?', [id, schoolId]) as any[];
 
     if (templates.length === 0) {
       throw createError('Admit card template not found', 404);
@@ -900,6 +925,8 @@ export const createAdmitCardTemplate = async (
   next: NextFunction
 ): Promise<void> => {
   try {
+    const schoolId = getSchoolId(req as AuthRequest);
+    if (schoolId == null) throw createError('School context required', 403);
     const {
       name,
       heading,
@@ -929,11 +956,12 @@ export const createAdmitCardTemplate = async (
 
     const [result] = await db.execute(
       `INSERT INTO admit_card_templates 
-       (name, heading, title, exam_name, header_left_text, header_center_text, header_right_text, body_text,
+       (school_id, name, heading, title, exam_name, header_left_text, header_center_text, header_right_text, body_text,
         footer_left_text, footer_center_text, footer_right_text, header_height,
         footer_height, body_height, body_width, show_student_photo, photo_height, background_image)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       [
+        schoolId,
         name.trim(),
         heading || null,
         title || null,
@@ -955,8 +983,9 @@ export const createAdmitCardTemplate = async (
       ]
     ) as any;
 
-    const [newTemplate] = await db.execute('SELECT * FROM admit_card_templates WHERE id = ?', [
+    const [newTemplate] = await db.execute('SELECT * FROM admit_card_templates WHERE id = ? AND school_id = ?', [
       result.insertId,
+      schoolId,
     ]) as any[];
 
     res.status(201).json({
@@ -975,6 +1004,8 @@ export const updateAdmitCardTemplate = async (
   next: NextFunction
 ): Promise<void> => {
   try {
+    const schoolId = getSchoolId(req as AuthRequest);
+    if (schoolId == null) throw createError('School context required', 403);
     const { id } = req.params;
     const {
       name,
@@ -1005,7 +1036,7 @@ export const updateAdmitCardTemplate = async (
        body_text = ?, footer_left_text = ?, footer_center_text = ?, footer_right_text = ?,
        header_height = ?, footer_height = ?, body_height = ?, body_width = ?,
        show_student_photo = ?, photo_height = ?, background_image = ?
-       WHERE id = ?`,
+       WHERE id = ? AND school_id = ?`,
       [
         name?.trim() || null,
         heading || null,
@@ -1026,11 +1057,13 @@ export const updateAdmitCardTemplate = async (
         photo_height || 100,
         background_image || null,
         id,
+        schoolId,
       ]
     );
 
-    const [updatedTemplate] = await db.execute('SELECT * FROM admit_card_templates WHERE id = ?', [
+    const [updatedTemplate] = await db.execute('SELECT * FROM admit_card_templates WHERE id = ? AND school_id = ?', [
       id,
+      schoolId,
     ]) as any[];
 
     res.json({
@@ -1049,18 +1082,18 @@ export const deleteAdmitCardTemplate = async (
   next: NextFunction
 ): Promise<void> => {
   try {
+    const schoolId = getSchoolId(req as AuthRequest);
+    if (schoolId == null) throw createError('School context required', 403);
     const { id } = req.params;
     const db = getDatabase();
 
-    // Check if template exists
-    const [templates] = await db.execute('SELECT * FROM admit_card_templates WHERE id = ?', [id]) as any[];
+    const [templates] = await db.execute('SELECT * FROM admit_card_templates WHERE id = ? AND school_id = ?', [id, schoolId]) as any[];
 
     if (templates.length === 0) {
       throw createError('Admit card template not found', 404);
     }
 
-    // Delete the template
-    await db.execute('DELETE FROM admit_card_templates WHERE id = ?', [id]);
+    await db.execute('DELETE FROM admit_card_templates WHERE id = ? AND school_id = ?', [id, schoolId]);
 
     res.json({
       success: true,
@@ -1078,9 +1111,12 @@ export const getMarksheetTemplates = async (
   next: NextFunction
 ): Promise<void> => {
   try {
+    const schoolId = getSchoolId(req as AuthRequest);
+    if (schoolId == null) throw createError('School context required', 403);
     const db = getDatabase();
     const [templates] = await db.execute(
-      'SELECT * FROM marksheet_templates ORDER BY name ASC'
+      'SELECT * FROM marksheet_templates WHERE school_id = ? ORDER BY name ASC',
+      [schoolId]
     ) as any[];
 
     res.json({ success: true, data: templates });
@@ -1095,10 +1131,12 @@ export const getMarksheetTemplateById = async (
   next: NextFunction
 ): Promise<void> => {
   try {
+    const schoolId = getSchoolId(req as AuthRequest);
+    if (schoolId == null) throw createError('School context required', 403);
     const { id } = req.params;
     const db = getDatabase();
 
-    const [templates] = await db.execute('SELECT * FROM marksheet_templates WHERE id = ?', [id]) as any[];
+    const [templates] = await db.execute('SELECT * FROM marksheet_templates WHERE id = ? AND school_id = ?', [id, schoolId]) as any[];
 
     if (templates.length === 0) {
       throw createError('Marksheet template not found', 404);
@@ -1116,6 +1154,8 @@ export const createMarksheetTemplate = async (
   next: NextFunction
 ): Promise<void> => {
   try {
+    const schoolId = getSchoolId(req as AuthRequest);
+    if (schoolId == null) throw createError('School context required', 403);
     const {
       name,
       header_left_text,
@@ -1142,11 +1182,12 @@ export const createMarksheetTemplate = async (
 
     const [result] = await db.execute(
       `INSERT INTO marksheet_templates 
-       (name, header_left_text, header_center_text, header_right_text, body_text,
+       (school_id, name, header_left_text, header_center_text, header_right_text, body_text,
         footer_left_text, footer_center_text, footer_right_text, header_height,
         footer_height, body_height, body_width, show_student_photo, photo_height, background_image)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       [
+        schoolId,
         name.trim(),
         header_left_text || null,
         header_center_text || null,
@@ -1165,8 +1206,9 @@ export const createMarksheetTemplate = async (
       ]
     ) as any;
 
-    const [newTemplate] = await db.execute('SELECT * FROM marksheet_templates WHERE id = ?', [
+    const [newTemplate] = await db.execute('SELECT * FROM marksheet_templates WHERE id = ? AND school_id = ?', [
       result.insertId,
+      schoolId,
     ]) as any[];
 
     res.status(201).json({
@@ -1185,6 +1227,8 @@ export const updateMarksheetTemplate = async (
   next: NextFunction
 ): Promise<void> => {
   try {
+    const schoolId = getSchoolId(req as AuthRequest);
+    if (schoolId == null) throw createError('School context required', 403);
     const { id } = req.params;
     const {
       name,
@@ -1212,7 +1256,7 @@ export const updateMarksheetTemplate = async (
        body_text = ?, footer_left_text = ?, footer_center_text = ?, footer_right_text = ?,
        header_height = ?, footer_height = ?, body_height = ?, body_width = ?,
        show_student_photo = ?, photo_height = ?, background_image = ?
-       WHERE id = ?`,
+       WHERE id = ? AND school_id = ?`,
       [
         name?.trim() || null,
         header_left_text || null,
@@ -1230,11 +1274,13 @@ export const updateMarksheetTemplate = async (
         photo_height || 100,
         background_image || null,
         id,
+        schoolId,
       ]
     );
 
-    const [updatedTemplate] = await db.execute('SELECT * FROM marksheet_templates WHERE id = ?', [
+    const [updatedTemplate] = await db.execute('SELECT * FROM marksheet_templates WHERE id = ? AND school_id = ?', [
       id,
+      schoolId,
     ]) as any[];
 
     res.json({

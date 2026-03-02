@@ -1,42 +1,39 @@
 import { Request, Response, NextFunction } from 'express';
 import { getDatabase } from '../config/database';
 import { createError } from '../middleware/errorHandler';
-import { AuthRequest } from '../middleware/auth';
+import { AuthRequest, getSchoolId } from '../middleware/auth';
 
 // ========== Chat Conversations ==========
 
-// Get or create a conversation between two users
-const getOrCreateConversation = async (user1Id: number, user2Id: number, db: any) => {
-  // Ensure user1_id < user2_id for consistency
+const getOrCreateConversation = async (user1Id: number, user2Id: number, schoolId: number, db: any) => {
   const [id1, id2] = user1Id < user2Id ? [user1Id, user2Id] : [user2Id, user1Id];
 
-  // Check if conversation exists
   const [existing] = await db.execute(
-    'SELECT * FROM chat_conversations WHERE user1_id = ? AND user2_id = ?',
-    [id1, id2]
+    'SELECT * FROM chat_conversations WHERE user1_id = ? AND user2_id = ? AND school_id = ?',
+    [id1, id2, schoolId]
   ) as any[];
 
   if (existing.length > 0) {
     return existing[0];
   }
 
-  // Create new conversation
   const [result] = await db.execute(
-    'INSERT INTO chat_conversations (user1_id, user2_id) VALUES (?, ?)',
-    [id1, id2]
+    'INSERT INTO chat_conversations (school_id, user1_id, user2_id) VALUES (?, ?, ?)',
+    [schoolId, id1, id2]
   ) as any;
 
   const [newConv] = await db.execute(
-    'SELECT * FROM chat_conversations WHERE id = ?',
-    [result.insertId]
+    'SELECT * FROM chat_conversations WHERE id = ? AND school_id = ?',
+    [result.insertId, schoolId]
   ) as any[];
 
   return newConv[0];
 };
 
-// Get all conversations for the current user
 export const getConversations = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
   try {
+    const schoolId = getSchoolId(req as AuthRequest);
+    if (schoolId == null) throw createError('School context required', 403);
     const db = getDatabase();
     const userId = (req as AuthRequest).user?.id;
 
@@ -44,7 +41,6 @@ export const getConversations = async (req: Request, res: Response, next: NextFu
       throw createError('User not authenticated', 401);
     }
 
-    // Get conversations where user is either user1 or user2
     const [conversations] = await db.execute(
       `SELECT 
         c.*,
@@ -69,9 +65,9 @@ export const getConversations = async (req: Request, res: Response, next: NextFu
       )
       LEFT JOIN staff s ON u.id = s.user_id
       LEFT JOIN students st ON u.id = st.user_id
-      WHERE c.user1_id = ? OR c.user2_id = ?
+      WHERE c.school_id = ? AND (c.user1_id = ? OR c.user2_id = ?)
       ORDER BY c.last_message_at DESC, c.updated_at DESC`,
-      [userId, userId, userId, userId, userId]
+      [userId, userId, userId, schoolId, userId, userId]
     ) as any[];
 
     // Format conversations with other user info
@@ -95,9 +91,10 @@ export const getConversations = async (req: Request, res: Response, next: NextFu
   }
 };
 
-// Get messages for a specific conversation
 export const getMessages = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
   try {
+    const schoolId = getSchoolId(req as AuthRequest);
+    if (schoolId == null) throw createError('School context required', 403);
     const { conversationId } = req.params;
     const { page = 1, limit = 50 } = req.query;
     const db = getDatabase();
@@ -107,10 +104,9 @@ export const getMessages = async (req: Request, res: Response, next: NextFunctio
       throw createError('User not authenticated', 401);
     }
 
-    // Verify user is part of this conversation
     const [conversations] = await db.execute(
-      'SELECT * FROM chat_conversations WHERE id = ? AND (user1_id = ? OR user2_id = ?)',
-      [conversationId, userId, userId]
+      'SELECT * FROM chat_conversations WHERE id = ? AND school_id = ? AND (user1_id = ? OR user2_id = ?)',
+      [conversationId, schoolId, userId, userId]
     ) as any[];
 
     if (conversations.length === 0) {
@@ -119,7 +115,6 @@ export const getMessages = async (req: Request, res: Response, next: NextFunctio
 
     const offset = (Number(page) - 1) * Number(limit);
 
-    // Get messages
     const [messages] = await db.execute(
       `SELECT 
         m.*,
@@ -131,10 +126,10 @@ export const getMessages = async (req: Request, res: Response, next: NextFunctio
       LEFT JOIN users u ON m.sender_id = u.id
       LEFT JOIN staff s ON u.id = s.user_id
       LEFT JOIN students st ON u.id = st.user_id
-      WHERE m.conversation_id = ?
+      WHERE m.conversation_id = ? AND m.school_id = ?
       ORDER BY m.created_at DESC
       LIMIT ? OFFSET ?`,
-      [conversationId, Number(limit), offset]
+      [conversationId, schoolId, Number(limit), offset]
     ) as any[];
 
     // Format messages
@@ -153,23 +148,21 @@ export const getMessages = async (req: Request, res: Response, next: NextFunctio
       is_sender: msg.sender_id === Number(userId),
     })).reverse(); // Reverse to show oldest first
 
-    // Mark messages as read
     await db.execute(
-      'UPDATE chat_messages SET is_read = TRUE, read_at = NOW() WHERE conversation_id = ? AND receiver_id = ? AND is_read = FALSE',
-      [conversationId, userId]
+      'UPDATE chat_messages SET is_read = TRUE, read_at = NOW() WHERE conversation_id = ? AND school_id = ? AND receiver_id = ? AND is_read = FALSE',
+      [conversationId, schoolId, userId]
     );
 
-    // Update unread count in conversation
     const conversation = conversations[0];
     if (conversation.user1_id === Number(userId)) {
       await db.execute(
-        'UPDATE chat_conversations SET user1_unread_count = 0 WHERE id = ?',
-        [conversationId]
+        'UPDATE chat_conversations SET user1_unread_count = 0 WHERE id = ? AND school_id = ?',
+        [conversationId, schoolId]
       );
     } else {
       await db.execute(
-        'UPDATE chat_conversations SET user2_unread_count = 0 WHERE id = ?',
-        [conversationId]
+        'UPDATE chat_conversations SET user2_unread_count = 0 WHERE id = ? AND school_id = ?',
+        [conversationId, schoolId]
       );
     }
 
@@ -182,9 +175,10 @@ export const getMessages = async (req: Request, res: Response, next: NextFunctio
   }
 };
 
-// Send a message
 export const sendMessage = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
   try {
+    const schoolId = getSchoolId(req as AuthRequest);
+    if (schoolId == null) throw createError('School context required', 403);
     const { receiver_id, message } = req.body;
     const db = getDatabase();
     const userId = (req as AuthRequest).user?.id;
@@ -201,28 +195,24 @@ export const sendMessage = async (req: Request, res: Response, next: NextFunctio
       throw createError('Cannot send message to yourself', 400);
     }
 
-    // Verify receiver exists
     const [receivers] = await db.execute(
-      'SELECT id FROM users WHERE id = ?',
-      [receiver_id]
+      'SELECT id FROM users WHERE id = ? AND school_id = ?',
+      [receiver_id, schoolId]
     ) as any[];
 
     if (receivers.length === 0) {
       throw createError('Receiver not found', 404);
     }
 
-    // Get or create conversation
-    const conversation = await getOrCreateConversation(Number(userId), Number(receiver_id), db);
+    const conversation = await getOrCreateConversation(Number(userId), Number(receiver_id), schoolId, db);
 
-    // Determine which user is user1 and which is user2
     const [id1, id2] = Number(userId) < Number(receiver_id) 
       ? [Number(userId), Number(receiver_id)] 
       : [Number(receiver_id), Number(userId)];
 
-    // Insert message
     const [result] = await db.execute(
-      'INSERT INTO chat_messages (conversation_id, sender_id, receiver_id, message) VALUES (?, ?, ?, ?)',
-      [conversation.id, userId, receiver_id, message.trim()]
+      'INSERT INTO chat_messages (school_id, conversation_id, sender_id, receiver_id, message) VALUES (?, ?, ?, ?, ?)',
+      [schoolId, conversation.id, userId, receiver_id, message.trim()]
     ) as any;
 
     // Update conversation
@@ -237,7 +227,6 @@ export const sendMessage = async (req: Request, res: Response, next: NextFunctio
       [result.insertId, conversation.id]
     );
 
-    // Get the created message with sender info
     const [messages] = await db.execute(
       `SELECT 
         m.*,
@@ -249,8 +238,8 @@ export const sendMessage = async (req: Request, res: Response, next: NextFunctio
       LEFT JOIN users u ON m.sender_id = u.id
       LEFT JOIN staff s ON u.id = s.user_id
       LEFT JOIN students st ON u.id = st.user_id
-      WHERE m.id = ?`,
-      [result.insertId]
+      WHERE m.id = ? AND m.school_id = ?`,
+      [result.insertId, schoolId]
     ) as any[];
 
     const formattedMessage = {
@@ -269,9 +258,10 @@ export const sendMessage = async (req: Request, res: Response, next: NextFunctio
   }
 };
 
-// Get users list for starting a new conversation
 export const getUsers = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
   try {
+    const schoolId = getSchoolId(req as AuthRequest);
+    if (schoolId == null) throw createError('School context required', 403);
     const { search } = req.query;
     const db = getDatabase();
     const userId = (req as AuthRequest).user?.id;
@@ -296,9 +286,9 @@ export const getUsers = async (req: Request, res: Response, next: NextFunction):
       LEFT JOIN roles r ON u.role_id = r.id
       LEFT JOIN staff s ON u.id = s.user_id
       LEFT JOIN students st ON u.id = st.user_id
-      WHERE u.id != ? AND u.is_active = 1
+      WHERE u.school_id = ? AND u.id != ? AND u.is_active = 1
     `;
-    const params: any[] = [userId];
+    const params: any[] = [schoolId, userId];
 
     if (search) {
       query += ' AND (u.name LIKE ? OR u.email LIKE ? OR s.first_name LIKE ? OR st.first_name LIKE ?)';

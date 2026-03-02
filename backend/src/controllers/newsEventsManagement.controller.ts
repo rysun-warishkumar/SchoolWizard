@@ -1,6 +1,7 @@
 import { Request, Response, NextFunction } from 'express';
 import { getDatabase } from '../config/database';
 import { createError } from '../middleware/errorHandler';
+import { AuthRequest, getSchoolId } from '../middleware/auth';
 import multer from 'multer';
 import path from 'path';
 import fs from 'fs';
@@ -64,11 +65,13 @@ const parseBoolean = (value: any): boolean => {
 
 export const getNewsArticles = async (req: Request, res: Response, next: NextFunction) => {
   try {
+    const schoolId = getSchoolId(req as AuthRequest);
+    if (schoolId == null) return next(createError('School context required', 403));
     const db = getDatabase();
     const { category, featured, limit } = req.query;
     
-    let query = 'SELECT * FROM news_articles WHERE 1=1';
-    const params: any[] = [];
+    let query = 'SELECT * FROM news_articles WHERE school_id = ?';
+    const params: any[] = [schoolId];
     
     if (category) {
       query += ' AND category = ?';
@@ -100,10 +103,12 @@ export const getNewsArticles = async (req: Request, res: Response, next: NextFun
 
 export const getNewsArticle = async (req: Request, res: Response, next: NextFunction) => {
   try {
+    const schoolId = getSchoolId(req as AuthRequest);
+    if (schoolId == null) return next(createError('School context required', 403));
     const db = getDatabase();
     const { id } = req.params;
     
-    const [articles] = await db.execute('SELECT * FROM news_articles WHERE id = ?', [String(id)]);
+    const [articles] = await db.execute('SELECT * FROM news_articles WHERE id = ? AND school_id = ?', [String(id), schoolId]);
     
     if (!articles || (Array.isArray(articles) && articles.length === 0)) {
       return next(createError('News article not found', 404));
@@ -112,7 +117,7 @@ export const getNewsArticle = async (req: Request, res: Response, next: NextFunc
     const article = Array.isArray(articles) ? articles[0] : articles;
     
     // Increment views count
-    await db.execute('UPDATE news_articles SET views_count = views_count + 1 WHERE id = ?', [String(id)]);
+    await db.execute('UPDATE news_articles SET views_count = views_count + 1 WHERE id = ? AND school_id = ?', [String(id), schoolId]);
     
     res.json({ success: true, data: article });
   } catch (error: any) {
@@ -126,6 +131,8 @@ export const getNewsArticle = async (req: Request, res: Response, next: NextFunc
 
 export const createNewsArticle = async (req: Request, res: Response, next: NextFunction) => {
   try {
+    const schoolId = getSchoolId(req as AuthRequest);
+    if (schoolId == null) return next(createError('School context required', 403));
     const db = getDatabase();
     const file = req.file;
     const { title, excerpt, content, category, author, published_date, is_featured, is_active } = req.body;
@@ -136,8 +143,8 @@ export const createNewsArticle = async (req: Request, res: Response, next: NextF
     
     const slug = generateSlug(title);
     
-    // Check if slug already exists
-    const [existing] = await db.execute('SELECT id FROM news_articles WHERE slug = ?', [slug]) as any;
+    // Check if slug already exists within this school
+    const [existing] = await db.execute('SELECT id FROM news_articles WHERE slug = ? AND school_id = ?', [slug, schoolId]) as any;
     if (existing && existing.length > 0) {
       return next(createError('A news article with a similar title already exists', 400));
     }
@@ -145,8 +152,9 @@ export const createNewsArticle = async (req: Request, res: Response, next: NextF
     const featuredImage = file ? `/uploads/front-cms/news-events/${file.filename}` : null;
     
     const [result] = await db.execute(
-      'INSERT INTO news_articles (title, slug, excerpt, content, category, featured_image, author, published_date, is_featured, is_active) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+      'INSERT INTO news_articles (school_id, title, slug, excerpt, content, category, featured_image, author, published_date, is_featured, is_active) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
       [
+        schoolId,
         title.trim(),
         slug,
         excerpt?.trim() || null,
@@ -160,7 +168,7 @@ export const createNewsArticle = async (req: Request, res: Response, next: NextF
       ]
     ) as any;
     
-    const [newArticle] = await db.execute('SELECT * FROM news_articles WHERE id = ?', [result.insertId]);
+    const [newArticle] = await db.execute('SELECT * FROM news_articles WHERE id = ? AND school_id = ?', [result.insertId, schoolId]);
     
     res.status(201).json({
       success: true,
@@ -183,6 +191,8 @@ export const createNewsArticle = async (req: Request, res: Response, next: NextF
 
 export const updateNewsArticle = async (req: Request, res: Response, next: NextFunction) => {
   try {
+    const schoolId = getSchoolId(req as AuthRequest);
+    if (schoolId == null) return next(createError('School context required', 403));
     const db = getDatabase();
     const { id } = req.params;
     const file = req.file;
@@ -192,8 +202,8 @@ export const updateNewsArticle = async (req: Request, res: Response, next: NextF
       return next(createError('Title, content, and published date are required', 400));
     }
     
-    // Get existing article
-    const [existingArticles] = await db.execute('SELECT * FROM news_articles WHERE id = ?', [String(id)]) as any;
+    // Get existing article (same school)
+    const [existingArticles] = await db.execute('SELECT * FROM news_articles WHERE id = ? AND school_id = ?', [String(id), schoolId]) as any;
     if (!existingArticles || existingArticles.length === 0) {
       return next(createError('News article not found', 404));
     }
@@ -203,8 +213,7 @@ export const updateNewsArticle = async (req: Request, res: Response, next: NextF
     // Generate new slug if title changed
     if (title !== existingArticle.title) {
       slug = generateSlug(title);
-      // Check if new slug already exists
-      const [slugCheck] = await db.execute('SELECT id FROM news_articles WHERE slug = ? AND id != ?', [slug, String(id)]) as any;
+      const [slugCheck] = await db.execute('SELECT id FROM news_articles WHERE slug = ? AND school_id = ? AND id != ?', [slug, schoolId, String(id)]) as any;
       if (slugCheck && slugCheck.length > 0) {
         return next(createError('A news article with a similar title already exists', 400));
       }
@@ -212,7 +221,6 @@ export const updateNewsArticle = async (req: Request, res: Response, next: NextF
     
     let featuredImage = existingArticle.featured_image;
     
-    // If new file uploaded, delete old file and update path
     if (file) {
       if (existingArticle.featured_image) {
         const oldFilePath = path.join(__dirname, '../../', existingArticle.featured_image);
@@ -224,7 +232,7 @@ export const updateNewsArticle = async (req: Request, res: Response, next: NextF
     }
     
     await db.execute(
-      'UPDATE news_articles SET title = ?, slug = ?, excerpt = ?, content = ?, category = ?, featured_image = ?, author = ?, published_date = ?, is_featured = ?, is_active = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?',
+      'UPDATE news_articles SET title = ?, slug = ?, excerpt = ?, content = ?, category = ?, featured_image = ?, author = ?, published_date = ?, is_featured = ?, is_active = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ? AND school_id = ?',
       [
         title.trim(),
         slug,
@@ -237,10 +245,11 @@ export const updateNewsArticle = async (req: Request, res: Response, next: NextF
         parseBoolean(is_featured) !== undefined ? parseBoolean(is_featured) : false,
         parseBoolean(is_active) !== undefined ? parseBoolean(is_active) : true,
         String(id),
+        schoolId,
       ]
     );
     
-    const [updatedArticle] = await db.execute('SELECT * FROM news_articles WHERE id = ?', [String(id)]);
+    const [updatedArticle] = await db.execute('SELECT * FROM news_articles WHERE id = ? AND school_id = ?', [String(id), schoolId]);
     
     res.json({
       success: true,
@@ -260,17 +269,17 @@ export const updateNewsArticle = async (req: Request, res: Response, next: NextF
 
 export const deleteNewsArticle = async (req: Request, res: Response, next: NextFunction) => {
   try {
+    const schoolId = getSchoolId(req as AuthRequest);
+    if (schoolId == null) return next(createError('School context required', 403));
     const db = getDatabase();
     const { id } = req.params;
     
-    // Get article to delete file
-    const [articles] = await db.execute('SELECT * FROM news_articles WHERE id = ?', [String(id)]) as any;
+    const [articles] = await db.execute('SELECT * FROM news_articles WHERE id = ? AND school_id = ?', [String(id), schoolId]) as any;
     if (!articles || articles.length === 0) {
       return next(createError('News article not found', 404));
     }
     const article = articles[0];
     
-    // Delete file
     if (article.featured_image) {
       const filePath = path.join(__dirname, '../../', article.featured_image);
       if (fs.existsSync(filePath)) {
@@ -278,7 +287,7 @@ export const deleteNewsArticle = async (req: Request, res: Response, next: NextF
       }
     }
     
-    await db.execute('DELETE FROM news_articles WHERE id = ?', [String(id)]);
+    await db.execute('DELETE FROM news_articles WHERE id = ? AND school_id = ?', [String(id), schoolId]);
     
     res.json({ success: true, message: 'News article deleted successfully' });
   } catch (error: any) {
@@ -290,11 +299,13 @@ export const deleteNewsArticle = async (req: Request, res: Response, next: NextF
 
 export const getEvents = async (req: Request, res: Response, next: NextFunction) => {
   try {
+    const schoolId = getSchoolId(req as AuthRequest);
+    if (schoolId == null) return next(createError('School context required', 403));
     const db = getDatabase();
     const { category, featured, upcoming, limit } = req.query;
     
-    let query = 'SELECT * FROM events WHERE 1=1';
-    const params: any[] = [];
+    let query = 'SELECT * FROM events WHERE school_id = ?';
+    const params: any[] = [schoolId];
     
     if (category) {
       query += ' AND category = ?';
@@ -332,10 +343,12 @@ export const getEvents = async (req: Request, res: Response, next: NextFunction)
 
 export const getEvent = async (req: Request, res: Response, next: NextFunction) => {
   try {
+    const schoolId = getSchoolId(req as AuthRequest);
+    if (schoolId == null) return next(createError('School context required', 403));
     const db = getDatabase();
     const { id } = req.params;
     
-    const [events] = await db.execute('SELECT * FROM events WHERE id = ?', [String(id)]);
+    const [events] = await db.execute('SELECT * FROM events WHERE id = ? AND school_id = ?', [String(id), schoolId]);
     
     if (!events || (Array.isArray(events) && events.length === 0)) {
       return next(createError('Event not found', 404));
@@ -353,6 +366,8 @@ export const getEvent = async (req: Request, res: Response, next: NextFunction) 
 
 export const createEvent = async (req: Request, res: Response, next: NextFunction) => {
   try {
+    const schoolId = getSchoolId(req as AuthRequest);
+    if (schoolId == null) return next(createError('School context required', 403));
     const db = getDatabase();
     const file = req.file;
     const { title, description, category, event_date, event_time, end_date, end_time, venue, is_featured, is_active } = req.body;
@@ -363,8 +378,7 @@ export const createEvent = async (req: Request, res: Response, next: NextFunctio
     
     const slug = generateSlug(title);
     
-    // Check if slug already exists
-    const [existing] = await db.execute('SELECT id FROM events WHERE slug = ?', [slug]) as any;
+    const [existing] = await db.execute('SELECT id FROM events WHERE slug = ? AND school_id = ?', [slug, schoolId]) as any;
     if (existing && existing.length > 0) {
       return next(createError('An event with a similar title already exists', 400));
     }
@@ -372,8 +386,9 @@ export const createEvent = async (req: Request, res: Response, next: NextFunctio
     const featuredImage = file ? `/uploads/front-cms/news-events/${file.filename}` : null;
     
     const [result] = await db.execute(
-      'INSERT INTO events (title, slug, description, category, event_date, event_time, end_date, end_time, venue, featured_image, is_featured, is_active) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+      'INSERT INTO events (school_id, title, slug, description, category, event_date, event_time, end_date, end_time, venue, featured_image, is_featured, is_active) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
       [
+        schoolId,
         title.trim(),
         slug,
         description.trim(),
@@ -389,7 +404,7 @@ export const createEvent = async (req: Request, res: Response, next: NextFunctio
       ]
     ) as any;
     
-    const [newEvent] = await db.execute('SELECT * FROM events WHERE id = ?', [String(result.insertId)]);
+    const [newEvent] = await db.execute('SELECT * FROM events WHERE id = ? AND school_id = ?', [String(result.insertId), schoolId]);
     
     res.status(201).json({
       success: true,
@@ -412,6 +427,8 @@ export const createEvent = async (req: Request, res: Response, next: NextFunctio
 
 export const updateEvent = async (req: Request, res: Response, next: NextFunction) => {
   try {
+    const schoolId = getSchoolId(req as AuthRequest);
+    if (schoolId == null) return next(createError('School context required', 403));
     const db = getDatabase();
     const { id } = req.params;
     const file = req.file;
@@ -421,27 +438,22 @@ export const updateEvent = async (req: Request, res: Response, next: NextFunctio
       return next(createError('Title, description, and event date are required', 400));
     }
     
-    // Get existing event
-    const [existingEvents] = await db.execute('SELECT * FROM events WHERE id = ?', [String(id)]) as any;
+    const [existingEvents] = await db.execute('SELECT * FROM events WHERE id = ? AND school_id = ?', [String(id), schoolId]) as any;
     if (!existingEvents || existingEvents.length === 0) {
       return next(createError('Event not found', 404));
     }
     const existingEvent = existingEvents[0];
     
     let slug = existingEvent.slug;
-    // Generate new slug if title changed
     if (title !== existingEvent.title) {
       slug = generateSlug(title);
-      // Check if new slug already exists
-      const [slugCheck] = await db.execute('SELECT id FROM events WHERE slug = ? AND id != ?', [slug, String(id)]) as any;
+      const [slugCheck] = await db.execute('SELECT id FROM events WHERE slug = ? AND school_id = ? AND id != ?', [slug, schoolId, String(id)]) as any;
       if (slugCheck && slugCheck.length > 0) {
         return next(createError('An event with a similar title already exists', 400));
       }
     }
     
     let featuredImage = existingEvent.featured_image;
-    
-    // If new file uploaded, delete old file and update path
     if (file) {
       if (existingEvent.featured_image) {
         const oldFilePath = path.join(__dirname, '../../', existingEvent.featured_image);
@@ -453,7 +465,7 @@ export const updateEvent = async (req: Request, res: Response, next: NextFunctio
     }
     
     await db.execute(
-      'UPDATE events SET title = ?, slug = ?, description = ?, category = ?, event_date = ?, event_time = ?, end_date = ?, end_time = ?, venue = ?, featured_image = ?, is_featured = ?, is_active = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?',
+      'UPDATE events SET title = ?, slug = ?, description = ?, category = ?, event_date = ?, event_time = ?, end_date = ?, end_time = ?, venue = ?, featured_image = ?, is_featured = ?, is_active = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ? AND school_id = ?',
       [
         title.trim(),
         slug,
@@ -468,10 +480,11 @@ export const updateEvent = async (req: Request, res: Response, next: NextFunctio
         parseBoolean(is_featured) !== undefined ? parseBoolean(is_featured) : false,
         parseBoolean(is_active) !== undefined ? parseBoolean(is_active) : true,
         String(id),
+        schoolId,
       ]
     );
     
-    const [updatedEvent] = await db.execute('SELECT * FROM events WHERE id = ?', [String(id)]);
+    const [updatedEvent] = await db.execute('SELECT * FROM events WHERE id = ? AND school_id = ?', [String(id), schoolId]);
     
     res.json({
       success: true,
@@ -491,17 +504,17 @@ export const updateEvent = async (req: Request, res: Response, next: NextFunctio
 
 export const deleteEvent = async (req: Request, res: Response, next: NextFunction) => {
   try {
+    const schoolId = getSchoolId(req as AuthRequest);
+    if (schoolId == null) return next(createError('School context required', 403));
     const db = getDatabase();
     const { id } = req.params;
     
-    // Get event to delete file
-    const [events] = await db.execute('SELECT * FROM events WHERE id = ?', [String(id)]) as any;
+    const [events] = await db.execute('SELECT * FROM events WHERE id = ? AND school_id = ?', [String(id), schoolId]) as any;
     if (!events || events.length === 0) {
       return next(createError('Event not found', 404));
     }
     const event = events[0];
     
-    // Delete file
     if (event.featured_image) {
       const filePath = path.join(__dirname, '../../', event.featured_image);
       if (fs.existsSync(filePath)) {
@@ -509,7 +522,7 @@ export const deleteEvent = async (req: Request, res: Response, next: NextFunctio
       }
     }
     
-    await db.execute('DELETE FROM events WHERE id = ?', [String(id)]);
+    await db.execute('DELETE FROM events WHERE id = ? AND school_id = ?', [String(id), schoolId]);
     
     res.json({ success: true, message: 'Event deleted successfully' });
   } catch (error: any) {

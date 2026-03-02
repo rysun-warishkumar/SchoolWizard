@@ -1,7 +1,7 @@
 import { Request, Response, NextFunction } from 'express';
 import { getDatabase } from '../config/database';
 import { createError } from '../middleware/errorHandler';
-import { AuthRequest } from '../middleware/auth';
+import { AuthRequest, getSchoolId } from '../middleware/auth';
 import multer from 'multer';
 import path from 'path';
 import fs from 'fs';
@@ -72,6 +72,8 @@ export const uploadEventImage = multer({
 
 export const getAlumni = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
   try {
+    const schoolId = getSchoolId(req as AuthRequest);
+    if (schoolId == null) throw createError('School context required', 403);
     const { search, graduation_year, class_id, status } = req.query;
     const db = getDatabase();
 
@@ -80,11 +82,11 @@ export const getAlumni = async (req: Request, res: Response, next: NextFunction)
              c.name as class_name_display,
              s.name as section_name_display
       FROM alumni a
-      LEFT JOIN classes c ON a.class_id = c.id
-      LEFT JOIN sections s ON a.section_id = s.id
-      WHERE 1=1
+      LEFT JOIN classes c ON a.class_id = c.id AND c.school_id = ?
+      LEFT JOIN sections s ON a.section_id = s.id AND s.school_id = ?
+      WHERE a.school_id = ?
     `;
-    const params: any[] = [];
+    const params: any[] = [schoolId, schoolId, schoolId];
 
     if (search) {
       query += ` AND (
@@ -128,6 +130,8 @@ export const getAlumni = async (req: Request, res: Response, next: NextFunction)
 
 export const getAlumniById = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
   try {
+    const schoolId = getSchoolId(req as AuthRequest);
+    if (schoolId == null) throw createError('School context required', 403);
     const { id } = req.params;
     const db = getDatabase();
 
@@ -136,10 +140,10 @@ export const getAlumniById = async (req: Request, res: Response, next: NextFunct
               c.name as class_name_display,
               s.name as section_name_display
        FROM alumni a
-       LEFT JOIN classes c ON a.class_id = c.id
-       LEFT JOIN sections s ON a.section_id = s.id
-       WHERE a.id = ?`,
-      [id]
+       LEFT JOIN classes c ON a.class_id = c.id AND c.school_id = ?
+       LEFT JOIN sections s ON a.section_id = s.id AND s.school_id = ?
+       WHERE a.id = ? AND a.school_id = ?`,
+      [schoolId, schoolId, id, schoolId]
     ) as any[];
 
     if (alumni.length === 0) {
@@ -157,6 +161,8 @@ export const getAlumniById = async (req: Request, res: Response, next: NextFunct
 
 export const createAlumni = async (req: AuthRequest, res: Response, next: NextFunction): Promise<void> => {
   try {
+    const schoolId = getSchoolId(req);
+    if (schoolId == null) throw createError('School context required', 403);
     const {
       student_id,
       admission_no,
@@ -199,14 +205,15 @@ export const createAlumni = async (req: AuthRequest, res: Response, next: NextFu
 
     const [result] = await db.execute(
       `INSERT INTO alumni (
-        student_id, admission_no, first_name, last_name, email, phone, alternate_phone,
+        school_id, student_id, admission_no, first_name, last_name, email, phone, alternate_phone,
         date_of_birth, gender, graduation_year, class_id, section_id, class_name, section_name,
         current_profession, current_company, current_designation,
         current_address, permanent_address, city, state, country, pincode,
         photo, facebook_url, linkedin_url, twitter_url, instagram_url,
         achievements, bio, status
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       [
+        schoolId,
         student_id || null,
         admission_no?.trim() || null,
         first_name.trim(),
@@ -253,6 +260,8 @@ export const createAlumni = async (req: AuthRequest, res: Response, next: NextFu
 
 export const updateAlumni = async (req: AuthRequest, res: Response, next: NextFunction): Promise<void> => {
   try {
+    const schoolId = getSchoolId(req);
+    if (schoolId == null) throw createError('School context required', 403);
     const { id } = req.params;
     const {
       student_id,
@@ -292,10 +301,9 @@ export const updateAlumni = async (req: AuthRequest, res: Response, next: NextFu
       throw createError('First name and graduation year are required', 400);
     }
 
-    // Get existing alumni to check for photo
     const [existing] = await db.execute(
-      'SELECT photo FROM alumni WHERE id = ?',
-      [id]
+      'SELECT photo FROM alumni WHERE id = ? AND school_id = ?',
+      [id, schoolId]
     ) as any[];
 
     if (existing.length === 0) {
@@ -304,7 +312,6 @@ export const updateAlumni = async (req: AuthRequest, res: Response, next: NextFu
 
     let photo = existing[0].photo;
     if (req.file) {
-      // Delete old photo if exists
       if (photo) {
         const oldPhotoPath = path.join(__dirname, '../../', photo);
         if (fs.existsSync(oldPhotoPath)) {
@@ -322,7 +329,7 @@ export const updateAlumni = async (req: AuthRequest, res: Response, next: NextFu
        current_address = ?, permanent_address = ?, city = ?, state = ?, country = ?, pincode = ?,
        photo = ?, facebook_url = ?, linkedin_url = ?, twitter_url = ?, instagram_url = ?,
        achievements = ?, bio = ?, status = ?
-       WHERE id = ?`,
+       WHERE id = ? AND school_id = ?`,
       [
         student_id || null,
         admission_no?.trim() || null,
@@ -356,6 +363,7 @@ export const updateAlumni = async (req: AuthRequest, res: Response, next: NextFu
         bio?.trim() || null,
         status || 'active',
         id,
+        schoolId,
       ]
     );
 
@@ -370,13 +378,14 @@ export const updateAlumni = async (req: AuthRequest, res: Response, next: NextFu
 
 export const deleteAlumni = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
   try {
+    const schoolId = getSchoolId(req as AuthRequest);
+    if (schoolId == null) throw createError('School context required', 403);
     const { id } = req.params;
     const db = getDatabase();
 
-    // Get alumni photo to delete file
     const [alumni] = await db.execute(
-      'SELECT photo FROM alumni WHERE id = ?',
-      [id]
+      'SELECT photo FROM alumni WHERE id = ? AND school_id = ?',
+      [id, schoolId]
     ) as any[];
 
     if (alumni.length > 0 && alumni[0].photo) {
@@ -386,7 +395,7 @@ export const deleteAlumni = async (req: Request, res: Response, next: NextFuncti
       }
     }
 
-    await db.execute('DELETE FROM alumni WHERE id = ?', [id]);
+    await db.execute('DELETE FROM alumni WHERE id = ? AND school_id = ?', [id, schoolId]);
 
     res.json({
       success: true,
@@ -401,6 +410,8 @@ export const deleteAlumni = async (req: Request, res: Response, next: NextFuncti
 
 export const getAlumniEvents = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
   try {
+    const schoolId = getSchoolId(req as AuthRequest);
+    if (schoolId == null) throw createError('School context required', 403);
     const { search, event_type, status, start_date, end_date } = req.query;
     const db = getDatabase();
 
@@ -409,9 +420,9 @@ export const getAlumniEvents = async (req: Request, res: Response, next: NextFun
              u.name as created_by_name
       FROM alumni_events ae
       LEFT JOIN users u ON ae.created_by = u.id
-      WHERE 1=1
+      WHERE ae.school_id = ?
     `;
-    const params: any[] = [];
+    const params: any[] = [schoolId];
 
     if (search) {
       query += ' AND (ae.event_title LIKE ? OR ae.event_description LIKE ?)';
@@ -449,6 +460,8 @@ export const getAlumniEvents = async (req: Request, res: Response, next: NextFun
 
 export const getAlumniEventById = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
   try {
+    const schoolId = getSchoolId(req as AuthRequest);
+    if (schoolId == null) throw createError('School context required', 403);
     const { id } = req.params;
     const db = getDatabase();
 
@@ -457,18 +470,17 @@ export const getAlumniEventById = async (req: Request, res: Response, next: Next
               u.name as created_by_name
        FROM alumni_events ae
        LEFT JOIN users u ON ae.created_by = u.id
-       WHERE ae.id = ?`,
-      [id]
+       WHERE ae.id = ? AND ae.school_id = ?`,
+      [id, schoolId]
     ) as any[];
 
     if (events.length === 0) {
       throw createError('Event not found', 404);
     }
 
-    // Get registrations count
     const [registrations] = await db.execute(
-      'SELECT COUNT(*) as total, SUM(CASE WHEN attendance_status = "attended" THEN 1 ELSE 0 END) as attended FROM alumni_event_registrations WHERE event_id = ?',
-      [id]
+      'SELECT COUNT(*) as total, SUM(CASE WHEN attendance_status = "attended" THEN 1 ELSE 0 END) as attended FROM alumni_event_registrations WHERE event_id = ? AND school_id = ?',
+      [id, schoolId]
     ) as any[];
 
     res.json({
@@ -486,6 +498,8 @@ export const getAlumniEventById = async (req: Request, res: Response, next: Next
 
 export const createAlumniEvent = async (req: AuthRequest, res: Response, next: NextFunction): Promise<void> => {
   try {
+    const schoolId = getSchoolId(req);
+    if (schoolId == null) throw createError('School context required', 403);
     const {
       event_title,
       event_description,
@@ -511,7 +525,6 @@ export const createAlumniEvent = async (req: AuthRequest, res: Response, next: N
       throw createError('Event title and date are required', 400);
     }
 
-    // Create events directory if needed
     const eventsDir = path.join(__dirname, '../../uploads/alumni/events');
     if (!fs.existsSync(eventsDir)) {
       fs.mkdirSync(eventsDir, { recursive: true });
@@ -521,12 +534,13 @@ export const createAlumniEvent = async (req: AuthRequest, res: Response, next: N
 
     const [result] = await db.execute(
       `INSERT INTO alumni_events (
-        event_title, event_description, event_date, event_time, event_end_date, event_end_time,
+        school_id, event_title, event_description, event_date, event_time, event_end_date, event_end_time,
         event_venue, event_address, event_type, registration_required, registration_deadline,
         max_participants, registration_fee, contact_person, contact_email, contact_phone,
         event_image, status, created_by
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       [
+        schoolId,
         event_title.trim(),
         event_description?.trim() || null,
         event_date,
@@ -561,6 +575,8 @@ export const createAlumniEvent = async (req: AuthRequest, res: Response, next: N
 
 export const updateAlumniEvent = async (req: AuthRequest, res: Response, next: NextFunction): Promise<void> => {
   try {
+    const schoolId = getSchoolId(req);
+    if (schoolId == null) throw createError('School context required', 403);
     const { id } = req.params;
     const {
       event_title,
@@ -587,10 +603,9 @@ export const updateAlumniEvent = async (req: AuthRequest, res: Response, next: N
       throw createError('Event title and date are required', 400);
     }
 
-    // Get existing event to check for image
     const [existing] = await db.execute(
-      'SELECT event_image FROM alumni_events WHERE id = ?',
-      [id]
+      'SELECT event_image FROM alumni_events WHERE id = ? AND school_id = ?',
+      [id, schoolId]
     ) as any[];
 
     if (existing.length === 0) {
@@ -599,7 +614,6 @@ export const updateAlumniEvent = async (req: AuthRequest, res: Response, next: N
 
     let eventImage = existing[0].event_image;
     if (req.file) {
-      // Delete old image if exists
       if (eventImage) {
         const oldImagePath = path.join(__dirname, '../../', eventImage);
         if (fs.existsSync(oldImagePath)) {
@@ -615,7 +629,7 @@ export const updateAlumniEvent = async (req: AuthRequest, res: Response, next: N
        event_venue = ?, event_address = ?, event_type = ?, registration_required = ?, registration_deadline = ?,
        max_participants = ?, registration_fee = ?, contact_person = ?, contact_email = ?, contact_phone = ?,
        event_image = ?, status = ?
-       WHERE id = ?`,
+       WHERE id = ? AND school_id = ?`,
       [
         event_title.trim(),
         event_description?.trim() || null,
@@ -636,6 +650,7 @@ export const updateAlumniEvent = async (req: AuthRequest, res: Response, next: N
         eventImage,
         status || 'upcoming',
         id,
+        schoolId,
       ]
     );
 
@@ -650,13 +665,14 @@ export const updateAlumniEvent = async (req: AuthRequest, res: Response, next: N
 
 export const deleteAlumniEvent = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
   try {
+    const schoolId = getSchoolId(req as AuthRequest);
+    if (schoolId == null) throw createError('School context required', 403);
     const { id } = req.params;
     const db = getDatabase();
 
-    // Get event image to delete file
     const [event] = await db.execute(
-      'SELECT event_image FROM alumni_events WHERE id = ?',
-      [id]
+      'SELECT event_image FROM alumni_events WHERE id = ? AND school_id = ?',
+      [id, schoolId]
     ) as any[];
 
     if (event.length > 0 && event[0].event_image) {
@@ -666,7 +682,7 @@ export const deleteAlumniEvent = async (req: Request, res: Response, next: NextF
       }
     }
 
-    await db.execute('DELETE FROM alumni_events WHERE id = ?', [id]);
+    await db.execute('DELETE FROM alumni_events WHERE id = ? AND school_id = ?', [id, schoolId]);
 
     res.json({
       success: true,
@@ -681,6 +697,8 @@ export const deleteAlumniEvent = async (req: Request, res: Response, next: NextF
 
 export const getEventRegistrations = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
   try {
+    const schoolId = getSchoolId(req as AuthRequest);
+    if (schoolId == null) throw createError('School context required', 403);
     const { event_id, alumni_id, attendance_status, payment_status } = req.query;
     const db = getDatabase();
 
@@ -689,11 +707,11 @@ export const getEventRegistrations = async (req: Request, res: Response, next: N
              a.first_name, a.last_name, a.email, a.phone, a.photo,
              ae.event_title
       FROM alumni_event_registrations aer
-      LEFT JOIN alumni a ON aer.alumni_id = a.id
-      LEFT JOIN alumni_events ae ON aer.event_id = ae.id
-      WHERE 1=1
+      LEFT JOIN alumni a ON aer.alumni_id = a.id AND a.school_id = ?
+      LEFT JOIN alumni_events ae ON aer.event_id = ae.id AND ae.school_id = ?
+      WHERE aer.school_id = ?
     `;
-    const params: any[] = [];
+    const params: any[] = [schoolId, schoolId, schoolId];
 
     if (event_id) {
       query += ' AND aer.event_id = ?';
@@ -730,6 +748,8 @@ export const getEventRegistrations = async (req: Request, res: Response, next: N
 
 export const registerForEvent = async (req: AuthRequest, res: Response, next: NextFunction): Promise<void> => {
   try {
+    const schoolId = getSchoolId(req);
+    if (schoolId == null) throw createError('School context required', 403);
     const { event_id, alumni_id, special_requirements, notes } = req.body;
     const db = getDatabase();
 
@@ -737,10 +757,9 @@ export const registerForEvent = async (req: AuthRequest, res: Response, next: Ne
       throw createError('Event ID and Alumni ID are required', 400);
     }
 
-    // Check if event exists and get registration fee
     const [events] = await db.execute(
-      'SELECT registration_fee, max_participants, registration_deadline FROM alumni_events WHERE id = ?',
-      [event_id]
+      'SELECT registration_fee, max_participants, registration_deadline FROM alumni_events WHERE id = ? AND school_id = ?',
+      [event_id, schoolId]
     ) as any[];
 
     if (events.length === 0) {
@@ -749,26 +768,23 @@ export const registerForEvent = async (req: AuthRequest, res: Response, next: Ne
 
     const event = events[0];
 
-    // Check registration deadline
     if (event.registration_deadline && new Date(event.registration_deadline) < new Date()) {
       throw createError('Registration deadline has passed', 400);
     }
 
-    // Check max participants
     if (event.max_participants) {
       const [count] = await db.execute(
-        'SELECT COUNT(*) as count FROM alumni_event_registrations WHERE event_id = ? AND attendance_status != "cancelled"',
-        [event_id]
+        'SELECT COUNT(*) as count FROM alumni_event_registrations WHERE event_id = ? AND school_id = ? AND attendance_status != "cancelled"',
+        [event_id, schoolId]
       ) as any[];
       if (count[0].count >= event.max_participants) {
         throw createError('Event is full', 400);
       }
     }
 
-    // Check if already registered
     const [existing] = await db.execute(
-      'SELECT id FROM alumni_event_registrations WHERE event_id = ? AND alumni_id = ?',
-      [event_id, alumni_id]
+      'SELECT id FROM alumni_event_registrations WHERE event_id = ? AND alumni_id = ? AND school_id = ?',
+      [event_id, alumni_id, schoolId]
     ) as any[];
 
     if (existing.length > 0) {
@@ -779,10 +795,11 @@ export const registerForEvent = async (req: AuthRequest, res: Response, next: Ne
 
     const [result] = await db.execute(
       `INSERT INTO alumni_event_registrations (
-        event_id, alumni_id, payment_status, payment_amount,
+        school_id, event_id, alumni_id, payment_status, payment_amount,
         special_requirements, notes
-      ) VALUES (?, ?, ?, ?, ?, ?)`,
+      ) VALUES (?, ?, ?, ?, ?, ?, ?)`,
       [
+        schoolId,
         event_id,
         alumni_id,
         paymentStatus,
@@ -804,6 +821,8 @@ export const registerForEvent = async (req: AuthRequest, res: Response, next: Ne
 
 export const updateRegistration = async (req: AuthRequest, res: Response, next: NextFunction): Promise<void> => {
   try {
+    const schoolId = getSchoolId(req);
+    if (schoolId == null) throw createError('School context required', 403);
     const { id } = req.params;
     const {
       payment_status,
@@ -821,7 +840,7 @@ export const updateRegistration = async (req: AuthRequest, res: Response, next: 
        payment_status = ?, payment_amount = ?, payment_date = ?,
        attendance_status = ?, attendance_marked_at = ?,
        special_requirements = ?, notes = ?
-       WHERE id = ?`,
+       WHERE id = ? AND school_id = ?`,
       [
         payment_status || null,
         payment_amount || null,
@@ -831,6 +850,7 @@ export const updateRegistration = async (req: AuthRequest, res: Response, next: 
         special_requirements?.trim() || null,
         notes?.trim() || null,
         id,
+        schoolId,
       ]
     );
 
@@ -845,10 +865,12 @@ export const updateRegistration = async (req: AuthRequest, res: Response, next: 
 
 export const deleteRegistration = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
   try {
+    const schoolId = getSchoolId(req as AuthRequest);
+    if (schoolId == null) throw createError('School context required', 403);
     const { id } = req.params;
     const db = getDatabase();
 
-    await db.execute('DELETE FROM alumni_event_registrations WHERE id = ?', [id]);
+    await db.execute('DELETE FROM alumni_event_registrations WHERE id = ? AND school_id = ?', [id, schoolId]);
 
     res.json({
       success: true,

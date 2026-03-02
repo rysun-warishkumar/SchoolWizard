@@ -1,6 +1,7 @@
 import { Request, Response, NextFunction } from 'express';
 import { getDatabase } from '../config/database';
 import { createError } from '../middleware/errorHandler';
+import { AuthRequest, getSchoolId } from '../middleware/auth';
 import multer from 'multer';
 import path from 'path';
 import fs from 'fs';
@@ -40,6 +41,8 @@ export const upload = multer({
 
 export const getHomework = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
   try {
+    const schoolId = getSchoolId(req as AuthRequest);
+    if (schoolId == null) throw createError('School context required', 403);
     const db = getDatabase();
     const { class_id, section_id, subject_id, session_id, student_id } = req.query;
     const userId = (req as any).user?.id;
@@ -54,17 +57,17 @@ export const getHomework = async (req: Request, res: Response, next: NextFunctio
              u.name as created_by_name,
              (SELECT MAX(he.evaluation_date) 
               FROM homework_evaluations he 
-              WHERE he.homework_id = h.id 
+              WHERE he.homework_id = h.id AND he.school_id = ?
               AND he.is_completed = 1) as evaluation_date
       FROM homework h
-      INNER JOIN classes c ON h.class_id = c.id
-      INNER JOIN sections s ON h.section_id = s.id
-      INNER JOIN subjects sub ON h.subject_id = sub.id
-      LEFT JOIN subject_groups sg ON h.subject_group_id = sg.id
+      INNER JOIN classes c ON h.class_id = c.id AND c.school_id = ?
+      INNER JOIN sections s ON h.section_id = s.id AND s.school_id = ?
+      INNER JOIN subjects sub ON h.subject_id = sub.id AND sub.school_id = ?
+      LEFT JOIN subject_groups sg ON h.subject_group_id = sg.id AND sg.school_id = ?
       LEFT JOIN users u ON h.created_by = u.id
-      WHERE 1=1
+      WHERE h.school_id = ?
     `;
-    const params: any[] = [];
+    const params: any[] = [schoolId, schoolId, schoolId, schoolId, schoolId];
 
     if (class_id) {
       query += ' AND h.class_id = ?';
@@ -100,18 +103,17 @@ export const getHomework = async (req: Request, res: Response, next: NextFunctio
                  st.admission_no, st.first_name, st.last_name, st.roll_no,
                  ev.name as evaluated_by_name
           FROM homework_evaluations he
-          INNER JOIN students st ON he.student_id = st.id
+          INNER JOIN students st ON he.student_id = st.id AND st.school_id = ?
           LEFT JOIN users ev ON he.evaluated_by = ev.id
-          WHERE he.homework_id = ?
+          WHERE he.homework_id = ? AND he.school_id = ?
         `;
-        const evaluationParams: any[] = [hw.id];
+        const evaluationParams: any[] = [schoolId, hw.id, schoolId];
 
         // If student role, filter by student_id
         if (userRole === 'student' && userId) {
-          // Get student_id from students table using user_id
           const [studentUser] = await db.execute(
-            'SELECT id FROM students WHERE user_id = ?',
-            [userId]
+            'SELECT id FROM students WHERE user_id = ? AND school_id = ?',
+            [userId, schoolId]
           ) as any[];
           
           if (studentUser.length > 0) {
@@ -168,6 +170,8 @@ export const getHomework = async (req: Request, res: Response, next: NextFunctio
 
 export const getHomeworkById = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
   try {
+    const schoolId = getSchoolId(req as AuthRequest);
+    if (schoolId == null) throw createError('School context required', 403);
     const { id } = req.params;
     const db = getDatabase();
 
@@ -179,30 +183,29 @@ export const getHomeworkById = async (req: Request, res: Response, next: NextFun
               sg.name as subject_group_name,
               u.name as created_by_name
        FROM homework h
-       INNER JOIN classes c ON h.class_id = c.id
-       INNER JOIN sections s ON h.section_id = s.id
-       INNER JOIN subjects sub ON h.subject_id = sub.id
-       LEFT JOIN subject_groups sg ON h.subject_group_id = sg.id
+       INNER JOIN classes c ON h.class_id = c.id AND c.school_id = ?
+       INNER JOIN sections s ON h.section_id = s.id AND s.school_id = ?
+       INNER JOIN subjects sub ON h.subject_id = sub.id AND sub.school_id = ?
+       LEFT JOIN subject_groups sg ON h.subject_group_id = sg.id AND sg.school_id = ?
        LEFT JOIN users u ON h.created_by = u.id
-       WHERE h.id = ?`,
-      [id]
+       WHERE h.id = ? AND h.school_id = ?`,
+      [schoolId, schoolId, schoolId, schoolId, id, schoolId]
     ) as any[];
 
     if (homework.length === 0) {
       throw createError('Homework not found', 404);
     }
 
-    // Get evaluations
     const [evaluations] = await db.execute(
       `SELECT he.*,
               st.admission_no, st.first_name, st.last_name, st.roll_no,
               ev.name as evaluated_by_name
        FROM homework_evaluations he
-       INNER JOIN students st ON he.student_id = st.id
+       INNER JOIN students st ON he.student_id = st.id AND st.school_id = ?
        LEFT JOIN users ev ON he.evaluated_by = ev.id
-       WHERE he.homework_id = ?
+       WHERE he.homework_id = ? AND he.school_id = ?
        ORDER BY st.admission_no ASC`,
-      [id]
+      [schoolId, id, schoolId]
     ) as any[];
 
     res.json({
@@ -219,6 +222,8 @@ export const getHomeworkById = async (req: Request, res: Response, next: NextFun
 
 export const createHomework = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
   try {
+    const schoolId = getSchoolId(req as AuthRequest);
+    if (schoolId == null) throw createError('School context required', 403);
     const {
       class_id,
       section_id,
@@ -238,7 +243,6 @@ export const createHomework = async (req: Request, res: Response, next: NextFunc
     const db = getDatabase();
     const userId = (req as any).user?.id;
 
-    // Handle file upload if present
     let finalAttachmentUrl = attachment_url || null;
     const file = (req as any).file;
     if (file) {
@@ -247,9 +251,10 @@ export const createHomework = async (req: Request, res: Response, next: NextFunc
 
     await db.execute(
       `INSERT INTO homework
-       (class_id, section_id, subject_group_id, subject_id, homework_date, submission_date, title, description, attachment_url, created_by)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+       (school_id, class_id, section_id, subject_group_id, subject_id, homework_date, submission_date, title, description, attachment_url, created_by)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       [
+        schoolId,
         class_id,
         section_id,
         subject_group_id || null,
@@ -278,6 +283,8 @@ export const createHomework = async (req: Request, res: Response, next: NextFunc
 
 export const updateHomework = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
   try {
+    const schoolId = getSchoolId(req as AuthRequest);
+    if (schoolId == null) throw createError('School context required', 403);
     const { id } = req.params;
     const {
       class_id,
@@ -301,7 +308,7 @@ export const updateHomework = async (req: Request, res: Response, next: NextFunc
       `UPDATE homework
        SET class_id = ?, section_id = ?, subject_group_id = ?, subject_id = ?,
            homework_date = ?, submission_date = ?, title = ?, description = ?, attachment_url = ?
-       WHERE id = ?`,
+       WHERE id = ? AND school_id = ?`,
       [
         class_id,
         section_id,
@@ -313,6 +320,7 @@ export const updateHomework = async (req: Request, res: Response, next: NextFunc
         description?.trim() || null,
         attachment_url || null,
         id,
+        schoolId,
       ]
     ) as any[];
 
@@ -331,10 +339,12 @@ export const updateHomework = async (req: Request, res: Response, next: NextFunc
 
 export const deleteHomework = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
   try {
+    const schoolId = getSchoolId(req as AuthRequest);
+    if (schoolId == null) throw createError('School context required', 403);
     const { id } = req.params;
     const db = getDatabase();
 
-    const [result] = await db.execute('DELETE FROM homework WHERE id = ?', [id]) as any[];
+    const [result] = await db.execute('DELETE FROM homework WHERE id = ? AND school_id = ?', [id, schoolId]) as any[];
 
     if (result.affectedRows === 0) {
       throw createError('Homework not found', 404);
@@ -353,6 +363,8 @@ export const deleteHomework = async (req: Request, res: Response, next: NextFunc
 
 export const evaluateHomework = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
   try {
+    const schoolId = getSchoolId(req as AuthRequest);
+    if (schoolId == null) throw createError('School context required', 403);
     const { homework_id, student_ids, evaluation_date, student_remarks, student_statuses, marks } = req.body;
 
     if (!homework_id || !Array.isArray(student_ids) || student_ids.length === 0) {
@@ -362,10 +374,8 @@ export const evaluateHomework = async (req: Request, res: Response, next: NextFu
     const db = getDatabase();
     const userId = (req as any).user?.id;
 
-    // Delete existing evaluations for this homework
-    await db.execute('DELETE FROM homework_evaluations WHERE homework_id = ?', [homework_id]);
+    await db.execute('DELETE FROM homework_evaluations WHERE homework_id = ? AND school_id = ?', [homework_id, schoolId]);
 
-    // Insert new evaluations with per-student remarks and status
     if (student_ids.length > 0) {
       const values = student_ids.map((student_id: number) => {
         // Get remarks for this specific student
@@ -404,6 +414,7 @@ export const evaluateHomework = async (req: Request, res: Response, next: NextFu
         }
 
         return [
+          schoolId,
           homework_id,
           student_id,
           is_completed,
@@ -414,12 +425,12 @@ export const evaluateHomework = async (req: Request, res: Response, next: NextFu
         ];
       });
 
-      const placeholders = values.map(() => '(?, ?, ?, ?, ?, ?, ?)').join(', ');
+      const placeholders = values.map(() => '(?, ?, ?, ?, ?, ?, ?, ?)').join(', ');
       const flatValues = values.flat();
 
       await db.execute(
         `INSERT INTO homework_evaluations
-         (homework_id, student_id, is_completed, evaluation_date, remarks, marks, evaluated_by)
+         (school_id, homework_id, student_id, is_completed, evaluation_date, remarks, marks, evaluated_by)
          VALUES ${placeholders}`,
         flatValues
       );
@@ -436,6 +447,8 @@ export const evaluateHomework = async (req: Request, res: Response, next: NextFu
 
 export const updateHomeworkEvaluation = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
   try {
+    const schoolId = getSchoolId(req as AuthRequest);
+    if (schoolId == null) throw createError('School context required', 403);
     const { id } = req.params;
     const { is_completed, evaluation_date, remarks, marks } = req.body;
 
@@ -445,7 +458,7 @@ export const updateHomeworkEvaluation = async (req: Request, res: Response, next
     const [result] = await db.execute(
       `UPDATE homework_evaluations
        SET is_completed = ?, evaluation_date = ?, remarks = ?, marks = ?, evaluated_by = ?
-       WHERE id = ?`,
+       WHERE id = ? AND school_id = ?`,
       [
         is_completed ? 1 : 0,
         evaluation_date || null,
@@ -453,6 +466,7 @@ export const updateHomeworkEvaluation = async (req: Request, res: Response, next
         marks || null,
         userId || null,
         id,
+        schoolId,
       ]
     ) as any[];
 

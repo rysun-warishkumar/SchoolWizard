@@ -42,6 +42,9 @@ const envSchema = Joi.object({
   // SMS Configuration (optional)
   SMS_API_KEY: Joi.string().optional(),
   SMS_API_SECRET: Joi.string().optional(),
+
+  // Marketing enquiries webhook (e.g. WordPress URL to receive enquiry data)
+  INQUIRY_WEBHOOK_URL: Joi.string().uri().allow('').optional(),
 }).unknown(); // Allow unknown keys for flexibility
 
 // Validate environment variables
@@ -106,6 +109,9 @@ export const env = {
     apiKey: envVars.SMS_API_KEY,
     apiSecret: envVars.SMS_API_SECRET,
   },
+
+  // Marketing enquiries webhook (optional - e.g. WordPress URL)
+  inquiryWebhookUrl: envVars.INQUIRY_WEBHOOK_URL || '',
 };
 
 // Helper function to check if running in development

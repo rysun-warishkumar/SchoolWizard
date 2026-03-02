@@ -51,6 +51,9 @@ import publicGalleryRoutes from './routes/publicGallery.routes';
 import newsEventsManagementRoutes from './routes/newsEventsManagement.routes';
 import publicNewsEventsRoutes from './routes/publicNewsEvents.routes';
 import publicExaminationsRoutes from './routes/publicExaminations.routes';
+import publicSchoolsRoutes from './routes/publicSchools.routes';
+import platformRoutes from './routes/platform.routes';
+import inquiriesRoutes from './routes/inquiries.routes';
 import alumniRoutes from './routes/alumni.routes';
 import reportsRoutes from './routes/reports.routes';
 import lessonPlanRoutes from './routes/lessonPlan.routes';
@@ -251,6 +254,7 @@ app.use('/api/v1/public/contact', publicContactMessagesRoutes); // Public Contac
 app.use('/api/v1/public/gallery', publicGalleryRoutes); // Public Gallery routes (no auth required)
 app.use('/api/v1/public/news-events', publicNewsEventsRoutes); // Public News & Events routes (no auth required)
 app.use('/api/v1/public/examinations', publicExaminationsRoutes); // Public Examinations routes (no auth required)
+app.use('/api/v1/public/schools', publicSchoolsRoutes); // Public school registration (no auth required)
 
 // Public routes without /api/v1 prefix (for backward compatibility with SchoolPortal)
 // This allows SchoolPortal to call /public/website/... directly when API_BASE_URL is http://localhost:5000
@@ -263,8 +267,12 @@ app.use('/public/gallery', publicGalleryRoutes); // Public Gallery routes (no au
 app.use('/public/news-events', publicNewsEventsRoutes); // Public News & Events routes (no auth required)
 app.use('/public/examinations', publicExaminationsRoutes); // Public Examinations routes (no auth required)
 
+// Marketing website inquiries (Contact & Get Started forms) - /api/inquiries
+app.use('/api', inquiriesRoutes);
+
 // Protected routes (require authentication)
 app.use('/api/v1/auth', authRoutes);
+app.use('/api/v1/platform', platformRoutes);
 app.use('/api/v1/users', usersRoutes);
 app.use('/api/v1/roles', rolesRoutes);
 app.use('/api/v1/dashboard', dashboardRoutes);

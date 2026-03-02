@@ -1,7 +1,6 @@
 import { Request, Response, NextFunction } from 'express';
-import { AuthRequest } from '../middleware/auth';
+import { AuthRequest, getSchoolId } from '../middleware/auth';
 import bcrypt from 'bcryptjs';
-import { format } from 'date-fns';
 import { getDatabase } from '../config/database';
 import { createError } from '../middleware/errorHandler';
 import { sendStudentAdmissionEmail } from '../utils/emailService';
@@ -52,14 +51,17 @@ export const uploadStudentPhoto = multer({
 
 // ========== Student Categories ==========
 export const getStudentCategories = async (
-  req: Request,
+  req: AuthRequest,
   res: Response,
   next: NextFunction
 ): Promise<void> => {
   try {
+    const schoolId = getSchoolId(req);
+    if (schoolId == null) return next(createError('School context required', 403));
     const db = getDatabase();
     const [categories] = await db.execute(
-      'SELECT * FROM student_categories ORDER BY name ASC'
+      'SELECT * FROM student_categories WHERE school_id = ? ORDER BY name ASC',
+      [schoolId]
     ) as any[];
 
     res.json({
@@ -72,11 +74,13 @@ export const getStudentCategories = async (
 };
 
 export const createStudentCategory = async (
-  req: Request,
+  req: AuthRequest,
   res: Response,
   next: NextFunction
 ): Promise<void> => {
   try {
+    const schoolId = getSchoolId(req);
+    if (schoolId == null) return next(createError('School context required', 403));
     const { name } = req.body;
 
     if (!name) {
@@ -85,8 +89,8 @@ export const createStudentCategory = async (
 
     const db = getDatabase();
     const [result] = await db.execute(
-      'INSERT INTO student_categories (name, created_at) VALUES (?, NOW())',
-      [name]
+      'INSERT INTO student_categories (school_id, name, created_at) VALUES (?, ?, NOW())',
+      [schoolId, name]
     ) as any;
 
     res.status(201).json({
@@ -101,14 +105,17 @@ export const createStudentCategory = async (
 
 // ========== Student Houses ==========
 export const getStudentHouses = async (
-  req: Request,
+  req: AuthRequest,
   res: Response,
   next: NextFunction
 ): Promise<void> => {
   try {
+    const schoolId = getSchoolId(req);
+    if (schoolId == null) return next(createError('School context required', 403));
     const db = getDatabase();
     const [houses] = await db.execute(
-      'SELECT * FROM student_houses ORDER BY name ASC'
+      'SELECT * FROM student_houses WHERE school_id = ? ORDER BY name ASC',
+      [schoolId]
     ) as any[];
 
     res.json({
@@ -121,11 +128,13 @@ export const getStudentHouses = async (
 };
 
 export const createStudentHouse = async (
-  req: Request,
+  req: AuthRequest,
   res: Response,
   next: NextFunction
 ): Promise<void> => {
   try {
+    const schoolId = getSchoolId(req);
+    if (schoolId == null) return next(createError('School context required', 403));
     const { name } = req.body;
 
     if (!name) {
@@ -134,8 +143,8 @@ export const createStudentHouse = async (
 
     const db = getDatabase();
     const [result] = await db.execute(
-      'INSERT INTO student_houses (name, created_at) VALUES (?, NOW())',
-      [name]
+      'INSERT INTO student_houses (school_id, name, created_at) VALUES (?, ?, NOW())',
+      [schoolId, name]
     ) as any;
 
     res.status(201).json({
@@ -150,14 +159,17 @@ export const createStudentHouse = async (
 
 // ========== Disable Reasons ==========
 export const getDisableReasons = async (
-  req: Request,
+  req: AuthRequest,
   res: Response,
   next: NextFunction
 ): Promise<void> => {
   try {
+    const schoolId = getSchoolId(req);
+    if (schoolId == null) return next(createError('School context required', 403));
     const db = getDatabase();
     const [reasons] = await db.execute(
-      'SELECT * FROM disable_reasons ORDER BY name ASC'
+      'SELECT * FROM disable_reasons WHERE school_id = ? ORDER BY name ASC',
+      [schoolId]
     ) as any[];
 
     res.json({
@@ -170,11 +182,13 @@ export const getDisableReasons = async (
 };
 
 export const createDisableReason = async (
-  req: Request,
+  req: AuthRequest,
   res: Response,
   next: NextFunction
 ): Promise<void> => {
   try {
+    const schoolId = getSchoolId(req);
+    if (schoolId == null) return next(createError('School context required', 403));
     const { name } = req.body;
 
     if (!name) {
@@ -183,8 +197,8 @@ export const createDisableReason = async (
 
     const db = getDatabase();
     const [result] = await db.execute(
-      'INSERT INTO disable_reasons (name, created_at) VALUES (?, NOW())',
-      [name]
+      'INSERT INTO disable_reasons (school_id, name, created_at) VALUES (?, ?, NOW())',
+      [schoolId, name]
     ) as any;
 
     res.status(201).json({
@@ -199,11 +213,13 @@ export const createDisableReason = async (
 
 // ========== Students ==========
 export const getStudents = async (
-  req: Request,
+  req: AuthRequest,
   res: Response,
   next: NextFunction
 ): Promise<void> => {
   try {
+    const schoolId = getSchoolId(req);
+    if (schoolId == null) return next(createError('School context required', 403));
     const { class_id, section_id, search, page, limit } = req.query;
     const db = getDatabase();
 
@@ -255,13 +271,13 @@ export const getStudents = async (
        c.name as class_name, sec.name as section_name,
        cat.name as category_name, h.name as house_name
        FROM students s
-       LEFT JOIN classes c ON s.class_id = c.id
-       LEFT JOIN sections sec ON s.section_id = sec.id
-       LEFT JOIN student_categories cat ON s.category_id = cat.id
-       LEFT JOIN student_houses h ON s.house_id = h.id
-       WHERE 1=1
+       LEFT JOIN classes c ON s.class_id = c.id AND c.school_id = ?
+       LEFT JOIN sections sec ON s.section_id = sec.id AND sec.school_id = ?
+       LEFT JOIN student_categories cat ON s.category_id = cat.id AND cat.school_id = ?
+       LEFT JOIN student_houses h ON s.house_id = h.id AND h.school_id = ?
+       WHERE s.school_id = ?
     `;
-    const params: any[] = [];
+    const params: any[] = [schoolId, schoolId, schoolId, schoolId, schoolId];
 
     if (class_id) {
       query += ' AND s.class_id = ?';
@@ -289,9 +305,9 @@ export const getStudents = async (
     let countQuery = `
       SELECT COUNT(*) as total 
       FROM students s
-      WHERE 1=1
+      WHERE s.school_id = ?
     `;
-    const countParams: any[] = [];
+    const countParams: any[] = [schoolId];
 
     if (class_id) {
       countQuery += ' AND s.class_id = ?';
@@ -348,11 +364,13 @@ export const getStudents = async (
 };
 
 export const getStudentById = async (
-  req: Request,
+  req: AuthRequest,
   res: Response,
   next: NextFunction
 ): Promise<void> => {
   try {
+    const schoolId = getSchoolId(req);
+    if (schoolId == null) return next(createError('School context required', 403));
     const { id } = req.params;
     const db = getDatabase();
 
@@ -362,13 +380,13 @@ export const getStudentById = async (
        cat.name as category_name, h.name as house_name,
        sess.name as session_name
        FROM students s
-       LEFT JOIN classes c ON s.class_id = c.id
-       LEFT JOIN sections sec ON s.section_id = sec.id
-       LEFT JOIN student_categories cat ON s.category_id = cat.id
-       LEFT JOIN student_houses h ON s.house_id = h.id
-       LEFT JOIN sessions sess ON s.session_id = sess.id
-       WHERE s.id = ?`,
-      [id]
+       LEFT JOIN classes c ON s.class_id = c.id AND c.school_id = ?
+       LEFT JOIN sections sec ON s.section_id = sec.id AND sec.school_id = ?
+       LEFT JOIN student_categories cat ON s.category_id = cat.id AND cat.school_id = ?
+       LEFT JOIN student_houses h ON s.house_id = h.id AND h.school_id = ?
+       LEFT JOIN sessions sess ON s.session_id = sess.id AND sess.school_id = ?
+       WHERE s.id = ? AND s.school_id = ?`,
+      [schoolId, schoolId, schoolId, schoolId, schoolId, id, schoolId]
     ) as any[];
 
     if (students.length === 0) {
@@ -486,11 +504,13 @@ export const getMyChildren = async (
 };
 
 export const createStudent = async (
-  req: Request,
+  req: AuthRequest,
   res: Response,
   next: NextFunction
 ): Promise<void> => {
   try {
+    const schoolId = getSchoolId(req);
+    if (schoolId == null) return next(createError('School context required', 403));
     const {
       admission_no,
       roll_no,
@@ -531,6 +551,7 @@ export const createStudent = async (
       permanent_address,
       is_rte,
       rte_details,
+      create_parent_account,
     } = req.body;
 
     // Detailed validation
@@ -582,21 +603,21 @@ export const createStudent = async (
 
     const db = getDatabase();
 
-    // Check if admission number exists
+    // Check if admission number exists (within same school)
     const [existingAdmission] = await db.execute(
-      'SELECT id FROM students WHERE admission_no = ?',
-      [admission_no.trim()]
+      'SELECT id FROM students WHERE admission_no = ? AND school_id = ?',
+      [admission_no.trim(), schoolId]
     ) as any[];
 
     if (existingAdmission.length > 0) {
       throw createError(`A student with admission number "${admission_no}" already exists. Please use a different admission number.`, 400);
     }
 
-    // Check if email exists in students table
+    // Check if email exists in students table (within same school)
     if (email && email.trim() !== '') {
       const [existingEmail] = await db.execute(
-        'SELECT id, admission_no FROM students WHERE email = ?',
-        [email.trim()]
+        'SELECT id, admission_no FROM students WHERE email = ? AND school_id = ?',
+        [email.trim(), schoolId]
       ) as any[];
 
       if (existingEmail.length > 0) {
@@ -614,10 +635,10 @@ export const createStudent = async (
       }
     }
 
-    // Validate class and section exist
+    // Validate class and section exist and belong to this school
     const [classExists] = await db.execute(
-      'SELECT id, name FROM classes WHERE id = ?',
-      [class_id]
+      'SELECT id, name FROM classes WHERE id = ? AND school_id = ?',
+      [class_id, schoolId]
     ) as any[];
 
     if (classExists.length === 0) {
@@ -625,19 +646,20 @@ export const createStudent = async (
     }
 
     const [sectionExists] = await db.execute(
-      'SELECT id, name FROM sections WHERE id = ?',
-      [section_id]
+      'SELECT id, name FROM sections WHERE id = ? AND school_id = ?',
+      [section_id, schoolId]
     ) as any[];
 
     if (sectionExists.length === 0) {
       throw createError('Selected section does not exist', 400);
     }
 
-    // Get current session if not provided
+    // Get current session if not provided (scoped to school)
     let currentSessionId = session_id;
     if (!currentSessionId) {
       const [sessions] = await db.execute(
-        'SELECT id FROM sessions WHERE is_current = 1 LIMIT 1'
+        'SELECT id FROM sessions WHERE school_id = ? AND is_current = 1 LIMIT 1',
+        [schoolId]
       ) as any[];
       if (sessions.length > 0) {
         currentSessionId = sessions[0].id;
@@ -645,10 +667,9 @@ export const createStudent = async (
         throw createError('No current session found. Please select a session or set a current session in settings.', 400);
       }
     } else {
-      // Validate session exists
       const [sessionExists] = await db.execute(
-        'SELECT id, name FROM sessions WHERE id = ?',
-        [currentSessionId]
+        'SELECT id, name FROM sessions WHERE id = ? AND school_id = ?',
+        [currentSessionId, schoolId]
       ) as any[];
 
       if (sessionExists.length === 0) {
@@ -659,8 +680,8 @@ export const createStudent = async (
     // Validate category if provided
     if (category_id) {
       const [categoryExists] = await db.execute(
-        'SELECT id FROM student_categories WHERE id = ?',
-        [category_id]
+        'SELECT id FROM student_categories WHERE id = ? AND school_id = ?',
+        [category_id, schoolId]
       ) as any[];
 
       if (categoryExists.length === 0) {
@@ -671,8 +692,8 @@ export const createStudent = async (
     // Validate house if provided
     if (house_id) {
       const [houseExists] = await db.execute(
-        'SELECT id FROM student_houses WHERE id = ?',
-        [house_id]
+        'SELECT id FROM student_houses WHERE id = ? AND school_id = ?',
+        [house_id, schoolId]
       ) as any[];
 
       if (houseExists.length === 0) {
@@ -685,11 +706,10 @@ export const createStudent = async (
     let plainPassword = '';
     if (email && email.trim() !== '') {
       try {
-        // Generate default password: StudentName@TodayDate (e.g., Ravi@01102025)
-        const today = new Date();
-        const dateStr = format(today, 'ddMMyyyy'); // Format: 01102025
-        const studentName = first_name.trim();
-        plainPassword = `${studentName}@${dateStr}`;
+        // Generate default password: StudentFirstName@CurrentYear (e.g. Ravi@2026)
+        const studentFirst = (first_name.trim().split(/\s+/)[0] || first_name.trim()).replace(/[^a-zA-Z0-9]/g, '') || 'Student';
+        const year = new Date().getFullYear();
+        plainPassword = `${studentFirst}@${year}`;
         const hashedPassword = await bcrypt.hash(plainPassword, 10);
 
         // Get student role
@@ -703,8 +723,8 @@ export const createStudent = async (
         }
 
         const [userResult] = await db.execute(
-          'INSERT INTO users (email, password, name, role_id, is_active, created_at) VALUES (?, ?, ?, ?, 1, NOW())',
-          [email.trim(), hashedPassword, `${first_name} ${last_name || ''}`.trim(), roles[0].id]
+          'INSERT INTO users (email, password, name, role_id, school_id, is_active, created_at) VALUES (?, ?, ?, ?, ?, 1, NOW())',
+          [email.trim(), hashedPassword, `${first_name} ${last_name || ''}`.trim(), roles[0].id, schoolId]
         ) as any[];
         userId = userResult.insertId;
       } catch (userError: any) {
@@ -741,7 +761,7 @@ export const createStudent = async (
       // Static list of columns in the correct order (excluding auto-generated columns)
       // This avoids slow INFORMATION_SCHEMA queries on every request
       const actualColumns = [
-        'admission_no', 'roll_no', 'user_id', 'class_id', 'section_id', 'session_id',
+        'school_id', 'admission_no', 'roll_no', 'user_id', 'class_id', 'section_id', 'session_id',
         'first_name', 'last_name', 'gender', 'date_of_birth', 'category_id', 'religion', 'caste',
         'student_mobile', 'email', 'admission_date', 'photo', 'blood_group', 'house_id',
         'height', 'weight', 'as_on_date', 'sibling_id',
@@ -755,6 +775,7 @@ export const createStudent = async (
 
       // Create a map of field values
       const fieldMap: Record<string, any> = {
+        school_id: schoolId,
         admission_no: admission_no.trim(),
         roll_no: roll_no ? roll_no.trim() : null,
         user_id: userId,
@@ -867,9 +888,10 @@ export const createStudent = async (
         });
       }
 
-      // Process parent emails and create/get parent accounts (async, non-blocking)
-      // Don't await - process in background
-      if (father_email || mother_email || guardian_email) {
+      // Process parent emails and create/get parent accounts only if admin opted in (async, non-blocking)
+      // Normalize for multipart form: body fields can be string "true"/"false"
+      const shouldCreateParentAccounts = create_parent_account !== false && create_parent_account !== 'false' && create_parent_account !== 0 && create_parent_account !== '0';
+      if (shouldCreateParentAccounts && (father_email || mother_email || guardian_email)) {
         import('../services/parentUserService').then(({ processParentEmails }) => {
           return processParentEmails(
             father_email || null,
@@ -934,25 +956,21 @@ export const createStudent = async (
 };
 
 export const updateStudent = async (
-  req: Request,
+  req: AuthRequest,
   res: Response,
   next: NextFunction
 ): Promise<void> => {
   try {
+    const schoolId = getSchoolId(req);
+    if (schoolId == null) return next(createError('School context required', 403));
     const { id } = req.params;
     const updates: any = req.body || {};
     const db = getDatabase();
 
-    // Debug: Log what we received
-    console.log('Update Student - req.file:', req.file ? { filename: req.file.filename, size: req.file.size, mimetype: req.file.mimetype } : 'null');
-    console.log('Update Student - req.body keys:', Object.keys(req.body || {}));
-    console.log('Update Student - Content-Type:', req.headers['content-type']);
-
-    // Handle photo file upload - SIMPLE: if file exists, set photo path
     if (req.file) {
       const [existingStudent] = await db.execute(
-        'SELECT first_name, photo FROM students WHERE id = ?',
-        [id]
+        'SELECT first_name, photo FROM students WHERE id = ? AND school_id = ?',
+        [id, schoolId]
       ) as any[];
       
       const studentName = existingStudent[0]?.first_name || 'student';
@@ -1020,36 +1038,20 @@ export const updateStudent = async (
     }
 
     updateFields.push('updated_at = NOW()');
-    params.push(Number(id));
-
-    // Execute update query with error handling
+    params.push(Number(id), schoolId);
     try {
-      const sql = `UPDATE students SET ${updateFields.join(', ')} WHERE id = ?`;
+      const sql = `UPDATE students SET ${updateFields.join(', ')} WHERE id = ? AND school_id = ?`;
       await db.execute(sql, params);
     } catch (dbError: any) {
-      console.error('Database error in updateStudent:', {
-        code: dbError.code,
-        errno: dbError.errno,
-        sqlState: dbError.sqlState,
-        sqlMessage: dbError.sqlMessage,
-        message: dbError.message,
-        updateFields,
-        paramsCount: params.length,
-        updateFieldsCount: updateFields.length,
-        sql: `UPDATE students SET ${updateFields.join(', ')} WHERE id = ?`,
-        params: params.map((p, i) => ({ index: i, value: p, type: typeof p })),
-      });
-      
-      // Handle specific database errors
       if (dbError.code === 'ER_WRONG_ARGUMENTS') {
-        throw createError(`Database error: Incorrect arguments. Field count: ${updateFields.length}, Parameter count: ${params.length}.`, 500);
+        throw createError(`Database error: Incorrect arguments.`, 500);
       }
       throw dbError;
     }
 
     const [updatedStudents] = await db.execute(
-      'SELECT * FROM students WHERE id = ?',
-      [id]
+      'SELECT * FROM students WHERE id = ? AND school_id = ?',
+      [id, schoolId]
     ) as any[];
 
     // Process parent emails if they were updated
@@ -1086,18 +1088,19 @@ export const updateStudent = async (
 };
 
 export const deleteStudent = async (
-  req: Request,
+  req: AuthRequest,
   res: Response,
   next: NextFunction
 ): Promise<void> => {
   try {
+    const schoolId = getSchoolId(req);
+    if (schoolId == null) return next(createError('School context required', 403));
     const { id } = req.params;
     const db = getDatabase();
 
-    // Get student info to find associated user
     const [students] = await db.execute(
-      'SELECT user_id FROM students WHERE id = ?',
-      [id]
+      'SELECT user_id FROM students WHERE id = ? AND school_id = ?',
+      [id, schoolId]
     ) as any[];
 
     if (students.length === 0) {
@@ -1107,7 +1110,7 @@ export const deleteStudent = async (
     const userId = students[0].user_id;
 
     // Delete student record
-    await db.execute('DELETE FROM students WHERE id = ?', [id]);
+    await db.execute('DELETE FROM students WHERE id = ? AND school_id = ?', [id, schoolId]);
 
     // Delete associated user account if exists
     if (userId) {
@@ -1412,11 +1415,10 @@ export const bulkImportStudents = async (
           const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
           if (emailRegex.test(emailStr)) {
             try {
-              // Generate default password: StudentName@TodayDate
-              const today = new Date();
-              const dateStr = format(today, 'ddMMyyyy');
-              const studentName = String(first_name).trim();
-              const plainPassword = `${studentName}@${dateStr}`;
+              // Generate default password: StudentFirstName@CurrentYear (e.g. Ravi@2026)
+              const studentFirst = (String(first_name).trim().split(/\s+/)[0] || String(first_name).trim()).replace(/[^a-zA-Z0-9]/g, '') || 'Student';
+              const year = new Date().getFullYear();
+              const plainPassword = `${studentFirst}@${year}`;
               const hashedPassword = await bcrypt.hash(plainPassword, 10);
 
               // Get student role

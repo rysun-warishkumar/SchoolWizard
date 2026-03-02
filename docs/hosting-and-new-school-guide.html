@@ -1,0 +1,260 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Make My School – Hosting Guide & Adding a New School</title>
+  <style>
+    :root {
+      --bg: #0f172a;
+      --surface: #1e293b;
+      --text: #e2e8f0;
+      --muted: #94a3b8;
+      --accent: #38bdf8;
+      --success: #34d399;
+      --border: #334155;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      line-height: 1.6;
+    }
+    .container { max-width: 820px; margin: 0 auto; padding: 2rem 1.5rem; }
+    h1 { font-size: 1.75rem; margin-top: 0; color: #fff; border-bottom: 1px solid var(--border); padding-bottom: 0.5rem; }
+    h2 { font-size: 1.35rem; margin-top: 2rem; color: var(--accent); }
+    h3 { font-size: 1.1rem; margin-top: 1.5rem; color: var(--muted); }
+    p { margin: 0.5rem 0 1rem; color: var(--muted); }
+    ul, ol { margin: 0.5rem 0 1rem; padding-left: 1.5rem; color: var(--muted); }
+    li { margin: 0.25rem 0; }
+    a { color: var(--accent); text-decoration: none; }
+    a:hover { text-decoration: underline; }
+    .card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 1.25rem;
+      margin: 1rem 0;
+    }
+    .card h2 { margin-top: 0; }
+    pre, code {
+      background: #0c1222;
+      color: var(--success);
+      font-family: 'Consolas', 'Monaco', monospace;
+      font-size: 0.875rem;
+      border-radius: 6px;
+    }
+    pre { padding: 1rem; overflow-x: auto; margin: 1rem 0; border: 1px solid var(--border); }
+    code { padding: 0.2em 0.4em; }
+    pre code { padding: 0; background: none; }
+    .step { margin: 1.5rem 0; }
+    .step-num { display: inline-block; width: 1.75rem; height: 1.75rem; line-height: 1.75rem; text-align: center; background: var(--accent); color: var(--bg); border-radius: 50%; font-weight: 700; margin-right: 0.5rem; }
+    table { width: 100%; border-collapse: collapse; margin: 1rem 0; font-size: 0.9rem; }
+    th, td { text-align: left; padding: 0.5rem 0.75rem; border-bottom: 1px solid var(--border); color: var(--muted); }
+    th { color: var(--text); font-weight: 600; }
+    .toc { margin: 1.5rem 0; padding: 1rem; background: var(--surface); border-radius: 8px; border: 1px solid var(--border); }
+    .toc a { display: block; padding: 0.25rem 0; }
+    .badge { display: inline-block; padding: 0.2rem 0.5rem; border-radius: 4px; font-size: 0.75rem; font-weight: 600; }
+    .badge-ok { background: rgba(52, 211, 153, 0.2); color: var(--success); }
+    .checklist { list-style: none; padding-left: 0; }
+    .checklist li { padding-left: 1.5rem; position: relative; }
+    .checklist li::before { content: '☐'; position: absolute; left: 0; }
+    @media (max-width: 640px) {
+      .container { padding: 1rem; }
+      pre { font-size: 0.75rem; padding: 0.75rem; }
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>Make My School – Hosting Guide & Adding a New School</h1>
+    <p>This page explains how to host the school management portal on <strong>UTHO Cloud</strong> with subdomain <strong>demo.makemyschool.com</strong> (domain from Hostinger), and how to add a new school later.</p>
+
+    <nav class="toc" aria-label="Table of contents">
+      <h2 id="toc">Contents</h2>
+      <a href="#readiness">1. Project readiness for cloud</a>
+      <a href="#domain">2. Domain (Hostinger) → UTHO</a>
+      <a href="#server">3. Server setup (UTHO VPS)</a>
+      <a href="#nginx">4. Nginx & SSL</a>
+      <a href="#new-school">5. Adding a new school</a>
+      <a href="#checklist">6. Go-live checklist</a>
+    </nav>
+
+    <section class="card" id="readiness">
+      <h2>1. Project readiness for cloud</h2>
+      <p>The project is suitable for production hosting on UTHO Cloud.</p>
+      <table>
+        <thead>
+          <tr><th>Component</th><th>Status</th><th>Notes</th></tr>
+        </thead>
+        <tbody>
+          <tr><td>Backend</td><td><span class="badge badge-ok">Ready</span></td><td>Node 18+, build + start, env-based config</td></tr>
+          <tr><td>Admin frontend</td><td><span class="badge badge-ok">Ready</span></td><td>Vite build → static; set VITE_API_BASE_URL</td></tr>
+          <tr><td>SchoolPortal</td><td><span class="badge badge-ok">Ready</span></td><td>Vite build → static; same API URL</td></tr>
+          <tr><td>Database</td><td><span class="badge badge-ok">Ready</span></td><td>MySQL 5.7+; use <code>database/consolidated/00_complete_database.sql</code></td></tr>
+          <tr><td>Multi-tenant (SaaS)</td><td><span class="badge badge-ok">Ready</span></td><td>schools table, school_id, subscriptions, storage quota</td></tr>
+        </tbody>
+      </table>
+    </section>
+
+    <section class="card" id="domain">
+      <h2>2. Domain (Hostinger) → UTHO</h2>
+      <div class="step">
+        <span class="step-num">1</span>
+        <strong>In Hostinger</strong> (where makemyschool.com is managed): open DNS / Domain management.
+      </div>
+      <div class="step">
+        <span class="step-num">2</span>
+        Add an <strong>A record</strong>: host <code>demo</code> → value = <strong>UTHO server public IP</strong>.
+      </div>
+      <div class="step">
+        <span class="step-num">3</span>
+        Wait for DNS (often 5–15 minutes; up to 24–48 hours). Verify with <code>ping demo.makemyschool.com</code> or <code>nslookup demo.makemyschool.com</code>.
+      </div>
+    </section>
+
+    <section class="card" id="server">
+      <h2>3. Server setup (UTHO VPS – Ubuntu)</h2>
+      <h3>3.1 Install basics</h3>
+      <pre><code>sudo apt update && sudo apt upgrade -y
+sudo apt install -y nginx nodejs npm mysql-server</code></pre>
+      <h3>3.2 MySQL</h3>
+      <pre><code>sudo mysql_secure_installation
+sudo mysql -e "CREATE DATABASE schoolwizard CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;"
+sudo mysql -e "CREATE USER 'schoolwizard'@'localhost' IDENTIFIED BY 'YOUR_STRONG_PASSWORD';"
+sudo mysql -e "GRANT ALL ON schoolwizard.* TO 'schoolwizard'@'localhost'; FLUSH PRIVILEGES;"</code></pre>
+      <p>Import schema from the project: <code>mysql -u schoolwizard -p schoolwizard &lt; database/consolidated/00_complete_database.sql</code></p>
+      <h3>3.3 Backend</h3>
+      <p>Clone or upload the project. In <code>backend/</code>:</p>
+      <pre><code>npm ci
+cp .env.example .env
+# Edit .env: DB_*, JWT_SECRET (32+ chars), PORT=5000, CORS_ORIGINS=https://demo.makemyschool.com
+npm run build
+npm start   # test; then use PM2</code></pre>
+      <p>Production .env example:</p>
+      <pre><code>NODE_ENV=production
+PORT=5000
+DB_HOST=localhost
+DB_USER=schoolwizard
+DB_PASSWORD=YOUR_STRONG_PASSWORD
+DB_NAME=schoolwizard
+JWT_SECRET=your-minimum-32-character-secret-here
+JWT_EXPIRE=7d
+CORS_ORIGINS=https://demo.makemyschool.com</code></pre>
+      <p>Run with PM2: <code>pm2 start dist/index.js --name make-my-school-api</code> then <code>pm2 save</code> and <code>pm2 startup</code>.</p>
+      <h3>3.4 Frontend & SchoolPortal</h3>
+      <p>Build locally or on server with production API URL:</p>
+      <pre><code># Admin frontend
+cd frontend
+echo "VITE_API_BASE_URL=https://demo.makemyschool.com/api/v1" > .env.production
+npm ci && npm run build
+
+# SchoolPortal
+cd ../SchoolPortal
+echo "VITE_API_BASE_URL=https://demo.makemyschool.com" > .env.production
+npm ci && npm run build</code></pre>
+      <p>Upload <code>frontend/dist/</code> and <code>SchoolPortal/dist/</code> to the server (e.g. <code>/var/www/demo/frontend</code> and <code>/var/www/demo/portal</code>).</p>
+    </section>
+
+    <section class="card" id="nginx">
+      <h2>4. Nginx & SSL</h2>
+      <p>Example Nginx config for <strong>demo.makemyschool.com</strong>: serve admin at <code>/</code>, portal at <code>/portal</code>, API at <code>/api/</code>.</p>
+      <pre><code>server {
+    listen 80;
+    server_name demo.makemyschool.com;
+    root /var/www/demo/frontend;
+    index index.html;
+    location / {
+        try_files $uri $uri/ /index.html;
+    }
+    location /portal {
+        alias /var/www/demo/portal;
+        try_files $uri $uri/ /portal/index.html;
+    }
+    location /api/ {
+        proxy_pass http://127.0.0.1:5000/;
+        proxy_http_version 1.1;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+    }
+}</code></pre>
+      <p>Enable site, test, reload Nginx. Then install SSL:</p>
+      <pre><code>sudo apt install certbot python3-certbot-nginx -y
+sudo certbot --nginx -d demo.makemyschool.com</code></pre>
+      <p>After SSL, ensure frontend and portal are built with <strong>https://</strong> in <code>VITE_API_BASE_URL</code> and backend <code>CORS_ORIGINS</code> uses <code>https://demo.makemyschool.com</code> (no trailing slash).</p>
+    </section>
+
+    <section class="card" id="new-school">
+      <h2>5. Adding a new school</h2>
+      <p>You can run <strong>multiple schools on the same instance</strong> (single database, multi-tenant) or run a <strong>separate instance</strong> per school.</p>
+
+      <h3>Option A – Same instance (multi-tenant, recommended)</h3>
+      <p>The app has a <code>schools</code> table and <code>school_id</code> on users. To add a school:</p>
+      <ol>
+        <li><strong>Platform admin UI</strong> (if you host it): log in and create a new school, set status (e.g. trialing/active), trial end date, storage limit.</li>
+        <li><strong>Or</strong> insert the school and an admin user directly in the database (see Option B).</li>
+      </ol>
+
+      <h3>Option B – Database: add school + admin user</h3>
+      <p><strong>Note:</strong> This assumes the SaaS migrations are applied (e.g. <code>schools</code> table and <code>users.school_id</code>). If your schema differs, adjust the SQL.</p>
+      <p>Run in MySQL (e.g. phpMyAdmin or <code>mysql</code> client):</p>
+      <pre><code>-- 1) Create school (note the new id, e.g. 2)
+INSERT INTO schools (name, status, plan_code, storage_limit_bytes, storage_used_bytes, trial_starts_at, trial_ends_at, created_at)
+VALUES (
+  'New School Name',
+  'trialing',
+  'trial',
+  21474836480,
+  0,
+  NOW(),
+  DATE_ADD(NOW(), INTERVAL 30 DAY),
+  NOW()
+);
+
+-- 2) Create admin user for that school (use bcrypt hash for password)
+-- Replace 2 with the school id from step 1; replace email/name and password hash
+INSERT INTO users (email, password, name, role_id, school_id, is_active)
+VALUES (
+  'admin@newschool.com',
+  '$2a$10$...',   -- e.g. run: node -e "console.log(require('bcryptjs').hashSync('admin123', 10))"
+  'Admin Name',
+  1,
+  2,
+  1
+);</code></pre>
+      <p>Users with that <code>school_id</code> will see only their school’s data. You can later change the school’s status (e.g. to <code>active</code>) and trial end date from the platform admin or via SQL.</p>
+
+      <h3>Option C – Separate instance (new server)</h3>
+      <p>For full isolation per school:</p>
+      <ol>
+        <li>Provision another VPS (e.g. another UTHO server).</li>
+        <li>Repeat the same setup: MySQL, backend, frontend, portal, Nginx, SSL.</li>
+        <li>Point a new subdomain (e.g. <code>school2.makemyschool.com</code>) to the new server’s IP.</li>
+      </ol>
+      <p>Use Option A/B when you want one deployment to serve many schools; use Option C when you need separate infrastructure per school.</p>
+    </section>
+
+    <section class="card" id="checklist">
+      <h2>6. Go-live checklist</h2>
+      <ul class="checklist">
+        <li>DNS: demo.makemyschool.com A record → UTHO IP</li>
+        <li>MySQL: database created, schema imported, credentials in backend .env</li>
+        <li>Backend: JWT_SECRET (32+ chars), CORS_ORIGINS, PM2 running</li>
+        <li>Frontend & Portal: built with correct VITE_API_BASE_URL, deployed under Nginx</li>
+        <li>Nginx: SPA fallback (try_files → index.html) for / and /portal; /api/ proxied to Node</li>
+        <li>SSL: Certbot certificate for demo.makemyschool.com</li>
+        <li>Change default admin password after first login</li>
+        <li>Regular MySQL backups (and uploads/S3 if used)</li>
+      </ul>
+    </section>
+
+    <p style="margin-top: 2rem; color: var(--muted); font-size: 0.9rem;">
+      For full technical detail and exact paths, see <strong>UTHO_HOSTING_GUIDE.md</strong> and <strong>DEPLOYMENT_GUIDE.md</strong> in the project repository.
+    </p>
+  </div>
+</body>
+</html>

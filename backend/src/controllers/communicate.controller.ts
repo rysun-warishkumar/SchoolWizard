@@ -1,7 +1,7 @@
 import { Request, Response, NextFunction } from 'express';
 import { getDatabase } from '../config/database';
 import { createError } from '../middleware/errorHandler';
-import { AuthRequest } from '../middleware/auth';
+import { AuthRequest, getSchoolId } from '../middleware/auth';
 import { sendEmail } from '../utils/emailService';
 import { sendSMS } from '../utils/smsService';
 
@@ -9,6 +9,8 @@ import { sendSMS } from '../utils/smsService';
 
 export const getNotices = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
   try {
+    const schoolId = getSchoolId(req as AuthRequest);
+    if (schoolId == null) throw createError('School context required', 403);
     const db = getDatabase();
     const { message_to, search, date_from, date_to } = req.query;
 
@@ -17,9 +19,9 @@ export const getNotices = async (req: Request, res: Response, next: NextFunction
              u.name as created_by_name
       FROM notice_board nb
       LEFT JOIN users u ON nb.created_by = u.id
-      WHERE 1=1
+      WHERE nb.school_id = ?
     `;
-    const params: any[] = [];
+    const params: any[] = [schoolId];
 
     if (message_to) {
       query += ' AND (nb.message_to = ? OR nb.message_to = "all")';
@@ -57,6 +59,8 @@ export const getNotices = async (req: Request, res: Response, next: NextFunction
 
 export const getNoticeById = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
   try {
+    const schoolId = getSchoolId(req as AuthRequest);
+    if (schoolId == null) throw createError('School context required', 403);
     const { id } = req.params;
     const db = getDatabase();
 
@@ -65,8 +69,8 @@ export const getNoticeById = async (req: Request, res: Response, next: NextFunct
               u.name as created_by_name
        FROM notice_board nb
        LEFT JOIN users u ON nb.created_by = u.id
-       WHERE nb.id = ?`,
-      [id]
+       WHERE nb.id = ? AND nb.school_id = ?`,
+      [id, schoolId]
     ) as any[];
 
     if (notices.length === 0) {
@@ -84,6 +88,8 @@ export const getNoticeById = async (req: Request, res: Response, next: NextFunct
 
 export const createNotice = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
   try {
+    const schoolId = getSchoolId(req as AuthRequest);
+    if (schoolId == null) throw createError('School context required', 403);
     const { message_title, message, notice_date, publish_date, message_to } = req.body;
 
     if (!message_title || !message || !notice_date || !publish_date || !message_to) {
@@ -98,9 +104,10 @@ export const createNotice = async (req: Request, res: Response, next: NextFuncti
     }
 
     await db.execute(
-      `INSERT INTO notice_board (message_title, message, notice_date, publish_date, message_to, created_by)
-       VALUES (?, ?, ?, ?, ?, ?)`,
+      `INSERT INTO notice_board (school_id, message_title, message, notice_date, publish_date, message_to, created_by)
+       VALUES (?, ?, ?, ?, ?, ?, ?)`,
       [
+        schoolId,
         message_title.trim(),
         message.trim(),
         notice_date,
@@ -121,6 +128,8 @@ export const createNotice = async (req: Request, res: Response, next: NextFuncti
 
 export const updateNotice = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
   try {
+    const schoolId = getSchoolId(req as AuthRequest);
+    if (schoolId == null) throw createError('School context required', 403);
     const { id } = req.params;
     const { message_title, message, notice_date, publish_date, message_to } = req.body;
 
@@ -133,7 +142,7 @@ export const updateNotice = async (req: Request, res: Response, next: NextFuncti
     await db.execute(
       `UPDATE notice_board
        SET message_title = ?, message = ?, notice_date = ?, publish_date = ?, message_to = ?
-       WHERE id = ?`,
+       WHERE id = ? AND school_id = ?`,
       [
         message_title.trim(),
         message.trim(),
@@ -141,6 +150,7 @@ export const updateNotice = async (req: Request, res: Response, next: NextFuncti
         publish_date,
         message_to,
         id,
+        schoolId,
       ]
     );
 
@@ -155,10 +165,12 @@ export const updateNotice = async (req: Request, res: Response, next: NextFuncti
 
 export const deleteNotice = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
   try {
+    const schoolId = getSchoolId(req as AuthRequest);
+    if (schoolId == null) throw createError('School context required', 403);
     const { id } = req.params;
     const db = getDatabase();
 
-    await db.execute('DELETE FROM notice_board WHERE id = ?', [id]);
+    await db.execute('DELETE FROM notice_board WHERE id = ? AND school_id = ?', [id, schoolId]);
 
     res.json({
       success: true,
@@ -173,6 +185,8 @@ export const deleteNotice = async (req: Request, res: Response, next: NextFuncti
 
 export const sendEmailToRecipients = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
   try {
+    const schoolId = getSchoolId(req as AuthRequest);
+    if (schoolId == null) throw createError('School context required', 403);
     const { subject, message, recipient_type, recipient_ids, class_id, section_id } = req.body;
 
     if (!subject || !message || !recipient_type) {
@@ -189,22 +203,24 @@ export const sendEmailToRecipients = async (req: Request, res: Response, next: N
     let recipientEmails: string[] = [];
     let recipientUserIds: number[] = [];
 
-    // Get recipients based on type
     if (recipient_type === 'students') {
       const [students] = await db.execute(
-        'SELECT id, email FROM students WHERE email IS NOT NULL AND email != ""'
+        'SELECT id, email FROM students WHERE school_id = ? AND email IS NOT NULL AND email != ""',
+        [schoolId]
       ) as any[];
       recipientEmails = students.map((s: any) => s.email).filter(Boolean);
       recipientUserIds = students.map((s: any) => s.id);
     } else if (recipient_type === 'guardians') {
       const [guardians] = await db.execute(
-        'SELECT id, guardian_email as email FROM students WHERE guardian_email IS NOT NULL AND guardian_email != ""'
+        'SELECT id, guardian_email as email FROM students WHERE school_id = ? AND guardian_email IS NOT NULL AND guardian_email != ""',
+        [schoolId]
       ) as any[];
       recipientEmails = guardians.map((g: any) => g.email).filter(Boolean);
       recipientUserIds = guardians.map((g: any) => g.id);
     } else if (recipient_type === 'staff') {
       const [staff] = await db.execute(
-        'SELECT id, email FROM staff WHERE email IS NOT NULL AND email != "" AND is_active = 1'
+        'SELECT id, email FROM staff WHERE school_id = ? AND email IS NOT NULL AND email != "" AND is_active = 1',
+        [schoolId]
       ) as any[];
       recipientEmails = staff.map((s: any) => s.email).filter(Boolean);
       recipientUserIds = staff.map((s: any) => s.id);
@@ -212,15 +228,15 @@ export const sendEmailToRecipients = async (req: Request, res: Response, next: N
       const ids = Array.isArray(recipient_ids) ? recipient_ids : JSON.parse(recipient_ids);
       const placeholders = ids.map(() => '?').join(',');
       const [users] = await db.execute(
-        `SELECT id, email FROM users WHERE id IN (${placeholders}) AND email IS NOT NULL AND email != ""`,
-        ids
+        `SELECT id, email FROM users WHERE school_id = ? AND id IN (${placeholders}) AND email IS NOT NULL AND email != ""`,
+        [schoolId, ...ids]
       ) as any[];
       recipientEmails = users.map((u: any) => u.email).filter(Boolean);
       recipientUserIds = users.map((u: any) => u.id);
     } else if (recipient_type === 'class' && class_id && section_id) {
       const [students] = await db.execute(
-        'SELECT id, email, guardian_email FROM students WHERE class_id = ? AND section_id = ?',
-        [class_id, section_id]
+        'SELECT id, email, guardian_email FROM students WHERE school_id = ? AND class_id = ? AND section_id = ?',
+        [schoolId, class_id, section_id]
       ) as any[];
       const studentEmails = students.map((s: any) => s.email).filter(Boolean);
       const guardianEmails = students.map((s: any) => s.guardian_email).filter(Boolean);
@@ -232,9 +248,9 @@ export const sendEmailToRecipients = async (req: Request, res: Response, next: N
       const day = today.getDate();
       const [students] = await db.execute(
         `SELECT id, email, guardian_email FROM students 
-         WHERE MONTH(date_of_birth) = ? AND DAY(date_of_birth) = ? 
+         WHERE school_id = ? AND MONTH(date_of_birth) = ? AND DAY(date_of_birth) = ? 
          AND (email IS NOT NULL OR guardian_email IS NOT NULL)`,
-        [month, day]
+        [schoolId, month, day]
       ) as any[];
       const studentEmails = students.map((s: any) => s.email).filter(Boolean);
       const guardianEmails = students.map((s: any) => s.guardian_email).filter(Boolean);
@@ -265,11 +281,11 @@ export const sendEmailToRecipients = async (req: Request, res: Response, next: N
       }
     }
 
-    // Log email
     await db.execute(
-      `INSERT INTO email_log (subject, message, recipient_type, recipient_ids, recipient_emails, sent_by, status, error_message)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+      `INSERT INTO email_log (school_id, subject, message, recipient_type, recipient_ids, recipient_emails, sent_by, status, error_message)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       [
+        schoolId,
         subject.trim(),
         message.trim(),
         recipient_type,
@@ -298,6 +314,8 @@ export const sendEmailToRecipients = async (req: Request, res: Response, next: N
 
 export const sendSMSToRecipients = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
   try {
+    const schoolId = getSchoolId(req as AuthRequest);
+    if (schoolId == null) throw createError('School context required', 403);
     const { subject, message, recipient_type, recipient_ids, class_id, section_id } = req.body;
 
     if (!subject || !message || !recipient_type) {
@@ -314,22 +332,24 @@ export const sendSMSToRecipients = async (req: Request, res: Response, next: Nex
     let recipientPhones: string[] = [];
     let recipientUserIds: number[] = [];
 
-    // Get recipients based on type
     if (recipient_type === 'students') {
       const [students] = await db.execute(
-        'SELECT id, student_mobile as phone FROM students WHERE student_mobile IS NOT NULL AND student_mobile != ""'
+        'SELECT id, student_mobile as phone FROM students WHERE school_id = ? AND student_mobile IS NOT NULL AND student_mobile != ""',
+        [schoolId]
       ) as any[];
       recipientPhones = students.map((s: any) => s.student_mobile).filter(Boolean);
       recipientUserIds = students.map((s: any) => s.id);
     } else if (recipient_type === 'guardians') {
       const [guardians] = await db.execute(
-        'SELECT id, guardian_phone as phone FROM students WHERE guardian_phone IS NOT NULL AND guardian_phone != ""'
+        'SELECT id, guardian_phone as phone FROM students WHERE school_id = ? AND guardian_phone IS NOT NULL AND guardian_phone != ""',
+        [schoolId]
       ) as any[];
       recipientPhones = guardians.map((g: any) => g.guardian_phone).filter(Boolean);
       recipientUserIds = guardians.map((g: any) => g.id);
     } else if (recipient_type === 'staff') {
       const [staff] = await db.execute(
-        'SELECT id, phone FROM staff WHERE phone IS NOT NULL AND phone != "" AND is_active = 1'
+        'SELECT id, phone FROM staff WHERE school_id = ? AND phone IS NOT NULL AND phone != "" AND is_active = 1',
+        [schoolId]
       ) as any[];
       recipientPhones = staff.map((s: any) => s.phone).filter(Boolean);
       recipientUserIds = staff.map((s: any) => s.id);
@@ -337,15 +357,15 @@ export const sendSMSToRecipients = async (req: Request, res: Response, next: Nex
       const ids = Array.isArray(recipient_ids) ? recipient_ids : JSON.parse(recipient_ids);
       const placeholders = ids.map(() => '?').join(',');
       const [users] = await db.execute(
-        `SELECT id, phone FROM users WHERE id IN (${placeholders}) AND phone IS NOT NULL AND phone != ""`,
-        ids
+        `SELECT id, phone FROM users WHERE school_id = ? AND id IN (${placeholders}) AND phone IS NOT NULL AND phone != ""`,
+        [schoolId, ...ids]
       ) as any[];
       recipientPhones = users.map((u: any) => u.phone).filter(Boolean);
       recipientUserIds = users.map((u: any) => u.id);
     } else if (recipient_type === 'class' && class_id && section_id) {
       const [students] = await db.execute(
-        'SELECT id, student_mobile, guardian_phone FROM students WHERE class_id = ? AND section_id = ?',
-        [class_id, section_id]
+        'SELECT id, student_mobile, guardian_phone FROM students WHERE school_id = ? AND class_id = ? AND section_id = ?',
+        [schoolId, class_id, section_id]
       ) as any[];
       const studentPhones = students.map((s: any) => s.student_mobile).filter(Boolean);
       const guardianPhones = students.map((s: any) => s.guardian_phone).filter(Boolean);
@@ -357,9 +377,9 @@ export const sendSMSToRecipients = async (req: Request, res: Response, next: Nex
       const day = today.getDate();
       const [students] = await db.execute(
         `SELECT id, student_mobile, guardian_phone FROM students 
-         WHERE MONTH(date_of_birth) = ? AND DAY(date_of_birth) = ? 
+         WHERE school_id = ? AND MONTH(date_of_birth) = ? AND DAY(date_of_birth) = ? 
          AND (student_mobile IS NOT NULL OR guardian_phone IS NOT NULL)`,
-        [month, day]
+        [schoolId, month, day]
       ) as any[];
       const studentPhones = students.map((s: any) => s.student_mobile).filter(Boolean);
       const guardianPhones = students.map((s: any) => s.guardian_phone).filter(Boolean);
@@ -386,11 +406,11 @@ export const sendSMSToRecipients = async (req: Request, res: Response, next: Nex
       }
     }
 
-    // Log SMS
     await db.execute(
-      `INSERT INTO sms_log (subject, message, recipient_type, recipient_ids, recipient_phones, sent_by, status, error_message)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+      `INSERT INTO sms_log (school_id, subject, message, recipient_type, recipient_ids, recipient_phones, sent_by, status, error_message)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       [
+        schoolId,
         subject.trim(),
         message.trim(),
         recipient_type,
@@ -419,6 +439,8 @@ export const sendSMSToRecipients = async (req: Request, res: Response, next: Nex
 
 export const getEmailLogs = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
   try {
+    const schoolId = getSchoolId(req as AuthRequest);
+    if (schoolId == null) throw createError('School context required', 403);
     const db = getDatabase();
     const { recipient_type, status, date_from, date_to, search } = req.query;
 
@@ -427,9 +449,9 @@ export const getEmailLogs = async (req: Request, res: Response, next: NextFuncti
              u.name as sent_by_name
       FROM email_log el
       LEFT JOIN users u ON el.sent_by = u.id
-      WHERE 1=1
+      WHERE el.school_id = ?
     `;
-    const params: any[] = [];
+    const params: any[] = [schoolId];
 
     if (recipient_type) {
       query += ' AND el.recipient_type = ?';
@@ -474,6 +496,8 @@ export const getEmailLogs = async (req: Request, res: Response, next: NextFuncti
 
 export const getSMSLogs = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
   try {
+    const schoolId = getSchoolId(req as AuthRequest);
+    if (schoolId == null) throw createError('School context required', 403);
     const db = getDatabase();
     const { recipient_type, status, date_from, date_to, search } = req.query;
 
@@ -482,9 +506,9 @@ export const getSMSLogs = async (req: Request, res: Response, next: NextFunction
              u.name as sent_by_name
       FROM sms_log sl
       LEFT JOIN users u ON sl.sent_by = u.id
-      WHERE 1=1
+      WHERE sl.school_id = ?
     `;
-    const params: any[] = [];
+    const params: any[] = [schoolId];
 
     if (recipient_type) {
       query += ' AND sl.recipient_type = ?';

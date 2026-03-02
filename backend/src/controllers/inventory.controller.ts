@@ -1,15 +1,18 @@
 import { Request, Response, NextFunction } from 'express';
 import { getDatabase } from '../config/database';
 import { createError } from '../middleware/errorHandler';
-import { AuthRequest } from '../middleware/auth';
+import { AuthRequest, getSchoolId } from '../middleware/auth';
 
 // ========== Item Categories ==========
 
 export const getItemCategories = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
   try {
+    const schoolId = getSchoolId(req as AuthRequest);
+    if (schoolId == null) throw createError('School context required', 403);
     const db = getDatabase();
     const [categories] = await db.execute(
-      'SELECT * FROM item_categories ORDER BY name ASC'
+      'SELECT * FROM item_categories WHERE school_id = ? ORDER BY name ASC',
+      [schoolId]
     ) as any[];
 
     res.json({
@@ -23,6 +26,8 @@ export const getItemCategories = async (req: Request, res: Response, next: NextF
 
 export const createItemCategory = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
   try {
+    const schoolId = getSchoolId(req as AuthRequest);
+    if (schoolId == null) throw createError('School context required', 403);
     const { name, description } = req.body;
 
     if (!name) {
@@ -31,8 +36,8 @@ export const createItemCategory = async (req: Request, res: Response, next: Next
 
     const db = getDatabase();
     const [result] = await db.execute(
-      'INSERT INTO item_categories (name, description) VALUES (?, ?)',
-      [name.trim(), description?.trim() || null]
+      'INSERT INTO item_categories (school_id, name, description) VALUES (?, ?, ?)',
+      [schoolId, name.trim(), description?.trim() || null]
     ) as any;
 
     res.status(201).json({
@@ -50,6 +55,8 @@ export const createItemCategory = async (req: Request, res: Response, next: Next
 
 export const updateItemCategory = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
   try {
+    const schoolId = getSchoolId(req as AuthRequest);
+    if (schoolId == null) throw createError('School context required', 403);
     const { id } = req.params;
     const { name, description } = req.body;
 
@@ -59,8 +66,8 @@ export const updateItemCategory = async (req: Request, res: Response, next: Next
 
     const db = getDatabase();
     await db.execute(
-      'UPDATE item_categories SET name = ?, description = ? WHERE id = ?',
-      [name.trim(), description?.trim() || null, id]
+      'UPDATE item_categories SET name = ?, description = ? WHERE id = ? AND school_id = ?',
+      [name.trim(), description?.trim() || null, id, schoolId]
     );
 
     res.json({
@@ -77,10 +84,12 @@ export const updateItemCategory = async (req: Request, res: Response, next: Next
 
 export const deleteItemCategory = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
   try {
+    const schoolId = getSchoolId(req as AuthRequest);
+    if (schoolId == null) throw createError('School context required', 403);
     const { id } = req.params;
     const db = getDatabase();
 
-    await db.execute('DELETE FROM item_categories WHERE id = ?', [id]);
+    await db.execute('DELETE FROM item_categories WHERE id = ? AND school_id = ?', [id, schoolId]);
 
     res.json({
       success: true,
@@ -95,9 +104,12 @@ export const deleteItemCategory = async (req: Request, res: Response, next: Next
 
 export const getItemStores = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
   try {
+    const schoolId = getSchoolId(req as AuthRequest);
+    if (schoolId == null) throw createError('School context required', 403);
     const db = getDatabase();
     const [stores] = await db.execute(
-      'SELECT * FROM item_stores ORDER BY name ASC'
+      'SELECT * FROM item_stores WHERE school_id = ? ORDER BY name ASC',
+      [schoolId]
     ) as any[];
 
     res.json({
@@ -111,6 +123,8 @@ export const getItemStores = async (req: Request, res: Response, next: NextFunct
 
 export const createItemStore = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
   try {
+    const schoolId = getSchoolId(req as AuthRequest);
+    if (schoolId == null) throw createError('School context required', 403);
     const { name, stock_code, description } = req.body;
 
     if (!name || !stock_code) {
@@ -119,8 +133,8 @@ export const createItemStore = async (req: Request, res: Response, next: NextFun
 
     const db = getDatabase();
     const [result] = await db.execute(
-      'INSERT INTO item_stores (name, stock_code, description) VALUES (?, ?, ?)',
-      [name.trim(), stock_code.trim(), description?.trim() || null]
+      'INSERT INTO item_stores (school_id, name, stock_code, description) VALUES (?, ?, ?, ?)',
+      [schoolId, name.trim(), stock_code.trim(), description?.trim() || null]
     ) as any;
 
     res.status(201).json({
@@ -138,6 +152,8 @@ export const createItemStore = async (req: Request, res: Response, next: NextFun
 
 export const updateItemStore = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
   try {
+    const schoolId = getSchoolId(req as AuthRequest);
+    if (schoolId == null) throw createError('School context required', 403);
     const { id } = req.params;
     const { name, stock_code, description } = req.body;
 
@@ -147,8 +163,8 @@ export const updateItemStore = async (req: Request, res: Response, next: NextFun
 
     const db = getDatabase();
     await db.execute(
-      'UPDATE item_stores SET name = ?, stock_code = ?, description = ? WHERE id = ?',
-      [name.trim(), stock_code.trim(), description?.trim() || null, id]
+      'UPDATE item_stores SET name = ?, stock_code = ?, description = ? WHERE id = ? AND school_id = ?',
+      [name.trim(), stock_code.trim(), description?.trim() || null, id, schoolId]
     );
 
     res.json({
@@ -165,10 +181,12 @@ export const updateItemStore = async (req: Request, res: Response, next: NextFun
 
 export const deleteItemStore = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
   try {
+    const schoolId = getSchoolId(req as AuthRequest);
+    if (schoolId == null) throw createError('School context required', 403);
     const { id } = req.params;
     const db = getDatabase();
 
-    await db.execute('DELETE FROM item_stores WHERE id = ?', [id]);
+    await db.execute('DELETE FROM item_stores WHERE id = ? AND school_id = ?', [id, schoolId]);
 
     res.json({
       success: true,
@@ -183,9 +201,12 @@ export const deleteItemStore = async (req: Request, res: Response, next: NextFun
 
 export const getItemSuppliers = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
   try {
+    const schoolId = getSchoolId(req as AuthRequest);
+    if (schoolId == null) throw createError('School context required', 403);
     const db = getDatabase();
     const [suppliers] = await db.execute(
-      'SELECT * FROM item_suppliers ORDER BY name ASC'
+      'SELECT * FROM item_suppliers WHERE school_id = ? ORDER BY name ASC',
+      [schoolId]
     ) as any[];
 
     res.json({
@@ -199,6 +220,8 @@ export const getItemSuppliers = async (req: Request, res: Response, next: NextFu
 
 export const createItemSupplier = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
   try {
+    const schoolId = getSchoolId(req as AuthRequest);
+    if (schoolId == null) throw createError('School context required', 403);
     const {
       name,
       phone,
@@ -217,9 +240,10 @@ export const createItemSupplier = async (req: Request, res: Response, next: Next
     const db = getDatabase();
     const [result] = await db.execute(
       `INSERT INTO item_suppliers 
-       (name, phone, email, address, contact_person_name, contact_person_phone, contact_person_email, description)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+       (school_id, name, phone, email, address, contact_person_name, contact_person_phone, contact_person_email, description)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       [
+        schoolId,
         name.trim(),
         phone?.trim() || null,
         email?.trim() || null,
@@ -243,6 +267,8 @@ export const createItemSupplier = async (req: Request, res: Response, next: Next
 
 export const updateItemSupplier = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
   try {
+    const schoolId = getSchoolId(req as AuthRequest);
+    if (schoolId == null) throw createError('School context required', 403);
     const { id } = req.params;
     const {
       name,
@@ -264,7 +290,7 @@ export const updateItemSupplier = async (req: Request, res: Response, next: Next
       `UPDATE item_suppliers 
        SET name = ?, phone = ?, email = ?, address = ?, contact_person_name = ?, 
            contact_person_phone = ?, contact_person_email = ?, description = ?
-       WHERE id = ?`,
+       WHERE id = ? AND school_id = ?`,
       [
         name.trim(),
         phone?.trim() || null,
@@ -275,6 +301,7 @@ export const updateItemSupplier = async (req: Request, res: Response, next: Next
         contact_person_email?.trim() || null,
         description?.trim() || null,
         id,
+        schoolId,
       ]
     );
 
@@ -289,10 +316,12 @@ export const updateItemSupplier = async (req: Request, res: Response, next: Next
 
 export const deleteItemSupplier = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
   try {
+    const schoolId = getSchoolId(req as AuthRequest);
+    if (schoolId == null) throw createError('School context required', 403);
     const { id } = req.params;
     const db = getDatabase();
 
-    await db.execute('DELETE FROM item_suppliers WHERE id = ?', [id]);
+    await db.execute('DELETE FROM item_suppliers WHERE id = ? AND school_id = ?', [id, schoolId]);
 
     res.json({
       success: true,
@@ -307,16 +336,18 @@ export const deleteItemSupplier = async (req: Request, res: Response, next: Next
 
 export const getItems = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
   try {
+    const schoolId = getSchoolId(req as AuthRequest);
+    if (schoolId == null) throw createError('School context required', 403);
     const db = getDatabase();
     const { category_id, search } = req.query;
 
     let query = `
       SELECT i.*, ic.name as category_name
       FROM items i
-      LEFT JOIN item_categories ic ON i.category_id = ic.id
-      WHERE 1=1
+      LEFT JOIN item_categories ic ON i.category_id = ic.id AND ic.school_id = ?
+      WHERE i.school_id = ?
     `;
-    const params: any[] = [];
+    const params: any[] = [schoolId, schoolId];
 
     if (category_id) {
       query += ' AND i.category_id = ?';
@@ -344,6 +375,8 @@ export const getItems = async (req: Request, res: Response, next: NextFunction):
 
 export const createItem = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
   try {
+    const schoolId = getSchoolId(req as AuthRequest);
+    if (schoolId == null) throw createError('School context required', 403);
     const { name, category_id, description } = req.body;
 
     if (!name || !category_id) {
@@ -352,8 +385,8 @@ export const createItem = async (req: Request, res: Response, next: NextFunction
 
     const db = getDatabase();
     const [result] = await db.execute(
-      'INSERT INTO items (name, category_id, description) VALUES (?, ?, ?)',
-      [name.trim(), category_id, description?.trim() || null]
+      'INSERT INTO items (school_id, name, category_id, description) VALUES (?, ?, ?, ?)',
+      [schoolId, name.trim(), category_id, description?.trim() || null]
     ) as any;
 
     res.status(201).json({
@@ -368,6 +401,8 @@ export const createItem = async (req: Request, res: Response, next: NextFunction
 
 export const updateItem = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
   try {
+    const schoolId = getSchoolId(req as AuthRequest);
+    if (schoolId == null) throw createError('School context required', 403);
     const { id } = req.params;
     const { name, category_id, description } = req.body;
 
@@ -377,8 +412,8 @@ export const updateItem = async (req: Request, res: Response, next: NextFunction
 
     const db = getDatabase();
     await db.execute(
-      'UPDATE items SET name = ?, category_id = ?, description = ? WHERE id = ?',
-      [name.trim(), category_id, description?.trim() || null, id]
+      'UPDATE items SET name = ?, category_id = ?, description = ? WHERE id = ? AND school_id = ?',
+      [name.trim(), category_id, description?.trim() || null, id, schoolId]
     );
 
     res.json({
@@ -392,10 +427,12 @@ export const updateItem = async (req: Request, res: Response, next: NextFunction
 
 export const deleteItem = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
   try {
+    const schoolId = getSchoolId(req as AuthRequest);
+    if (schoolId == null) throw createError('School context required', 403);
     const { id } = req.params;
     const db = getDatabase();
 
-    await db.execute('DELETE FROM items WHERE id = ?', [id]);
+    await db.execute('DELETE FROM items WHERE id = ? AND school_id = ?', [id, schoolId]);
 
     res.json({
       success: true,
@@ -410,6 +447,8 @@ export const deleteItem = async (req: Request, res: Response, next: NextFunction
 
 export const getItemStocks = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
   try {
+    const schoolId = getSchoolId(req as AuthRequest);
+    if (schoolId == null) throw createError('School context required', 403);
     const db = getDatabase();
     const { item_id, category_id, store_id, date_from, date_to } = req.query;
 
@@ -421,14 +460,14 @@ export const getItemStocks = async (req: Request, res: Response, next: NextFunct
              ist_store.name as store_name,
              u.name as created_by_name
       FROM item_stocks ist
-      LEFT JOIN items i ON ist.item_id = i.id
-      LEFT JOIN item_categories ic ON ist.category_id = ic.id
-      LEFT JOIN item_suppliers isp ON ist.supplier_id = isp.id
-      LEFT JOIN item_stores ist_store ON ist.store_id = ist_store.id
+      LEFT JOIN items i ON ist.item_id = i.id AND i.school_id = ?
+      LEFT JOIN item_categories ic ON ist.category_id = ic.id AND ic.school_id = ?
+      LEFT JOIN item_suppliers isp ON ist.supplier_id = isp.id AND isp.school_id = ?
+      LEFT JOIN item_stores ist_store ON ist.store_id = ist_store.id AND ist_store.school_id = ?
       LEFT JOIN users u ON ist.created_by = u.id
-      WHERE 1=1
+      WHERE ist.school_id = ?
     `;
-    const params: any[] = [];
+    const params: any[] = [schoolId, schoolId, schoolId, schoolId, schoolId];
 
     if (item_id) {
       query += ' AND ist.item_id = ?';
@@ -470,6 +509,8 @@ export const getItemStocks = async (req: Request, res: Response, next: NextFunct
 
 export const createItemStock = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
   try {
+    const schoolId = getSchoolId(req as AuthRequest);
+    if (schoolId == null) throw createError('School context required', 403);
     const { item_id, category_id, supplier_id, store_id, quantity, stock_date, description } = req.body;
 
     if (!item_id || !category_id || !store_id || !quantity || !stock_date) {
@@ -485,9 +526,10 @@ export const createItemStock = async (req: Request, res: Response, next: NextFun
 
     const [result] = await db.execute(
       `INSERT INTO item_stocks 
-       (item_id, category_id, supplier_id, store_id, quantity, stock_date, description, created_by)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+       (school_id, item_id, category_id, supplier_id, store_id, quantity, stock_date, description, created_by)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       [
+        schoolId,
         item_id,
         category_id,
         supplier_id || null,
@@ -511,6 +553,8 @@ export const createItemStock = async (req: Request, res: Response, next: NextFun
 
 export const updateItemStock = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
   try {
+    const schoolId = getSchoolId(req as AuthRequest);
+    if (schoolId == null) throw createError('School context required', 403);
     const { id } = req.params;
     const { item_id, category_id, supplier_id, store_id, quantity, stock_date, description } = req.body;
 
@@ -526,7 +570,7 @@ export const updateItemStock = async (req: Request, res: Response, next: NextFun
     await db.execute(
       `UPDATE item_stocks 
        SET item_id = ?, category_id = ?, supplier_id = ?, store_id = ?, quantity = ?, stock_date = ?, description = ?
-       WHERE id = ?`,
+       WHERE id = ? AND school_id = ?`,
       [
         item_id,
         category_id,
@@ -536,6 +580,7 @@ export const updateItemStock = async (req: Request, res: Response, next: NextFun
         stock_date,
         description?.trim() || null,
         id,
+        schoolId,
       ]
     );
 
@@ -550,10 +595,12 @@ export const updateItemStock = async (req: Request, res: Response, next: NextFun
 
 export const deleteItemStock = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
   try {
+    const schoolId = getSchoolId(req as AuthRequest);
+    if (schoolId == null) throw createError('School context required', 403);
     const { id } = req.params;
     const db = getDatabase();
 
-    await db.execute('DELETE FROM item_stocks WHERE id = ?', [id]);
+    await db.execute('DELETE FROM item_stocks WHERE id = ? AND school_id = ?', [id, schoolId]);
 
     res.json({
       success: true,
@@ -568,6 +615,8 @@ export const deleteItemStock = async (req: Request, res: Response, next: NextFun
 
 export const getItemIssues = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
   try {
+    const schoolId = getSchoolId(req as AuthRequest);
+    if (schoolId == null) throw createError('School context required', 403);
     const db = getDatabase();
     const { item_id, category_id, user_type, user_id, status, date_from, date_to } = req.query;
 
@@ -577,12 +626,12 @@ export const getItemIssues = async (req: Request, res: Response, next: NextFunct
              ic.name as category_name,
              u.name as created_by_name
       FROM item_issues ii
-      LEFT JOIN items i ON ii.item_id = i.id
-      LEFT JOIN item_categories ic ON ii.category_id = ic.id
+      LEFT JOIN items i ON ii.item_id = i.id AND i.school_id = ?
+      LEFT JOIN item_categories ic ON ii.category_id = ic.id AND ic.school_id = ?
       LEFT JOIN users u ON ii.created_by = u.id
-      WHERE 1=1
+      WHERE ii.school_id = ?
     `;
-    const params: any[] = [];
+    const params: any[] = [schoolId, schoolId, schoolId];
 
     if (item_id) {
       query += ' AND ii.item_id = ?';
@@ -634,6 +683,8 @@ export const getItemIssues = async (req: Request, res: Response, next: NextFunct
 
 export const createItemIssue = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
   try {
+    const schoolId = getSchoolId(req as AuthRequest);
+    if (schoolId == null) throw createError('School context required', 403);
     const { item_id, category_id, user_type, user_id, issue_by, issue_date, return_date, quantity, note } = req.body;
 
     if (!item_id || !category_id || !user_type || !user_id || !issue_by || !issue_date || !quantity) {
@@ -647,15 +698,14 @@ export const createItemIssue = async (req: Request, res: Response, next: NextFun
     const db = getDatabase();
     const userId = (req as AuthRequest).user?.id;
 
-    // Check available stock
     const [stocks] = await db.execute(
       `SELECT COALESCE(SUM(ist.quantity), 0) as total_stock,
               COALESCE(SUM(CASE WHEN ii.status = 'issued' THEN ii.quantity ELSE 0 END), 0) as issued_stock
        FROM item_stocks ist
-       LEFT JOIN item_issues ii ON ist.item_id = ii.item_id AND ii.status = 'issued'
-       WHERE ist.item_id = ?
+       LEFT JOIN item_issues ii ON ist.item_id = ii.item_id AND ii.status = 'issued' AND ii.school_id = ?
+       WHERE ist.item_id = ? AND ist.school_id = ?
        GROUP BY ist.item_id`,
-      [item_id]
+      [schoolId, item_id, schoolId]
     ) as any[];
 
     const availableStock = stocks.length > 0 ? stocks[0].total_stock - stocks[0].issued_stock : 0;
@@ -666,9 +716,10 @@ export const createItemIssue = async (req: Request, res: Response, next: NextFun
 
     const [result] = await db.execute(
       `INSERT INTO item_issues 
-       (item_id, category_id, user_type, user_id, issue_by, issue_date, return_date, quantity, note, created_by)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+       (school_id, item_id, category_id, user_type, user_id, issue_by, issue_date, return_date, quantity, note, created_by)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       [
+        schoolId,
         item_id,
         category_id,
         user_type,
@@ -697,13 +748,14 @@ export const createItemIssue = async (req: Request, res: Response, next: NextFun
 
 export const returnItemIssue = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
   try {
+    const schoolId = getSchoolId(req as AuthRequest);
+    if (schoolId == null) throw createError('School context required', 403);
     const { id } = req.params;
     const db = getDatabase();
 
-    // Check if issue exists and is not already returned
     const [issues] = await db.execute(
-      'SELECT * FROM item_issues WHERE id = ?',
-      [id]
+      'SELECT * FROM item_issues WHERE id = ? AND school_id = ?',
+      [id, schoolId]
     ) as any[];
 
     if (issues.length === 0) {
@@ -715,8 +767,8 @@ export const returnItemIssue = async (req: Request, res: Response, next: NextFun
     }
 
     await db.execute(
-      'UPDATE item_issues SET status = "returned", returned_at = NOW() WHERE id = ?',
-      [id]
+      'UPDATE item_issues SET status = "returned", returned_at = NOW() WHERE id = ? AND school_id = ?',
+      [id, schoolId]
     );
 
     res.json({
@@ -733,10 +785,12 @@ export const returnItemIssue = async (req: Request, res: Response, next: NextFun
 
 export const deleteItemIssue = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
   try {
+    const schoolId = getSchoolId(req as AuthRequest);
+    if (schoolId == null) throw createError('School context required', 403);
     const { id } = req.params;
     const db = getDatabase();
 
-    await db.execute('DELETE FROM item_issues WHERE id = ?', [id]);
+    await db.execute('DELETE FROM item_issues WHERE id = ? AND school_id = ?', [id, schoolId]);
 
     res.json({
       success: true,
@@ -751,6 +805,8 @@ export const deleteItemIssue = async (req: Request, res: Response, next: NextFun
 
 export const getAvailableStock = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
   try {
+    const schoolId = getSchoolId(req as AuthRequest);
+    if (schoolId == null) throw createError('School context required', 403);
     const { item_id } = req.params;
     const db = getDatabase();
 
@@ -760,10 +816,10 @@ export const getAvailableStock = async (req: Request, res: Response, next: NextF
         COALESCE(SUM(CASE WHEN ii.status = 'issued' THEN ii.quantity ELSE 0 END), 0) as issued_stock,
         COALESCE(SUM(ist.quantity), 0) - COALESCE(SUM(CASE WHEN ii.status = 'issued' THEN ii.quantity ELSE 0 END), 0) as available_stock
        FROM item_stocks ist
-       LEFT JOIN item_issues ii ON ist.item_id = ii.item_id AND ii.status = 'issued'
-       WHERE ist.item_id = ?
+       LEFT JOIN item_issues ii ON ist.item_id = ii.item_id AND ii.status = 'issued' AND ii.school_id = ?
+       WHERE ist.item_id = ? AND ist.school_id = ?
        GROUP BY ist.item_id`,
-      [item_id]
+      [schoolId, item_id, schoolId]
     ) as any[];
 
     const availableStock = stocks.length > 0 ? stocks[0].available_stock : 0;

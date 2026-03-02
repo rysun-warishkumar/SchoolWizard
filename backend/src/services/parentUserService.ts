@@ -84,14 +84,10 @@ export const createOrGetParentUser = async (
     throw createError('Parent role not found in system. Please contact administrator.', 500);
   }
 
-  // Generate password
-  const firstName = name.split(' ')[0].replace(/[^a-zA-Z0-9]/g, '');
-  const today = new Date();
-  const year = today.getFullYear();
-  const month = String(today.getMonth() + 1).padStart(2, '0');
-  const day = String(today.getDate()).padStart(2, '0');
-  const dateStr = `${year}${month}${day}`;
-  const plainPassword = `${firstName}@${dateStr}`;
+  // Generate password: FirstName@CurrentYear (e.g. John@2026)
+  const firstName = (name.trim().split(/\s+/)[0] || 'Parent').replace(/[^a-zA-Z0-9]/g, '') || 'Parent';
+  const year = new Date().getFullYear();
+  const plainPassword = `${firstName}@${year}`;
 
   // Hash password
   const hashedPassword = await bcrypt.hash(plainPassword, 10);
@@ -125,23 +121,24 @@ export const createOrGetParentUser = async (
 };
 
 /**
- * Process parent emails from student data and create/get parent accounts
- * Returns array of created/updated parent user IDs
+ * Process parent emails from student data and create/get parent accounts.
+ * Only the Father gets a parent account; Mother and Guardian do not (per product requirement).
+ * Returns array of created/updated parent user IDs.
  */
 export const processParentEmails = async (
   fatherEmail: string | null,
   fatherName: string | null,
-  motherEmail: string | null,
-  motherName: string | null,
-  guardianEmail: string | null,
-  guardianName: string | null,
+  _motherEmail: string | null,
+  _motherName: string | null,
+  _guardianEmail: string | null,
+  _guardianName: string | null,
   studentName: string,
   studentAdmissionNo: string
 ): Promise<{ parentUserIds: number[]; createdAccounts: number }> => {
   const parentUserIds: number[] = [];
   let createdAccounts = 0;
 
-  // Process father email
+  // Only create parent account for Father
   if (fatherEmail && fatherEmail.trim()) {
     const fatherNameToUse = fatherName && fatherName.trim() ? fatherName.trim() : 'Parent';
     try {
@@ -157,55 +154,11 @@ export const processParentEmails = async (
       parentUserIds.push(result.userId);
     } catch (error: any) {
       console.error(`Error creating parent account for father email ${fatherEmail}:`, error);
-      // Continue with other emails even if one fails
-    }
-  }
-
-  // Process mother email (only if different from father)
-  if (motherEmail && motherEmail.trim() && motherEmail.trim().toLowerCase() !== fatherEmail?.trim().toLowerCase()) {
-    const motherNameToUse = motherName && motherName.trim() ? motherName.trim() : 'Parent';
-    try {
-      const result = await createOrGetParentUser(
-        motherEmail,
-        motherNameToUse,
-        studentName,
-        studentAdmissionNo
-      );
-      if (result.isNewUser) {
-        createdAccounts++;
-      }
-      parentUserIds.push(result.userId);
-    } catch (error: any) {
-      console.error(`Error creating parent account for mother email ${motherEmail}:`, error);
-    }
-  }
-
-  // Process guardian email (only if different from father and mother)
-  if (
-    guardianEmail &&
-    guardianEmail.trim() &&
-    guardianEmail.trim().toLowerCase() !== fatherEmail?.trim().toLowerCase() &&
-    guardianEmail.trim().toLowerCase() !== motherEmail?.trim().toLowerCase()
-  ) {
-    const guardianNameToUse = guardianName && guardianName.trim() ? guardianName.trim() : 'Guardian';
-    try {
-      const result = await createOrGetParentUser(
-        guardianEmail,
-        guardianNameToUse,
-        studentName,
-        studentAdmissionNo
-      );
-      if (result.isNewUser) {
-        createdAccounts++;
-      }
-      parentUserIds.push(result.userId);
-    } catch (error: any) {
-      console.error(`Error creating parent account for guardian email ${guardianEmail}:`, error);
     }
   }
 
   return {
-    parentUserIds: [...new Set(parentUserIds)], // Remove duplicates
+    parentUserIds: [...new Set(parentUserIds)],
     createdAccounts,
   };
 };
@@ -215,17 +168,20 @@ export const processParentEmails = async (
  */
 export const resetParentPassword = async (
   userId: number,
-  sendEmail: boolean = true
+  sendEmail: boolean = true,
+  schoolId?: number | null
 ): Promise<{ password: string; email: string }> => {
   const db = getDatabase();
 
-  // Get user details
+  const userWhere = schoolId != null ? 'u.id = ? AND u.school_id = ?' : 'u.id = ?';
+  const userParams: any[] = schoolId != null ? [userId, schoolId] : [userId];
+
   const [users] = await db.execute(
     `SELECT u.id, u.email, u.name, r.name as role_name
      FROM users u
      LEFT JOIN roles r ON u.role_id = r.id
-     WHERE u.id = ?`,
-    [userId]
+     WHERE ${userWhere}`,
+    userParams
   ) as any[];
 
   if (users.length === 0) {
@@ -238,29 +194,29 @@ export const resetParentPassword = async (
     throw createError('User is not a parent', 400);
   }
 
-  // Generate new password
-  const firstName = user.name.split(' ')[0].replace(/[^a-zA-Z0-9]/g, '');
-  const today = new Date();
-  const year = today.getFullYear();
-  const month = String(today.getMonth() + 1).padStart(2, '0');
-  const day = String(today.getDate()).padStart(2, '0');
-  const dateStr = `${year}${month}${day}`;
-  const plainPassword = `${firstName}@${dateStr}`;
+  const firstName = (user.name.trim().split(/\s+/)[0] || 'Parent').replace(/[^a-zA-Z0-9]/g, '') || 'Parent';
+  const year = new Date().getFullYear();
+  const plainPassword = `${firstName}@${year}`;
 
-  // Hash and update password
   const hashedPassword = await bcrypt.hash(plainPassword, 10);
-  await db.execute('UPDATE users SET password = ? WHERE id = ?', [hashedPassword, userId]);
+  if (schoolId != null) {
+    await db.execute('UPDATE users SET password = ? WHERE id = ? AND school_id = ?', [hashedPassword, userId, schoolId]);
+  } else {
+    await db.execute('UPDATE users SET password = ? WHERE id = ?', [hashedPassword, userId]);
+  }
 
-  // Send email if requested
   if (sendEmail) {
     try {
-      // Get student info for email
+      const studentWhere = schoolId != null
+        ? '(father_email = ? OR mother_email = ? OR guardian_email = ?) AND school_id = ?'
+        : 'father_email = ? OR mother_email = ? OR guardian_email = ?';
+      const studentParams = schoolId != null ? [user.email, user.email, user.email, schoolId] : [user.email, user.email, user.email];
       const [students] = await db.execute(
         `SELECT first_name, last_name, admission_no
          FROM students
-         WHERE father_email = ? OR mother_email = ? OR guardian_email = ?
+         WHERE ${studentWhere}
          LIMIT 1`,
-        [user.email, user.email, user.email]
+        studentParams
       ) as any[];
 
       const studentInfo = students.length > 0 ? students[0] : null;

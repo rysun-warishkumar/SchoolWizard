@@ -9,13 +9,13 @@ import {
   getParentUsers,
   resetParentUserPassword,
 } from '../controllers/users.controller';
-import { authenticate } from '../middleware/auth';
+import { authenticate, requireSchool } from '../middleware/auth';
 import { checkPermission } from '../middleware/permissions';
 
 const router = express.Router();
 
 // All routes require authentication
-router.use(authenticate);
+router.use(authenticate, requireSchool);
 
 // Get all users (admin only)
 router.get('/', checkPermission('users', 'view'), getUsers);

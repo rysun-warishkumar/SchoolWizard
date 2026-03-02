@@ -33,6 +33,7 @@ const StudentAdmissionTab: React.FC<StudentAdmissionTabProps> = ({ classes, sect
     guardian_name: '',
     guardian_phone: '',
     guardian_email: '',
+    create_parent_account: true,
   });
   const [photoPreview, setPhotoPreview] = useState<string>('');
 
@@ -200,6 +201,7 @@ const StudentAdmissionTab: React.FC<StudentAdmissionTabProps> = ({ classes, sect
         guardian_name: '',
         guardian_phone: '',
         guardian_email: '',
+        create_parent_account: true,
       });
       setPhotoPreview('');
     },
@@ -239,6 +241,7 @@ const StudentAdmissionTab: React.FC<StudentAdmissionTabProps> = ({ classes, sect
       section_id: Number(formData.section_id),
       session_id: Number(formData.session_id),
       gender: formData.gender as 'male' | 'female' | 'other',
+      create_parent_account: formData.create_parent_account,
     });
   };
 
@@ -564,6 +567,20 @@ const StudentAdmissionTab: React.FC<StudentAdmissionTabProps> = ({ classes, sect
 
         <div className="form-section">
           <h4>Parent/Guardian Information</h4>
+          <div className="form-row create-parent-account-row">
+            <div className="form-group create-parent-account-group">
+              <input
+                type="checkbox"
+                id="create_parent_account"
+                checked={formData.create_parent_account}
+                onChange={(e) => setFormData({ ...formData, create_parent_account: e.target.checked })}
+                className="create-parent-account-checkbox"
+              />
+              <label htmlFor="create_parent_account" className="create-parent-account-label">
+                Create parent account for Father&apos;s email below
+              </label>
+            </div>
+          </div>
           <div className="form-row">
             <div className="form-group">
               <label>Father Name</label>
@@ -611,9 +628,11 @@ const StudentAdmissionTab: React.FC<StudentAdmissionTabProps> = ({ classes, sect
               {fieldErrors.father_email && (
                 <span className="field-error">{fieldErrors.father_email}</span>
               )}
-              <small style={{ color: 'var(--gray-500)', fontSize: 'var(--font-size-xs)', marginTop: 'var(--spacing-xs)', display: 'block' }}>
-                Parent account will be created automatically with this email
-              </small>
+              {formData.create_parent_account && (
+                <small className="create-parent-hint">
+                  Parent account will be created with this email (password: FirstName@Year, e.g. John@2026)
+                </small>
+              )}
             </div>
           </div>
           <div className="form-row">
@@ -663,9 +682,6 @@ const StudentAdmissionTab: React.FC<StudentAdmissionTabProps> = ({ classes, sect
               {fieldErrors.mother_email && (
                 <span className="field-error">{fieldErrors.mother_email}</span>
               )}
-              <small style={{ color: 'var(--gray-500)', fontSize: 'var(--font-size-xs)', marginTop: 'var(--spacing-xs)', display: 'block' }}>
-                Parent account will be created automatically with this email
-              </small>
             </div>
           </div>
           <div className="form-row">
@@ -715,9 +731,6 @@ const StudentAdmissionTab: React.FC<StudentAdmissionTabProps> = ({ classes, sect
               {fieldErrors.guardian_email && (
                 <span className="field-error">{fieldErrors.guardian_email}</span>
               )}
-              <small style={{ color: 'var(--gray-500)', fontSize: 'var(--font-size-xs)', marginTop: 'var(--spacing-xs)', display: 'block' }}>
-                Parent account will be created automatically with this email
-              </small>
             </div>
           </div>
         </div>

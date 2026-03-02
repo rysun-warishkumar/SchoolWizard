@@ -47,6 +47,16 @@ mysql -u root -p schoolwizard < 05_cms_website.sql
 4. Choose file (`00_complete_database.sql` OR files 01-05 in order)
 5. Click "Go"
 
+## Multi-tenant (Phase 1)
+
+For **multi-tenant** setup (multiple schools in one database), after importing the full schema (single file or 01–05), run the Phase 1 migration:
+
+```bash
+mysql -u root -p schoolwizard < ../migrations/036_phase1_multi_tenant_schools.sql
+```
+
+This adds the `schools` table, adds `school_id` to `users` and all tenant tables, and backfills existing data to a default school. See `docs/SCHOOL_REGISTRATION_AND_TRIAL_PLAN.md`.
+
 ## 📝 Notes
 
 - All files use `CREATE TABLE IF NOT EXISTS` - safe to run multiple times

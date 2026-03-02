@@ -5,12 +5,12 @@ import {
   getTodoTasks, getTodoTaskById,
   createTodoTask, updateTodoTask, deleteTodoTask,
 } from '../controllers/calendar.controller';
-import { authenticate } from '../middleware/auth';
+import { authenticate, requireSchool } from '../middleware/auth';
 import { checkPermission } from '../middleware/permissions';
 
 const router = express.Router();
 
-router.use(authenticate);
+router.use(authenticate, requireSchool);
 
 // Calendar Events Routes
 router.get('/events', checkPermission('calendar', 'view'), getCalendarEvents);

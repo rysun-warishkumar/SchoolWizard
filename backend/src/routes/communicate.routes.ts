@@ -4,12 +4,12 @@ import {
   sendEmailToRecipients, sendSMSToRecipients,
   getEmailLogs, getSMSLogs,
 } from '../controllers/communicate.controller';
-import { authenticate } from '../middleware/auth';
+import { authenticate, requireSchool } from '../middleware/auth';
 import { checkPermission } from '../middleware/permissions';
 
 const router = express.Router();
 
-router.use(authenticate);
+router.use(authenticate, requireSchool);
 
 // Notice Board Routes
 router.get('/notices', checkPermission('communicate', 'view'), getNotices);

@@ -22,12 +22,12 @@ import {
   uploadStudentPhoto,
   bulkImportStudents,
 } from '../controllers/students.controller';
-import { authenticate } from '../middleware/auth';
+import { authenticate, requireSchool } from '../middleware/auth';
 import { checkPermission } from '../middleware/permissions';
 
 const router = express.Router();
 
-router.use(authenticate);
+router.use(authenticate, requireSchool);
 
 // Student Categories
 router.get('/categories', checkPermission('students', 'view'), getStudentCategories);

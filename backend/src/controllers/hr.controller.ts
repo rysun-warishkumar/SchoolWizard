@@ -1,7 +1,7 @@
 import { Request, Response, NextFunction } from 'express';
 import { getDatabase } from '../config/database';
 import { createError } from '../middleware/errorHandler';
-import { AuthRequest } from '../middleware/auth';
+import { AuthRequest, getSchoolId } from '../middleware/auth';
 import bcrypt from 'bcryptjs';
 
 // ========== Departments ==========
@@ -11,8 +11,10 @@ export const getDepartments = async (
   next: NextFunction
 ): Promise<void> => {
   try {
+    const schoolId = getSchoolId(req as AuthRequest);
+    if (schoolId == null) throw createError('School context required', 403);
     const db = getDatabase();
-    const [departments] = await db.execute('SELECT * FROM departments ORDER BY name ASC') as any[];
+    const [departments] = await db.execute('SELECT * FROM departments WHERE school_id = ? ORDER BY name ASC', [schoolId]) as any[];
     res.json({ success: true, data: departments });
   } catch (error) {
     next(error);
@@ -25,6 +27,8 @@ export const createDepartment = async (
   next: NextFunction
 ): Promise<void> => {
   try {
+    const schoolId = getSchoolId(req as AuthRequest);
+    if (schoolId == null) throw createError('School context required', 403);
     const { name, description } = req.body;
     if (!name || name.trim() === '') {
       throw createError('Department name is required', 400);
@@ -32,13 +36,13 @@ export const createDepartment = async (
 
     const db = getDatabase();
     const [result] = await db.execute(
-      'INSERT INTO departments (name, description) VALUES (?, ?)',
-      [name.trim(), description || null]
+      'INSERT INTO departments (school_id, name, description) VALUES (?, ?, ?)',
+      [schoolId, name.trim(), description || null]
     ) as any;
 
     const [newDepartments] = await db.execute(
-      'SELECT * FROM departments WHERE id = ?',
-      [result.insertId]
+      'SELECT * FROM departments WHERE id = ? AND school_id = ?',
+      [result.insertId, schoolId]
     ) as any[];
 
     res.status(201).json({
@@ -61,8 +65,10 @@ export const getDesignations = async (
   next: NextFunction
 ): Promise<void> => {
   try {
+    const schoolId = getSchoolId(req as AuthRequest);
+    if (schoolId == null) throw createError('School context required', 403);
     const db = getDatabase();
-    const [designations] = await db.execute('SELECT * FROM designations ORDER BY name ASC') as any[];
+    const [designations] = await db.execute('SELECT * FROM designations WHERE school_id = ? ORDER BY name ASC', [schoolId]) as any[];
     res.json({ success: true, data: designations });
   } catch (error) {
     next(error);
@@ -75,6 +81,8 @@ export const createDesignation = async (
   next: NextFunction
 ): Promise<void> => {
   try {
+    const schoolId = getSchoolId(req as AuthRequest);
+    if (schoolId == null) throw createError('School context required', 403);
     const { name, description } = req.body;
     if (!name || name.trim() === '') {
       throw createError('Designation name is required', 400);
@@ -82,13 +90,13 @@ export const createDesignation = async (
 
     const db = getDatabase();
     const [result] = await db.execute(
-      'INSERT INTO designations (name, description) VALUES (?, ?)',
-      [name.trim(), description || null]
+      'INSERT INTO designations (school_id, name, description) VALUES (?, ?, ?)',
+      [schoolId, name.trim(), description || null]
     ) as any;
 
     const [newDesignations] = await db.execute(
-      'SELECT * FROM designations WHERE id = ?',
-      [result.insertId]
+      'SELECT * FROM designations WHERE id = ? AND school_id = ?',
+      [result.insertId, schoolId]
     ) as any[];
 
     res.status(201).json({
@@ -111,8 +119,10 @@ export const getLeaveTypes = async (
   next: NextFunction
 ): Promise<void> => {
   try {
+    const schoolId = getSchoolId(req as AuthRequest);
+    if (schoolId == null) throw createError('School context required', 403);
     const db = getDatabase();
-    const [leaveTypes] = await db.execute('SELECT * FROM leave_types ORDER BY name ASC') as any[];
+    const [leaveTypes] = await db.execute('SELECT * FROM leave_types WHERE school_id = ? ORDER BY name ASC', [schoolId]) as any[];
     res.json({ success: true, data: leaveTypes });
   } catch (error) {
     next(error);
@@ -125,6 +135,8 @@ export const createLeaveType = async (
   next: NextFunction
 ): Promise<void> => {
   try {
+    const schoolId = getSchoolId(req as AuthRequest);
+    if (schoolId == null) throw createError('School context required', 403);
     const { name, description, max_days, is_paid } = req.body;
     if (!name || name.trim() === '') {
       throw createError('Leave type name is required', 400);
@@ -132,13 +144,13 @@ export const createLeaveType = async (
 
     const db = getDatabase();
     const [result] = await db.execute(
-      'INSERT INTO leave_types (name, description, max_days, is_paid) VALUES (?, ?, ?, ?)',
-      [name.trim(), description || null, max_days || null, is_paid !== undefined ? (is_paid ? 1 : 0) : 1]
+      'INSERT INTO leave_types (school_id, name, description, max_days, is_paid) VALUES (?, ?, ?, ?, ?)',
+      [schoolId, name.trim(), description || null, max_days || null, is_paid !== undefined ? (is_paid ? 1 : 0) : 1]
     ) as any;
 
     const [newLeaveTypes] = await db.execute(
-      'SELECT * FROM leave_types WHERE id = ?',
-      [result.insertId]
+      'SELECT * FROM leave_types WHERE id = ? AND school_id = ?',
+      [result.insertId, schoolId]
     ) as any[];
 
     res.status(201).json({
@@ -161,6 +173,8 @@ export const getStaff = async (
   next: NextFunction
 ): Promise<void> => {
   try {
+    const schoolId = getSchoolId(req as AuthRequest);
+    if (schoolId == null) throw createError('School context required', 403);
     const { role_id, department_id, search, is_active, page, limit } = req.query;
     const db = getDatabase();
 
@@ -218,11 +232,11 @@ export const getStaff = async (
        des.name as designation_name
        FROM staff s
        LEFT JOIN roles r ON s.role_id = r.id
-       LEFT JOIN departments d ON s.department_id = d.id
-       LEFT JOIN designations des ON s.designation_id = des.id
-       WHERE 1=1
+       LEFT JOIN departments d ON s.department_id = d.id AND d.school_id = ?
+       LEFT JOIN designations des ON s.designation_id = des.id AND des.school_id = ?
+       WHERE s.school_id = ?
     `;
-    const params: any[] = [];
+    const params: any[] = [schoolId, schoolId, schoolId];
 
     if (is_active !== undefined) {
       query += ' AND s.is_active = ?';
@@ -272,8 +286,8 @@ export const getStaff = async (
     const [staff] = await db.execute(query, params) as any[];
 
     // Get total count with same filters
-    let countQuery = 'SELECT COUNT(*) as total FROM staff WHERE 1=1';
-    const countParams: any[] = [];
+    let countQuery = 'SELECT COUNT(*) as total FROM staff WHERE school_id = ?';
+    const countParams: any[] = [schoolId];
 
     if (is_active !== undefined) {
       countQuery += ' AND is_active = ?';
@@ -344,10 +358,12 @@ export const getMyStaffProfile = async (
     if (!req.user) {
       throw createError('Not authenticated', 401);
     }
+    const schoolId = getSchoolId(req);
+    if (schoolId == null) throw createError('School context required', 403);
 
     const db = getDatabase();
 
-    // Find staff by user_id
+    // Find staff by user_id and school
     const [staff] = await db.execute(
       `SELECT s.*, 
        r.name as role_name,
@@ -355,20 +371,19 @@ export const getMyStaffProfile = async (
        des.name as designation_name
        FROM staff s
        LEFT JOIN roles r ON s.role_id = r.id
-       LEFT JOIN departments d ON s.department_id = d.id
-       LEFT JOIN designations des ON s.designation_id = des.id
-       WHERE s.user_id = ?`,
-      [req.user.id]
+       LEFT JOIN departments d ON s.department_id = d.id AND d.school_id = ?
+       LEFT JOIN designations des ON s.designation_id = des.id AND des.school_id = ?
+       WHERE s.user_id = ? AND s.school_id = ?`,
+      [schoolId, schoolId, req.user.id, schoolId]
     ) as any[];
 
     if (staff.length === 0) {
       throw createError('Staff profile not found', 404);
     }
 
-    // Get documents
     const [documents] = await db.execute(
-      'SELECT * FROM staff_documents WHERE staff_id = ?',
-      [staff[0].id]
+      'SELECT * FROM staff_documents WHERE staff_id = ? AND school_id = ?',
+      [staff[0].id, schoolId]
     ) as any[];
 
     const staffMember = staff[0];
@@ -390,13 +405,12 @@ export const getMyClasses = async (
   next: NextFunction
 ): Promise<void> => {
   try {
-    if (!req.user) {
-      throw createError('Not authenticated', 401);
-    }
+    if (!req.user) throw createError('Not authenticated', 401);
+    const schoolId = getSchoolId(req);
+    if (schoolId == null) throw createError('School context required', 403);
 
     const db = getDatabase();
 
-    // Get classes from class_teachers table
     const [classTeachers] = await db.execute(
       `SELECT DISTINCT
         ct.class_id,
@@ -405,14 +419,13 @@ export const getMyClasses = async (
         s.name as section_name,
         c.numeric_value
       FROM class_teachers ct
-      JOIN classes c ON ct.class_id = c.id
-      JOIN sections s ON ct.section_id = s.id
-      WHERE ct.teacher_id = ?
+      JOIN classes c ON ct.class_id = c.id AND c.school_id = ?
+      JOIN sections s ON ct.section_id = s.id AND s.school_id = ?
+      WHERE ct.school_id = ? AND ct.teacher_id = ?
       ORDER BY c.numeric_value ASC, c.name ASC, s.name ASC`,
-      [req.user.id]
+      [schoolId, schoolId, schoolId, req.user.id]
     ) as any[];
 
-    // Get subjects from timetable where teacher is assigned
     const [timetableSubjects] = await db.execute(
       `SELECT DISTINCT
         ct.class_id,
@@ -421,10 +434,10 @@ export const getMyClasses = async (
         sub.name as subject_name,
         sub.code as subject_code
       FROM class_timetable ct
-      JOIN subjects sub ON ct.subject_id = sub.id
-      WHERE ct.teacher_id = ?
+      JOIN subjects sub ON ct.subject_id = sub.id AND sub.school_id = ?
+      WHERE ct.school_id = ? AND ct.teacher_id = ?
       ORDER BY sub.name ASC`,
-      [req.user.id]
+      [schoolId, schoolId, req.user.id]
     ) as any[];
 
     // Group subjects by class-section
@@ -458,44 +471,39 @@ export const getMyStudents = async (
   next: NextFunction
 ): Promise<void> => {
   try {
-    if (!req.user) {
-      throw createError('Not authenticated', 401);
-    }
+    if (!req.user) throw createError('Not authenticated', 401);
+    const schoolId = getSchoolId(req);
+    if (schoolId == null) throw createError('School context required', 403);
 
     const { class_id, section_id } = req.query;
     const db = getDatabase();
 
-    // Get classes assigned to this teacher
     const [assignedClasses] = await db.execute(
       `SELECT DISTINCT class_id, section_id
        FROM class_teachers
-       WHERE teacher_id = ?`,
-      [req.user.id]
+       WHERE school_id = ? AND teacher_id = ?`,
+      [schoolId, req.user.id]
     ) as any[];
 
     if (assignedClasses.length === 0) {
-      res.json({
-        success: true,
-        data: [],
-      });
+      res.json({ success: true, data: [] });
       return;
     }
 
-    // Build query to get students from assigned classes
     let query = `
       SELECT s.*,
         c.name as class_name,
         sec.name as section_name,
         cat.name as category_name
       FROM students s
-      LEFT JOIN classes c ON s.class_id = c.id
-      LEFT JOIN sections sec ON s.section_id = sec.id
-      LEFT JOIN student_categories cat ON s.category_id = cat.id
-      WHERE s.is_active = 1
+      LEFT JOIN classes c ON s.class_id = c.id AND c.school_id = ?
+      LEFT JOIN sections sec ON s.section_id = sec.id AND sec.school_id = ?
+      LEFT JOIN student_categories cat ON s.category_id = cat.id AND cat.school_id = ?
+      WHERE s.school_id = ? AND s.is_active = 1
       AND (
     `;
 
-    const params: any[] = [];
+    const params: any[] = [schoolId, schoolId, schoolId, schoolId];
     assignedClasses.forEach((ac: any, index: number) => {
       if (index > 0) query += ' OR ';
       query += '(s.class_id = ? AND s.section_id = ?)';
@@ -504,7 +512,6 @@ export const getMyStudents = async (
 
     query += ')';
 
-    // Filter by specific class-section if provided
     if (class_id && section_id) {
       query += ' AND s.class_id = ? AND s.section_id = ?';
       params.push(class_id, section_id);
@@ -530,26 +537,25 @@ export const getMyTimetable = async (
   next: NextFunction
 ): Promise<void> => {
   try {
-    if (!req.user) {
-      throw createError('Not authenticated', 401);
-    }
+    if (!req.user) throw createError('Not authenticated', 401);
+    const schoolId = getSchoolId(req);
+    if (schoolId == null) throw createError('School context required', 403);
 
     const db = getDatabase();
 
-    // Get timetable entries where this teacher is assigned
     const [timetable] = await db.execute(
       `SELECT tt.*, 
        sub.name as subject_name, sub.code as subject_code,
        c.name as class_name, s.name as section_name
        FROM class_timetable tt
        LEFT JOIN subjects sub ON tt.subject_id = sub.id
-       LEFT JOIN classes c ON tt.class_id = c.id
-       LEFT JOIN sections s ON tt.section_id = s.id
-       WHERE tt.teacher_id = ?
+       LEFT JOIN classes c ON tt.class_id = c.id AND c.school_id = ?
+       LEFT JOIN sections s ON tt.section_id = s.id AND s.school_id = ?
+       WHERE tt.school_id = ? AND tt.teacher_id = ?
        ORDER BY 
          FIELD(tt.day_of_week, 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday'),
          tt.time_from ASC`,
-      [req.user.id]
+      [schoolId, schoolId, schoolId, req.user.id]
     ) as any[];
 
     res.json({
@@ -567,6 +573,8 @@ export const getStaffById = async (
   next: NextFunction
 ): Promise<void> => {
   try {
+    const schoolId = getSchoolId(req as AuthRequest);
+    if (schoolId == null) throw createError('School context required', 403);
     const { id } = req.params;
     const db = getDatabase();
 
@@ -577,20 +585,20 @@ export const getStaffById = async (
        des.name as designation_name
        FROM staff s
        LEFT JOIN roles r ON s.role_id = r.id
-       LEFT JOIN departments d ON s.department_id = d.id
-       LEFT JOIN designations des ON s.designation_id = des.id
-       WHERE s.id = ?`,
-      [id]
+       LEFT JOIN departments d ON s.department_id = d.id AND d.school_id = ?
+       LEFT JOIN designations des ON s.designation_id = des.id AND des.school_id = ?
+       WHERE s.id = ? AND s.school_id = ?`,
+      [schoolId, schoolId, id, schoolId]
     ) as any[];
 
     if (staff.length === 0) {
       throw createError('Staff member not found', 404);
     }
 
-    // Get documents
+    // Get documents (staff already scoped to school)
     const [documents] = await db.execute(
-      'SELECT * FROM staff_documents WHERE staff_id = ?',
-      [id]
+      'SELECT * FROM staff_documents WHERE staff_id = ? AND school_id = ?',
+      [id, schoolId]
     ) as any[];
 
     const staffMember = staff[0];
@@ -664,19 +672,21 @@ export const createStaff = async (
       throw createError('Date of joining is required', 400);
     }
 
+    const schoolId = getSchoolId(req as AuthRequest);
+    if (schoolId == null) throw createError('School context required', 403);
     const db = getDatabase();
 
-    // Check if staff_id already exists
+    // Check if staff_id already exists in this school
     const [existingStaff] = await db.execute(
-      'SELECT id FROM staff WHERE staff_id = ?',
-      [staff_id.trim()]
+      'SELECT id FROM staff WHERE staff_id = ? AND school_id = ?',
+      [staff_id.trim(), schoolId]
     ) as any[];
 
     if (existingStaff.length > 0) {
       throw createError('Staff ID already exists', 400);
     }
 
-    // Create user account if email is provided
+    // Create user account if email is provided (with school_id)
     let userId = null;
     if (email && email.trim() !== '') {
       try {
@@ -684,8 +694,8 @@ export const createStaff = async (
         const hashedPassword = await bcrypt.hash(defaultPassword, 10);
 
         const [userResult] = await db.execute(
-          'INSERT INTO users (email, password, name, role_id, is_active, created_at) VALUES (?, ?, ?, ?, 1, NOW())',
-          [email.trim(), hashedPassword, `${first_name} ${last_name || ''}`.trim(), role_id]
+          'INSERT INTO users (email, password, name, role_id, school_id, is_active, created_at) VALUES (?, ?, ?, ?, ?, 1, NOW())',
+          [email.trim(), hashedPassword, `${first_name} ${last_name || ''}`.trim(), role_id, schoolId]
         ) as any;
         userId = userResult.insertId;
       } catch (userError: any) {
@@ -711,6 +721,7 @@ export const createStaff = async (
 
     // Create a map of field values
     const fieldMap: Record<string, any> = {
+      school_id: schoolId,
       staff_id: staff_id.trim(),
       user_id: userId,
       role_id: Number(role_id),
@@ -797,8 +808,8 @@ export const createStaff = async (
     }
 
     const [newStaff] = await db.execute(
-      'SELECT * FROM staff WHERE id = ?',
-      [result.insertId]
+      'SELECT * FROM staff WHERE id = ? AND school_id = ?',
+      [result.insertId, schoolId]
     ) as any[];
 
     const staffName = `${first_name} ${last_name || ''}`.trim();
@@ -829,6 +840,8 @@ export const updateStaff = async (
   next: NextFunction
 ): Promise<void> => {
   try {
+    const schoolId = getSchoolId(req as AuthRequest);
+    if (schoolId == null) throw createError('School context required', 403);
     const { id } = req.params;
     const updates = req.body;
     const db = getDatabase();
@@ -860,16 +873,16 @@ export const updateStaff = async (
     }
 
     updateFields.push('updated_at = NOW()');
-    params.push(id);
+    params.push(id, schoolId);
 
     await db.execute(
-      `UPDATE staff SET ${updateFields.join(', ')} WHERE id = ?`,
+      `UPDATE staff SET ${updateFields.join(', ')} WHERE id = ? AND school_id = ?`,
       params
     );
 
     const [updatedStaff] = await db.execute(
-      'SELECT * FROM staff WHERE id = ?',
-      [id]
+      'SELECT * FROM staff WHERE id = ? AND school_id = ?',
+      [id, schoolId]
     ) as any[];
 
     res.json({
@@ -888,21 +901,21 @@ export const deleteStaff = async (
   next: NextFunction
 ): Promise<void> => {
   try {
+    const schoolId = getSchoolId(req as AuthRequest);
+    if (schoolId == null) throw createError('School context required', 403);
     const { id } = req.params;
     const db = getDatabase();
 
-    // Check if staff exists
-    const [staff] = await db.execute('SELECT * FROM staff WHERE id = ?', [id]) as any[];
+    const [staff] = await db.execute('SELECT * FROM staff WHERE id = ? AND school_id = ?', [id, schoolId]) as any[];
     if (staff.length === 0) {
       throw createError('Staff member not found', 404);
     }
 
-    // Only allow deletion if staff is disabled
     if (staff[0].is_active) {
       throw createError('Cannot delete active staff member. Please disable the staff member first.', 400);
     }
 
-    await db.execute('DELETE FROM staff WHERE id = ?', [id]);
+    await db.execute('DELETE FROM staff WHERE id = ? AND school_id = ?', [id, schoolId]);
 
     res.json({
       success: true,
@@ -919,17 +932,19 @@ export const disableStaff = async (
   next: NextFunction
 ): Promise<void> => {
   try {
+    const schoolId = getSchoolId(req as AuthRequest);
+    if (schoolId == null) throw createError('School context required', 403);
     const { id } = req.params;
     const { leaving_date, resignation_letter } = req.body;
     const db = getDatabase();
 
     await db.execute(
-      'UPDATE staff SET is_active = 0, leaving_date = ?, resignation_letter = ?, updated_at = NOW() WHERE id = ?',
-      [leaving_date || null, resignation_letter || null, id]
+      'UPDATE staff SET is_active = 0, leaving_date = ?, resignation_letter = ?, updated_at = NOW() WHERE id = ? AND school_id = ?',
+      [leaving_date || null, resignation_letter || null, id, schoolId]
     );
 
-    // Also disable user account if exists
-    const [staff] = await db.execute('SELECT user_id FROM staff WHERE id = ?', [id]) as any[];
+    const [staff] = await db.execute('SELECT user_id FROM staff WHERE id = ? AND school_id = ?', [id, schoolId]) as any[];
+    if (staff.length === 0) throw createError('Staff member not found', 404);
     if (staff[0].user_id) {
       await db.execute('UPDATE users SET is_active = 0 WHERE id = ?', [staff[0].user_id]);
     }
@@ -949,16 +964,18 @@ export const enableStaff = async (
   next: NextFunction
 ): Promise<void> => {
   try {
+    const schoolId = getSchoolId(req as AuthRequest);
+    if (schoolId == null) throw createError('School context required', 403);
     const { id } = req.params;
     const db = getDatabase();
 
     await db.execute(
-      'UPDATE staff SET is_active = 1, updated_at = NOW() WHERE id = ?',
-      [id]
+      'UPDATE staff SET is_active = 1, updated_at = NOW() WHERE id = ? AND school_id = ?',
+      [id, schoolId]
     );
 
-    // Also enable user account if exists
-    const [staff] = await db.execute('SELECT user_id FROM staff WHERE id = ?', [id]) as any[];
+    const [staff] = await db.execute('SELECT user_id FROM staff WHERE id = ? AND school_id = ?', [id, schoolId]) as any[];
+    if (staff.length === 0) throw createError('Staff member not found', 404);
     if (staff[0].user_id) {
       await db.execute('UPDATE users SET is_active = 1 WHERE id = ?', [staff[0].user_id]);
     }
@@ -1098,6 +1115,8 @@ export const getStaffAttendanceReport = async (
   next: NextFunction
 ): Promise<void> => {
   try {
+    const schoolId = getSchoolId(req as AuthRequest);
+    if (schoolId == null) throw createError('School context required', 403);
     const { staff_id, month, year, role_id } = req.query;
     const db = getDatabase();
 
@@ -1125,13 +1144,13 @@ export const getStaffAttendanceReport = async (
         ) as gross_present_percentage
       FROM staff s
       LEFT JOIN roles r ON s.role_id = r.id
-      LEFT JOIN departments d ON s.department_id = d.id
-      LEFT JOIN staff_attendance sa ON s.id = sa.staff_id 
+      LEFT JOIN departments d ON s.department_id = d.id AND d.school_id = ?
+      LEFT JOIN staff_attendance sa ON s.id = sa.staff_id AND sa.school_id = ?
         AND MONTH(sa.attendance_date) = ? 
         AND YEAR(sa.attendance_date) = ?
-      WHERE s.is_active = 1
+      WHERE s.school_id = ? AND s.is_active = 1
     `;
-    const params: any[] = [month, year];
+    const params: any[] = [schoolId, schoolId, month, year, schoolId];
 
     if (staff_id) {
       query += ' AND s.id = ?';
@@ -1160,6 +1179,8 @@ export const getLeaveRequests = async (
   next: NextFunction
 ): Promise<void> => {
   try {
+    const schoolId = getSchoolId(req as AuthRequest);
+    if (schoolId == null) throw createError('School context required', 403);
     const { staff_id, status, page = 1, limit = 20 } = req.query;
     const db = getDatabase();
     const offset = (Number(page) - 1) * Number(limit);
@@ -1185,12 +1206,12 @@ export const getLeaveRequests = async (
         lt.name as leave_type_name,
         u.name as approved_by_name
       FROM leave_requests lr
-      INNER JOIN staff s ON lr.staff_id = s.id
-      INNER JOIN leave_types lt ON lr.leave_type_id = lt.id
+      INNER JOIN staff s ON lr.staff_id = s.id AND s.school_id = ?
+      INNER JOIN leave_types lt ON lr.leave_type_id = lt.id AND lt.school_id = ?
       LEFT JOIN users u ON lr.approved_by = u.id
-      WHERE 1=1
+      WHERE lr.school_id = ?
     `;
-    const params: any[] = [];
+    const params: any[] = [schoolId, schoolId, schoolId];
 
     if (staff_id) {
       query += ' AND lr.staff_id = ?';
@@ -1207,13 +1228,12 @@ export const getLeaveRequests = async (
 
     const [leaveRequests] = await db.execute(query, params) as any[];
 
-    // Get total count
     let countQuery = `
       SELECT COUNT(*) as total
       FROM leave_requests lr
-      WHERE 1=1
+      WHERE lr.school_id = ?
     `;
-    const countParams: any[] = [];
+    const countParams: any[] = [schoolId];
 
     if (staff_id) {
       countQuery += ' AND lr.staff_id = ?';
@@ -1249,6 +1269,8 @@ export const getLeaveRequestById = async (
   next: NextFunction
 ): Promise<void> => {
   try {
+    const schoolId = getSchoolId(req as AuthRequest);
+    if (schoolId == null) throw createError('School context required', 403);
     const { id } = req.params;
     const db = getDatabase();
 
@@ -1265,8 +1287,8 @@ export const getLeaveRequestById = async (
       INNER JOIN staff s ON lr.staff_id = s.id
       INNER JOIN leave_types lt ON lr.leave_type_id = lt.id
       LEFT JOIN users u ON lr.approved_by = u.id
-      WHERE lr.id = ?`,
-      [id]
+      WHERE lr.id = ? AND lr.school_id = ?`,
+      [id, schoolId]
     ) as any[];
 
     if (leaveRequests.length === 0) {
@@ -1285,6 +1307,8 @@ export const createLeaveRequest = async (
   next: NextFunction
 ): Promise<void> => {
   try {
+    const schoolId = getSchoolId(req as AuthRequest);
+    if (schoolId == null) throw createError('School context required', 403);
     const { staff_id, leave_type_id, apply_date, leave_date, reason, note, document_path } = req.body;
 
     if (!staff_id) {
@@ -1302,22 +1326,20 @@ export const createLeaveRequest = async (
 
     const db = getDatabase();
 
-    // Verify staff exists
-    const [staff] = await db.execute('SELECT id FROM staff WHERE id = ? AND is_active = 1', [staff_id]) as any[];
+    const [staff] = await db.execute('SELECT id FROM staff WHERE id = ? AND school_id = ? AND is_active = 1', [staff_id, schoolId]) as any[];
     if (staff.length === 0) {
       throw createError('Staff member not found or inactive', 404);
     }
 
-    // Verify leave type exists
-    const [leaveType] = await db.execute('SELECT id FROM leave_types WHERE id = ?', [leave_type_id]) as any[];
+    const [leaveType] = await db.execute('SELECT id FROM leave_types WHERE id = ? AND school_id = ?', [leave_type_id, schoolId]) as any[];
     if (leaveType.length === 0) {
       throw createError('Leave type not found', 404);
     }
 
     const [result] = await db.execute(
-      `INSERT INTO leave_requests (staff_id, leave_type_id, apply_date, leave_date, reason, note, document_path, status)
-       VALUES (?, ?, ?, ?, ?, ?, ?, 'pending')`,
-      [staff_id, leave_type_id, apply_date, leave_date, reason || null, note || null, document_path || null]
+      `INSERT INTO leave_requests (school_id, staff_id, leave_type_id, apply_date, leave_date, reason, note, document_path, status)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'pending')`,
+      [schoolId, staff_id, leave_type_id, apply_date, leave_date, reason || null, note || null, document_path || null]
     ) as any;
 
     const [newRequest] = await db.execute(
@@ -1330,8 +1352,8 @@ export const createLeaveRequest = async (
       FROM leave_requests lr
       INNER JOIN staff s ON lr.staff_id = s.id
       INNER JOIN leave_types lt ON lr.leave_type_id = lt.id
-      WHERE lr.id = ?`,
-      [result.insertId]
+      WHERE lr.id = ? AND lr.school_id = ?`,
+      [result.insertId, schoolId]
     ) as any[];
 
     res.status(201).json({
@@ -1361,10 +1383,11 @@ export const updateLeaveRequest = async (
       throw createError('Invalid status. Must be pending, approved, or disapproved', 400);
     }
 
+    const schoolId = getSchoolId(req);
+    if (schoolId == null) throw createError('School context required', 403);
     const db = getDatabase();
 
-    // Get current leave request
-    const [leaveRequests] = await db.execute('SELECT * FROM leave_requests WHERE id = ?', [id]) as any[];
+    const [leaveRequests] = await db.execute('SELECT * FROM leave_requests WHERE id = ? AND school_id = ?', [id, schoolId]) as any[];
     if (leaveRequests.length === 0) {
       throw createError('Leave request not found', 404);
     }
@@ -1385,8 +1408,8 @@ export const updateLeaveRequest = async (
     await db.execute(
       `UPDATE leave_requests 
        SET status = ?, note = ?, approved_by = ?, approved_at = ?, updated_at = NOW()
-       WHERE id = ?`,
-      [updateData.status, updateData.note, updateData.approved_by, updateData.approved_at, id]
+       WHERE id = ? AND school_id = ?`,
+      [updateData.status, updateData.note, updateData.approved_by, updateData.approved_at, id, schoolId]
     );
 
     const [updatedRequest] = await db.execute(
@@ -1401,8 +1424,8 @@ export const updateLeaveRequest = async (
       INNER JOIN staff s ON lr.staff_id = s.id
       INNER JOIN leave_types lt ON lr.leave_type_id = lt.id
       LEFT JOIN users u ON lr.approved_by = u.id
-      WHERE lr.id = ?`,
-      [id]
+      WHERE lr.id = ? AND lr.school_id = ?`,
+      [id, schoolId]
     ) as any[];
 
     res.json({
@@ -1421,10 +1444,12 @@ export const deleteLeaveRequest = async (
   next: NextFunction
 ): Promise<void> => {
   try {
+    const schoolId = getSchoolId(req as AuthRequest);
+    if (schoolId == null) throw createError('School context required', 403);
     const { id } = req.params;
     const db = getDatabase();
 
-    const [result] = await db.execute('DELETE FROM leave_requests WHERE id = ?', [id]) as any;
+    const [result] = await db.execute('DELETE FROM leave_requests WHERE id = ? AND school_id = ?', [id, schoolId]) as any;
 
     if (result.affectedRows === 0) {
       throw createError('Leave request not found', 404);
@@ -1446,6 +1471,8 @@ export const getPayroll = async (
   next: NextFunction
 ): Promise<void> => {
   try {
+    const schoolId = getSchoolId(req as AuthRequest);
+    if (schoolId == null) throw createError('School context required', 403);
     const { role_id, month, year, status, page = 1, limit = 20 } = req.query;
     const db = getDatabase();
 
@@ -1475,12 +1502,12 @@ export const getPayroll = async (
         r.name as role_name,
         d.name as department_name
       FROM payroll p
-      INNER JOIN staff s ON p.staff_id = s.id
+      INNER JOIN staff s ON p.staff_id = s.id AND s.school_id = ?
       LEFT JOIN roles r ON s.role_id = r.id
-      LEFT JOIN departments d ON s.department_id = d.id
-      WHERE p.month = ? AND p.year = ?
+      LEFT JOIN departments d ON s.department_id = d.id AND d.school_id = ?
+      WHERE p.school_id = ? AND p.month = ? AND p.year = ?
     `;
-    const params: any[] = [month, year];
+    const params: any[] = [schoolId, schoolId, schoolId, month, year];
 
     if (role_id) {
       query += ' AND s.role_id = ?';
@@ -1500,14 +1527,13 @@ export const getPayroll = async (
 
     const [payroll] = await db.execute(query, params) as any[];
 
-    // Get total count
     let countQuery = `
       SELECT COUNT(*) as total
       FROM payroll p
-      INNER JOIN staff s ON p.staff_id = s.id
-      WHERE p.month = ? AND p.year = ?
+      INNER JOIN staff s ON p.staff_id = s.id AND s.school_id = ?
+      WHERE p.school_id = ? AND p.month = ? AND p.year = ?
     `;
-    const countParams: any[] = [month, year];
+    const countParams: any[] = [schoolId, schoolId, month, year];
 
     if (role_id) {
       countQuery += ' AND s.role_id = ?';
@@ -1543,6 +1569,8 @@ export const getPayrollById = async (
   next: NextFunction
 ): Promise<void> => {
   try {
+    const schoolId = getSchoolId(req as AuthRequest);
+    if (schoolId == null) throw createError('School context required', 403);
     const { id } = req.params;
     const db = getDatabase();
 
@@ -1560,8 +1588,8 @@ export const getPayrollById = async (
       INNER JOIN staff s ON p.staff_id = s.id
       LEFT JOIN roles r ON s.role_id = r.id
       LEFT JOIN departments d ON s.department_id = d.id
-      WHERE p.id = ?`,
-      [id]
+      WHERE p.id = ? AND p.school_id = ?`,
+      [id, schoolId]
     ) as any[];
 
     if (payroll.length === 0) {
@@ -1599,6 +1627,8 @@ export const generatePayroll = async (
   next: NextFunction
 ): Promise<void> => {
   try {
+    const schoolId = getSchoolId(req as AuthRequest);
+    if (schoolId == null) throw createError('School context required', 403);
     const { staff_id, month, year, basic_salary, earnings, deductions, tax } = req.body;
 
     if (!staff_id || !month || !year) {
@@ -1607,16 +1637,14 @@ export const generatePayroll = async (
 
     const db = getDatabase();
 
-    // Verify staff exists
-    const [staff] = await db.execute('SELECT id, basic_salary FROM staff WHERE id = ? AND is_active = 1', [staff_id]) as any[];
+    const [staff] = await db.execute('SELECT id, basic_salary FROM staff WHERE id = ? AND school_id = ? AND is_active = 1', [staff_id, schoolId]) as any[];
     if (staff.length === 0) {
       throw createError('Staff member not found or inactive', 404);
     }
 
-    // Check if payroll already exists
     const [existing] = await db.execute(
-      'SELECT id FROM payroll WHERE staff_id = ? AND month = ? AND year = ?',
-      [staff_id, month, year]
+      'SELECT id FROM payroll WHERE school_id = ? AND staff_id = ? AND month = ? AND year = ?',
+      [schoolId, staff_id, month, year]
     ) as any[];
 
     if (existing.length > 0) {
@@ -1629,34 +1657,31 @@ export const generatePayroll = async (
     const taxAmount = Number(tax || 0);
     const netSalary = totalEarnings - totalDeductions - taxAmount;
 
-    // Create payroll
     const [result] = await db.execute(
-      `INSERT INTO payroll (staff_id, month, year, basic_salary, total_earnings, total_deductions, tax, net_salary, status)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'generated')`,
-      [staff_id, month, year, basicSalary, totalEarnings, totalDeductions, taxAmount, netSalary]
+      `INSERT INTO payroll (school_id, staff_id, month, year, basic_salary, total_earnings, total_deductions, tax, net_salary, status)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'generated')`,
+      [schoolId, staff_id, month, year, basicSalary, totalEarnings, totalDeductions, taxAmount, netSalary]
     ) as any;
 
     const payrollId = result.insertId;
 
-    // Add earnings
     if (earnings && Array.isArray(earnings)) {
       for (const earning of earnings) {
         if (earning.earning_type && earning.amount) {
           await db.execute(
-            'INSERT INTO payroll_earnings (payroll_id, earning_type, amount) VALUES (?, ?, ?)',
-            [payrollId, earning.earning_type, earning.amount]
+            'INSERT INTO payroll_earnings (school_id, payroll_id, earning_type, amount) VALUES (?, ?, ?, ?)',
+            [schoolId, payrollId, earning.earning_type, earning.amount]
           );
         }
       }
     }
 
-    // Add deductions
     if (deductions && Array.isArray(deductions)) {
       for (const deduction of deductions) {
         if (deduction.deduction_type && deduction.amount) {
           await db.execute(
-            'INSERT INTO payroll_deductions (payroll_id, deduction_type, amount) VALUES (?, ?, ?)',
-            [payrollId, deduction.deduction_type, deduction.amount]
+            'INSERT INTO payroll_deductions (school_id, payroll_id, deduction_type, amount) VALUES (?, ?, ?, ?)',
+            [schoolId, payrollId, deduction.deduction_type, deduction.amount]
           );
         }
       }
@@ -1672,8 +1697,8 @@ export const generatePayroll = async (
       FROM payroll p
       INNER JOIN staff s ON p.staff_id = s.id
       LEFT JOIN roles r ON s.role_id = r.id
-      WHERE p.id = ?`,
-      [payrollId]
+      WHERE p.id = ? AND p.school_id = ?`,
+      [payrollId, schoolId]
     ) as any[];
 
     res.status(201).json({
@@ -1692,13 +1717,14 @@ export const updatePayroll = async (
   next: NextFunction
 ): Promise<void> => {
   try {
+    const schoolId = getSchoolId(req as AuthRequest);
+    if (schoolId == null) throw createError('School context required', 403);
     const { id } = req.params;
     const { basic_salary, earnings, deductions, tax, status, payment_date, payment_mode, payment_note } = req.body;
 
     const db = getDatabase();
 
-    // Get existing payroll
-    const [existing] = await db.execute('SELECT * FROM payroll WHERE id = ?', [id]) as any[];
+    const [existing] = await db.execute('SELECT * FROM payroll WHERE id = ? AND school_id = ?', [id, schoolId]) as any[];
     if (existing.length === 0) {
       throw createError('Payroll not found', 404);
     }
@@ -1737,12 +1763,11 @@ export const updatePayroll = async (
       netSalary = totalEarnings - totalDeductions - taxAmount;
     }
 
-    // Update payroll
     await db.execute(
       `UPDATE payroll 
        SET basic_salary = ?, total_earnings = ?, total_deductions = ?, tax = ?, net_salary = ?,
            status = ?, payment_date = ?, payment_mode = ?, payment_note = ?, updated_at = NOW()
-       WHERE id = ?`,
+       WHERE id = ? AND school_id = ?`,
       [
         basic_salary !== undefined ? basic_salary : payroll.basic_salary,
         totalEarnings,
@@ -1754,30 +1779,29 @@ export const updatePayroll = async (
         payment_mode || payroll.payment_mode,
         payment_note || payroll.payment_note,
         id,
+        schoolId,
       ]
     );
 
-    // Update earnings if provided
     if (earnings && Array.isArray(earnings)) {
-      await db.execute('DELETE FROM payroll_earnings WHERE payroll_id = ?', [id]);
+      await db.execute('DELETE FROM payroll_earnings WHERE payroll_id = ? AND school_id = ?', [id, schoolId]);
       for (const earning of earnings) {
         if (earning.earning_type && earning.amount) {
           await db.execute(
-            'INSERT INTO payroll_earnings (payroll_id, earning_type, amount) VALUES (?, ?, ?)',
-            [id, earning.earning_type, earning.amount]
+            'INSERT INTO payroll_earnings (school_id, payroll_id, earning_type, amount) VALUES (?, ?, ?, ?)',
+            [schoolId, id, earning.earning_type, earning.amount]
           );
         }
       }
     }
 
-    // Update deductions if provided
     if (deductions && Array.isArray(deductions)) {
-      await db.execute('DELETE FROM payroll_deductions WHERE payroll_id = ?', [id]);
+      await db.execute('DELETE FROM payroll_deductions WHERE payroll_id = ? AND school_id = ?', [id, schoolId]);
       for (const deduction of deductions) {
         if (deduction.deduction_type && deduction.amount) {
           await db.execute(
-            'INSERT INTO payroll_deductions (payroll_id, deduction_type, amount) VALUES (?, ?, ?)',
-            [id, deduction.deduction_type, deduction.amount]
+            'INSERT INTO payroll_deductions (school_id, payroll_id, deduction_type, amount) VALUES (?, ?, ?, ?)',
+            [schoolId, id, deduction.deduction_type, deduction.amount]
           );
         }
       }
@@ -1793,8 +1817,8 @@ export const updatePayroll = async (
       FROM payroll p
       INNER JOIN staff s ON p.staff_id = s.id
       LEFT JOIN roles r ON s.role_id = r.id
-      WHERE p.id = ?`,
-      [id]
+      WHERE p.id = ? AND p.school_id = ?`,
+      [id, schoolId]
     ) as any[];
 
     res.json({
@@ -1813,6 +1837,8 @@ export const revertPayrollStatus = async (
   next: NextFunction
 ): Promise<void> => {
   try {
+    const schoolId = getSchoolId(req as AuthRequest);
+    if (schoolId == null) throw createError('School context required', 403);
     const { id } = req.params;
     const { status } = req.body;
 
@@ -1822,7 +1848,7 @@ export const revertPayrollStatus = async (
 
     const db = getDatabase();
 
-    const [payroll] = await db.execute('SELECT status FROM payroll WHERE id = ?', [id]) as any[];
+    const [payroll] = await db.execute('SELECT status FROM payroll WHERE id = ? AND school_id = ?', [id, schoolId]) as any[];
     if (payroll.length === 0) {
       throw createError('Payroll not found', 404);
     }
@@ -1837,8 +1863,8 @@ export const revertPayrollStatus = async (
     }
 
     await db.execute(
-      'UPDATE payroll SET status = ?, payment_date = NULL, payment_mode = NULL, payment_note = NULL, updated_at = NOW() WHERE id = ?',
-      [status, id]
+      'UPDATE payroll SET status = ?, payment_date = NULL, payment_mode = NULL, payment_note = NULL, updated_at = NOW() WHERE id = ? AND school_id = ?',
+      [status, id, schoolId]
     );
 
     res.json({
@@ -1857,6 +1883,8 @@ export const getTeacherRatings = async (
   next: NextFunction
 ): Promise<void> => {
   try {
+    const schoolId = getSchoolId(req as AuthRequest);
+    if (schoolId == null) throw createError('School context required', 403);
     const { teacher_id, is_approved, student_id } = req.query;
     const db = getDatabase();
 
@@ -1871,11 +1899,11 @@ export const getTeacherRatings = async (
         s.admission_no,
         s.photo as student_photo
       FROM teacher_ratings tr
-      LEFT JOIN staff t ON tr.teacher_id = t.id
-      LEFT JOIN students s ON tr.student_id = s.id
-      WHERE 1=1
+      LEFT JOIN staff t ON tr.teacher_id = t.id AND t.school_id = ?
+      LEFT JOIN students s ON tr.student_id = s.id AND s.school_id = ?
+      WHERE tr.school_id = ?
     `;
-    const params: any[] = [];
+    const params: any[] = [schoolId, schoolId, schoolId];
 
     if (teacher_id) {
       query += ' AND tr.teacher_id = ?';
@@ -1909,6 +1937,8 @@ export const submitTeacherRating = async (
   next: NextFunction
 ): Promise<void> => {
   try {
+    const schoolId = getSchoolId(req as AuthRequest);
+    if (schoolId == null) throw createError('School context required', 403);
     const { teacher_id, student_id, rating, review } = req.body;
     const db = getDatabase();
 
@@ -1920,22 +1950,20 @@ export const submitTeacherRating = async (
       throw createError('Rating must be between 1 and 5', 400);
     }
 
-    // Check if student already rated this teacher
     const [existing] = await db.execute(
-      'SELECT id FROM teacher_ratings WHERE teacher_id = ? AND student_id = ?',
-      [teacher_id, student_id]
+      'SELECT id FROM teacher_ratings WHERE school_id = ? AND teacher_id = ? AND student_id = ?',
+      [schoolId, teacher_id, student_id]
     ) as any[];
 
     if (existing.length > 0) {
-      // Update existing rating
       await db.execute(
-        'UPDATE teacher_ratings SET rating = ?, review = ?, is_approved = 0, updated_at = NOW() WHERE id = ?',
-        [rating, review || null, existing[0].id]
+        'UPDATE teacher_ratings SET rating = ?, review = ?, is_approved = 0, updated_at = NOW() WHERE id = ? AND school_id = ?',
+        [rating, review || null, existing[0].id, schoolId]
       );
 
       const [updated] = await db.execute(
-        'SELECT * FROM teacher_ratings WHERE id = ?',
-        [existing[0].id]
+        'SELECT * FROM teacher_ratings WHERE id = ? AND school_id = ?',
+        [existing[0].id, schoolId]
       ) as any[];
 
       res.json({
@@ -1945,15 +1973,14 @@ export const submitTeacherRating = async (
       });
       return;
     } else {
-      // Create new rating
       const [result] = await db.execute(
-        'INSERT INTO teacher_ratings (teacher_id, student_id, rating, review, is_approved) VALUES (?, ?, ?, ?, 0)',
-        [teacher_id, student_id, rating, review || null]
+        'INSERT INTO teacher_ratings (school_id, teacher_id, student_id, rating, review, is_approved) VALUES (?, ?, ?, ?, ?, 0)',
+        [schoolId, teacher_id, student_id, rating, review || null]
       ) as any;
 
       const [newRating] = await db.execute(
-        'SELECT * FROM teacher_ratings WHERE id = ?',
-        [result.insertId]
+        'SELECT * FROM teacher_ratings WHERE id = ? AND school_id = ?',
+        [result.insertId, schoolId]
       ) as any[];
 
       res.status(201).json({
@@ -1973,12 +2000,14 @@ export const approveTeacherRating = async (
   next: NextFunction
 ): Promise<void> => {
   try {
+    const schoolId = getSchoolId(req as AuthRequest);
+    if (schoolId == null) throw createError('School context required', 403);
     const { id } = req.params;
     const db = getDatabase();
 
     await db.execute(
-      'UPDATE teacher_ratings SET is_approved = 1, updated_at = NOW() WHERE id = ?',
-      [id]
+      'UPDATE teacher_ratings SET is_approved = 1, updated_at = NOW() WHERE id = ? AND school_id = ?',
+      [id, schoolId]
     );
 
     res.json({
@@ -1996,12 +2025,14 @@ export const rejectTeacherRating = async (
   next: NextFunction
 ): Promise<void> => {
   try {
+    const schoolId = getSchoolId(req as AuthRequest);
+    if (schoolId == null) throw createError('School context required', 403);
     const { id } = req.params;
     const db = getDatabase();
 
     await db.execute(
-      'DELETE FROM teacher_ratings WHERE id = ?',
-      [id]
+      'DELETE FROM teacher_ratings WHERE id = ? AND school_id = ?',
+      [id, schoolId]
     );
 
     res.json({
@@ -2020,6 +2051,8 @@ export const bulkImportStaff = async (
   next: NextFunction
 ): Promise<void> => {
   try {
+    const schoolId = getSchoolId(req);
+    if (schoolId == null) throw createError('School context required', 403);
     const db = getDatabase();
     const { staff } = req.body;
 
@@ -2117,10 +2150,9 @@ export const bulkImportStaff = async (
           continue;
         }
 
-        // Check if staff_id already exists
         const [existing] = await staffConnection.execute(
-          'SELECT id FROM staff WHERE staff_id = ?',
-          [String(staff_id).trim()]
+          'SELECT id FROM staff WHERE staff_id = ? AND school_id = ?',
+          [String(staff_id).trim(), schoolId]
         ) as any[];
 
         if (existing.length > 0) {
@@ -2146,8 +2178,8 @@ export const bulkImportStaff = async (
               const hashedPassword = await bcrypt.hash(defaultPassword, 10);
 
               const [userResult] = await staffConnection.execute(
-                'INSERT INTO users (email, password, name, role_id, is_active, created_at) VALUES (?, ?, ?, ?, 1, NOW())',
-                [emailStr, hashedPassword, `${String(first_name).trim()} ${String(last_name || '').trim()}`.trim(), Number(role_id)]
+                'INSERT INTO users (email, password, name, role_id, school_id, is_active, created_at) VALUES (?, ?, ?, ?, ?, 1, NOW())',
+                [emailStr, hashedPassword, `${String(first_name).trim()} ${String(last_name || '').trim()}`.trim(), Number(role_id), schoolId]
               ) as any;
               staffUserId = userResult.insertId;
             } catch (userError: any) {
@@ -2168,8 +2200,8 @@ export const bulkImportStaff = async (
           }
         }
 
-        // Prepare staff data
         const staffFields: Record<string, any> = {
+          school_id: schoolId,
           staff_id: String(staff_id).trim(),
           user_id: staffUserId,
           role_id: Number(role_id),

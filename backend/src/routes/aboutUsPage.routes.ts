@@ -7,13 +7,13 @@ import {
   getAchievements, createAchievement, updateAchievement, deleteAchievement,
   getLeadership, createLeader, updateLeader, deleteLeader, uploadLeaderImage,
 } from '../controllers/aboutUsPage.controller';
-import { authenticate, authorize } from '../middleware/auth';
+import { authenticate, authorize, requireSchool } from '../middleware/auth';
 import { checkPermission } from '../middleware/permissions';
 
 const router = express.Router();
 
-// All routes require authentication and admin/superadmin role
 router.use(authenticate);
+router.use(requireSchool);
 router.use(authorize('superadmin', 'admin'));
 
 // Mission & Vision
