@@ -159,11 +159,11 @@ export default function PlatformAdmin() {
         </button>
       </div>
 
-      {error && (
+      {error ? (
         <div className="platform-admin-error">
-          {String((error as any)?.response?.data?.message ?? 'Failed to load schools. You may need to run the Phase 1 database migration.')}
+          {String((error as { response?: { data?: { message?: string } } })?.response?.data?.message ?? 'Failed to load schools. You may need to run the Phase 1 database migration.')}
         </div>
-      )}
+      ) : null}
 
       {isLoading ? (
         <div className="platform-admin-loading">Loading schools...</div>
