@@ -8,6 +8,7 @@ import { newsEventsManagementService, NewsArticle, Event } from '../../services/
 import { useToast } from '../../contexts/ToastContext';
 import { useAuth } from '../../contexts/AuthContext';
 import Modal from '../../components/common/Modal';
+import ActionIconButton from '../../components/common/ActionIconButton';
 import './FrontCmsWebsite.css';
 import '../aboutUsPage/AboutUsPage.css';
 
@@ -1270,18 +1271,8 @@ const FrontCmsWebsite: React.FC = () => {
                       {banner.button_text && <span>Button: {banner.button_text}</span>}
                     </div>
                     <div className="banner-actions">
-                      <button
-                        className="btn-edit"
-                        onClick={() => handleEditBanner(banner)}
-                      >
-                        <i className="fas fa-edit"></i> Edit
-                      </button>
-                      <button
-                        className="btn-delete"
-                        onClick={() => handleDeleteBanner(banner.id!)}
-                      >
-                        <i className="fas fa-trash"></i> Delete
-                      </button>
+                      <ActionIconButton variant="edit" onClick={() => handleEditBanner(banner)} tooltip="Edit banner" />
+                      <ActionIconButton variant="delete" onClick={() => handleDeleteBanner(banner.id!)} tooltip="Delete banner" />
                     </div>
                   </div>
                 </div>
@@ -1504,12 +1495,8 @@ const FrontCmsWebsite: React.FC = () => {
                           </span>
                         </div>
                         <div className="item-actions">
-                          <button className="btn-edit" onClick={() => handleEditCounter(counter)}>
-                            <i className="fas fa-edit"></i> Edit
-                          </button>
-                          <button className="btn-delete" onClick={() => deleteCounterMutation.mutate(counter.id!)}>
-                            <i className="fas fa-trash"></i> Delete
-                          </button>
+                          <ActionIconButton variant="edit" onClick={() => handleEditCounter(counter)} tooltip="Edit counter" />
+                          <ActionIconButton variant="delete" onClick={() => deleteCounterMutation.mutate(counter.id!)} tooltip="Delete counter" />
                         </div>
                       </div>
                     ))}
@@ -1600,12 +1587,8 @@ const FrontCmsWebsite: React.FC = () => {
                           </span>
                         </div>
                         <div className="item-actions">
-                          <button className="btn-edit" onClick={() => handleEditValue(value)}>
-                            <i className="fas fa-edit"></i> Edit
-                          </button>
-                          <button className="btn-delete" onClick={() => deleteValueMutation.mutate(value.id!)}>
-                            <i className="fas fa-trash"></i> Delete
-                          </button>
+                          <ActionIconButton variant="edit" onClick={() => handleEditValue(value)} tooltip="Edit core value" />
+                          <ActionIconButton variant="delete" onClick={() => deleteValueMutation.mutate(value.id!)} tooltip="Delete core value" />
                         </div>
                       </div>
                     ))}
@@ -1642,12 +1625,8 @@ const FrontCmsWebsite: React.FC = () => {
                           </span>
                         </div>
                         <div className="item-actions">
-                          <button className="btn-edit" onClick={() => handleEditAchievement(achievement)}>
-                            <i className="fas fa-edit"></i> Edit
-                          </button>
-                          <button className="btn-delete" onClick={() => deleteAchievementMutation.mutate(achievement.id!)}>
-                            <i className="fas fa-trash"></i> Delete
-                          </button>
+                          <ActionIconButton variant="edit" onClick={() => handleEditAchievement(achievement)} tooltip="Edit achievement" />
+                          <ActionIconButton variant="delete" onClick={() => deleteAchievementMutation.mutate(achievement.id!)} tooltip="Delete achievement" />
                         </div>
                       </div>
                     ))}
@@ -1685,12 +1664,8 @@ const FrontCmsWebsite: React.FC = () => {
                           </span>
                         </div>
                         <div className="item-actions">
-                          <button className="btn-edit" onClick={() => handleEditLeader(leader)}>
-                            <i className="fas fa-edit"></i> Edit
-                          </button>
-                          <button className="btn-delete" onClick={() => deleteLeaderMutation.mutate(leader.id!)}>
-                            <i className="fas fa-trash"></i> Delete
-                          </button>
+                          <ActionIconButton variant="edit" onClick={() => handleEditLeader(leader)} tooltip="Edit leader" />
+                          <ActionIconButton variant="delete" onClick={() => deleteLeaderMutation.mutate(leader.id!)} tooltip="Delete leader" />
                         </div>
                       </div>
                     ))}
@@ -1743,12 +1718,8 @@ const FrontCmsWebsite: React.FC = () => {
                           </span>
                         </div>
                         <div className="item-actions">
-                          <button className="btn-edit" onClick={() => handleEditDate(date)}>
-                            <i className="fas fa-edit"></i> Edit
-                          </button>
-                          <button className="btn-delete" onClick={() => deleteDateMutation.mutate(date.id!)}>
-                            <i className="fas fa-trash"></i> Delete
-                          </button>
+                          <ActionIconButton variant="edit" onClick={() => handleEditDate(date)} tooltip="Edit important date" />
+                          <ActionIconButton variant="delete" onClick={() => deleteDateMutation.mutate(date.id!)} tooltip="Delete important date" />
                         </div>
                       </div>
                     ))}
@@ -1882,12 +1853,8 @@ const FrontCmsWebsite: React.FC = () => {
                           </span>
                         </div>
                         <div className="item-actions">
-                          <button className="btn-edit" onClick={() => handleEditCategory(category)}>
-                            <i className="fas fa-edit"></i> Edit
-                          </button>
-                          <button className="btn-delete" onClick={() => deleteCategoryMutation.mutate(category.id!)}>
-                            <i className="fas fa-trash"></i> Delete
-                          </button>
+                          <ActionIconButton variant="edit" onClick={() => handleEditCategory(category)} tooltip="Edit gallery category" />
+                          <ActionIconButton variant="delete" onClick={() => deleteCategoryMutation.mutate(category.id!)} tooltip="Delete gallery category" />
                         </div>
                       </div>
                     ))}
@@ -1943,12 +1910,8 @@ const FrontCmsWebsite: React.FC = () => {
                           </span>
                         </div>
                         <div className="item-actions">
-                          <button className="btn-edit" onClick={() => handleEditImage(image)}>
-                            <i className="fas fa-edit"></i> Edit
-                          </button>
-                          <button className="btn-delete" onClick={() => deleteImageMutation.mutate(image.id!)}>
-                            <i className="fas fa-trash"></i> Delete
-                          </button>
+                          <ActionIconButton variant="edit" onClick={() => handleEditImage(image)} tooltip="Edit gallery image" />
+                          <ActionIconButton variant="delete" onClick={() => deleteImageMutation.mutate(image.id!)} tooltip="Delete gallery image" />
                         </div>
                       </div>
                     ))}
@@ -1998,12 +1961,8 @@ const FrontCmsWebsite: React.FC = () => {
                     </div>
                   </div>
                   <div className="item-actions">
-                    <button className="btn-edit" onClick={() => handleEditNews(article)}>
-                      <i className="fas fa-edit"></i> Edit
-                    </button>
-                    <button className="btn-delete" onClick={() => deleteNewsMutation.mutate(article.id!)}>
-                      <i className="fas fa-trash"></i> Delete
-                    </button>
+                    <ActionIconButton variant="edit" onClick={() => handleEditNews(article)} tooltip="Edit news" />
+                    <ActionIconButton variant="delete" onClick={() => deleteNewsMutation.mutate(article.id!)} tooltip="Delete news" />
                   </div>
                 </div>
               ))}
@@ -2054,12 +2013,8 @@ const FrontCmsWebsite: React.FC = () => {
                     </div>
                   </div>
                   <div className="item-actions">
-                    <button className="btn-edit" onClick={() => handleEditEvent(event)}>
-                      <i className="fas fa-edit"></i> Edit
-                    </button>
-                    <button className="btn-delete" onClick={() => deleteEventMutation.mutate(event.id!)}>
-                      <i className="fas fa-trash"></i> Delete
-                    </button>
+                    <ActionIconButton variant="edit" onClick={() => handleEditEvent(event)} tooltip="Edit event" />
+                    <ActionIconButton variant="delete" onClick={() => deleteEventMutation.mutate(event.id!)} tooltip="Delete event" />
                   </div>
                 </div>
               ))}

@@ -9,6 +9,7 @@ import Modal from '../../components/common/Modal';
 import ConfirmationModal from '../../components/common/ConfirmationModal';
 import Pagination from '../../components/common/Pagination';
 import ImportStaffModal from './components/ImportStaffModal';
+import ActionIconButton from '../../components/common/ActionIconButton';
 import './HR.css';
 
 type TabType = 'staff' | 'add-staff' | 'departments' | 'designations' | 'leave-types' | 'staff-attendance' | 'attendance-report' | 'apply-leave' | 'approve-leave' | 'disabled-staff' | 'payroll' | 'teachers-rating';
@@ -622,8 +623,8 @@ const StaffDirectoryTab = ({
                       </td>
                       <td>
                         <div className="action-buttons">
-                          <button onClick={() => setViewStaffId(member.id)} className="btn-view">View</button>
-                          <button onClick={() => setEditStaffId(member.id)} className="btn-edit">Edit</button>
+                          <ActionIconButton variant="view" onClick={() => setViewStaffId(member.id)} tooltip="View staff" />
+                          <ActionIconButton variant="edit" onClick={() => setEditStaffId(member.id)} tooltip="Edit staff" />
                           {member.is_active ? (
                             <button 
                               onClick={() => onDisable(member.id)} 
@@ -643,14 +644,12 @@ const StaffDirectoryTab = ({
                               {isEnabling ? 'Enabling...' : 'Enable'}
                             </button>
                           )}
-                          <button 
-                            onClick={() => onDelete(member.id)} 
-                            className="btn-delete"
+                          <ActionIconButton
+                            variant="delete"
+                            onClick={() => onDelete(member.id)}
                             disabled={member.is_active}
-                            title={member.is_active ? 'Disable staff member first before deleting' : 'Delete staff member'}
-                          >
-                            Delete
-                          </button>
+                            tooltip={member.is_active ? 'Disable staff member first before deleting' : 'Delete staff member'}
+                          />
                         </div>
                       </td>
                     </tr>

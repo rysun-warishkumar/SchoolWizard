@@ -3,6 +3,7 @@ import { useQuery, useMutation, useQueryClient } from 'react-query';
 import { admissionManagementService, AdmissionInquiry } from '../../services/api/admissionManagementService';
 import { useToast } from '../../contexts/ToastContext';
 import Modal from '../../components/common/Modal';
+import ActionIconButton from '../../components/common/ActionIconButton';
 import './AdmissionInquiries.css';
 
 const AdmissionInquiries: React.FC = () => {
@@ -146,9 +147,7 @@ const AdmissionInquiries: React.FC = () => {
                   </td>
                   <td>{formatDate(inquiry.created_at)}</td>
                   <td>
-                    <button className="btn-view" onClick={() => handleView(inquiry)}>
-                      <i className="fas fa-eye"></i> View
-                    </button>
+                    <ActionIconButton variant="view" onClick={() => handleView(inquiry)} tooltip="View inquiry" />
                   </td>
                 </tr>
               ))}
@@ -246,6 +245,7 @@ const AdmissionInquiries: React.FC = () => {
                   <button
                     type="button"
                     className="btn-delete"
+                    title="Delete inquiry"
                     onClick={() => {
                       if (window.confirm('Are you sure you want to delete this inquiry?')) {
                         deleteMutation.mutate(selectedInquiry.id!);

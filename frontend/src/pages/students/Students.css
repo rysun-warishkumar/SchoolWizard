@@ -676,6 +676,22 @@
   width: 100%;
 }
 
+.students-page .promote-students-table-wrap {
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  width: 100%;
+}
+
+.students-page .promote-students-table {
+  width: 100%;
+}
+
+@media (max-width: 768px) {
+  .students-page .promote-students-table {
+    min-width: 760px;
+  }
+}
+
 .table-container table {
   width: 100%;
   border-collapse: collapse;

@@ -3,6 +3,7 @@ import { useQuery, useMutation, useQueryClient } from 'react-query';
 import { frontofficeService, AdmissionEnquiry, Visitor, PhoneCallLog, PostalDispatch, PostalReceive, Complain } from '../../services/api/frontofficeService';
 import { academicsService } from '../../services/api/academicsService';
 import { usersService } from '../../services/api/usersService';
+import ActionIconButton from '../../components/common/ActionIconButton';
 import './FrontOffice.css';
 
 const FrontOffice = () => {
@@ -406,8 +407,12 @@ const AdmissionEnquiriesTab = () => {
                   <td>
                     <div className="action-buttons">
                       <button onClick={() => handleFollowUp(enquiry)} className="btn-view">Follow Up</button>
-                      <button onClick={() => handleEdit(enquiry)} className="btn-edit">Edit</button>
-                      <button onClick={() => { if (window.confirm('Delete this enquiry?')) deleteMutation.mutate(String(enquiry.id)); }} className="btn-delete">Delete</button>
+                      <ActionIconButton variant="edit" onClick={() => handleEdit(enquiry)} tooltip="Edit enquiry" />
+                      <ActionIconButton
+                        variant="delete"
+                        onClick={() => { if (window.confirm('Delete this enquiry?')) deleteMutation.mutate(String(enquiry.id)); }}
+                        tooltip="Delete enquiry"
+                      />
                     </div>
                   </td>
                 </tr>
@@ -1587,7 +1592,7 @@ const ComplainsTab = () => {
                   <td>{complain.assigned_name || '-'}</td>
                   <td>
                     <div className="action-buttons">
-                      <button onClick={() => handleEdit(complain)} className="btn-edit">Edit</button>
+                      <ActionIconButton variant="edit" onClick={() => handleEdit(complain)} tooltip="Edit complaint" />
                     </div>
                   </td>
                 </tr>

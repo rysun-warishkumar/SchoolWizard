@@ -21,7 +21,7 @@
   font-weight: var(--font-weight-normal);
 }
 
-.stats-grid {
+.dashboard .stats-grid {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
   gap: var(--spacing-md);
@@ -33,18 +33,18 @@
     padding: var(--spacing-md);
   }
 
-  .stats-grid {
+  .dashboard .stats-grid {
     grid-template-columns: 1fr;
     gap: var(--spacing-sm);
     margin-bottom: var(--spacing-lg);
   }
 
-  .stat-card {
+  .dashboard .stat-card {
     padding: var(--spacing-md) !important;
     gap: var(--spacing-md) !important;
   }
 
-  .stat-icon {
+  .dashboard .stat-icon {
     font-size: 2.5rem !important;
     width: 50px !important;
     height: 50px !important;
@@ -52,11 +52,11 @@
     min-height: 50px !important;
   }
 
-  .stat-content h3 {
+  .dashboard .stat-content h3 {
     font-size: var(--font-size-2xl) !important;
   }
 
-  .stat-content p {
+  .dashboard .stat-content p {
     font-size: var(--font-size-xs) !important;
   }
 
@@ -83,12 +83,12 @@
     padding: var(--spacing-sm);
   }
 
-  .stat-card {
+  .dashboard .stat-card {
     padding: var(--spacing-sm) !important;
     gap: var(--spacing-sm) !important;
   }
 
-  .stat-icon {
+  .dashboard .stat-icon {
     font-size: 2rem !important;
     width: 40px !important;
     height: 40px !important;
@@ -96,13 +96,13 @@
     min-height: 40px !important;
   }
 
-  .stat-content h3 {
+  .dashboard .stat-content h3 {
     font-size: var(--font-size-xl) !important;
   }
 }
 
 .dashboard .stat-card,
-.stats-grid .stat-card {
+.dashboard .stats-grid .stat-card {
   background: var(--white);
   padding: var(--spacing-lg);
   border-radius: var(--radius-lg);
@@ -115,12 +115,12 @@
   transition: all var(--transition-base);
 }
 
-.stat-card:hover {
+.dashboard .stat-card:hover {
   transform: translateY(-2px);
   box-shadow: var(--shadow-md);
 }
 
-.stat-icon {
+.dashboard .stat-icon {
   font-size: 3.5rem;
   width: 70px;
   height: 70px;
@@ -132,7 +132,7 @@
   flex-shrink: 0;
 }
 
-.stat-content {
+.dashboard .stat-content {
   flex: 1;
   min-width: 0;
   display: flex;
@@ -140,7 +140,7 @@
   gap: var(--spacing-xs);
 }
 
-.stat-content h3 {
+.dashboard .stat-content h3 {
   font-size: var(--font-size-3xl);
   font-weight: var(--font-weight-bold);
   color: var(--gray-900);
@@ -148,7 +148,7 @@
   line-height: 1.2;
 }
 
-.stat-content p {
+.dashboard .stat-content p {
   color: var(--gray-600);
   font-size: var(--font-size-sm);
   margin: 0;

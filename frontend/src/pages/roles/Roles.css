@@ -105,6 +105,25 @@
   gap: var(--spacing-md);
 }
 
+.permissions-close-btn {
+  width: 36px;
+  min-width: 36px;
+  height: 36px;
+  padding: 0;
+  border: 1px solid var(--gray-300);
+  border-radius: 999px;
+  background: var(--white);
+  color: var(--gray-700);
+  font-size: 14px;
+  font-weight: 600;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.permissions-close-btn:hover {
+  background: var(--gray-100);
+}
+
 .permissions-table-container {
   flex: 1;
   overflow: auto;
@@ -330,6 +349,10 @@
   color: var(--gray-900);
 }
 
+.roles-page .modal-content.role-form-modal {
+  padding: var(--spacing-xl);
+}
+
 .roles-page .modal-content .form-group {
   margin-bottom: var(--spacing-lg);
 }
@@ -380,6 +403,21 @@
     min-width: 120px;
     font-size: var(--font-size-sm);
     padding: var(--spacing-xs) var(--spacing-sm);
+  }
+
+  .permissions-header-actions .permissions-close-btn {
+    flex: 0 0 auto;
+    min-width: 36px;
+    width: 36px;
+    height: 36px;
+    padding: 0;
+  }
+
+  .roles-page .modal-content.role-form-modal {
+    width: calc(100vw - var(--spacing-lg));
+    max-width: 480px;
+    padding: var(--spacing-lg);
+    border-radius: var(--radius-md);
   }
 
   .permissions-table-container {

@@ -196,6 +196,11 @@
   flex-shrink: 0;
 }
 
+.chat-back-btn {
+  display: none;
+  margin-bottom: var(--spacing-sm);
+}
+
 .chat-header-user {
   display: flex;
   align-items: center;
@@ -499,8 +504,24 @@
     grid-template-columns: 1fr;
   }
 
-  .chat-sidebar {
+  .chat-container .chat-sidebar,
+  .chat-container .chat-main {
     display: none;
+  }
+
+  .chat-container.mobile-show-list .chat-sidebar {
+    display: flex;
+  }
+
+  .chat-container.mobile-show-chat .chat-main {
+    display: flex;
+  }
+
+  .chat-back-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: fit-content;
   }
 
   .message-content {

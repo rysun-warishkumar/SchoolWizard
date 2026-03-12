@@ -16,6 +16,7 @@ import { academicsService } from '../../services/api/academicsService';
 import { studentsService } from '../../services/api/studentsService';
 import { useToast } from '../../contexts/ToastContext';
 import Modal from '../../components/common/Modal';
+import ActionIconButton from '../../components/common/ActionIconButton';
 import AdmitCardTemplateComponent from './templates/AdmitCardTemplate';
 import MarksheetTemplateComponent from './templates/MarksheetTemplate';
 import './Examinations.css';
@@ -753,34 +754,36 @@ const MarksGradeTab = () => {
       {isLoading ? (
         <div className="loading">Loading...</div>
       ) : marksGrades && marksGrades.length > 0 ? (
-        <table className="data-table">
-          <thead>
-            <tr>
-              <th>Exam Type</th>
-              <th>Grade Name</th>
-              <th>Percent From</th>
-              <th>Percent Upto</th>
-              <th>Grade Point</th>
-              <th>Description</th>
-            </tr>
-          </thead>
-          <tbody>
-            {marksGrades.map((grade) => (
-              <tr key={grade.id}>
-                <td>
-                  <span className="badge">
-                    {grade.exam_type.replace('_', ' ').replace(/\b\w/g, (l) => l.toUpperCase())}
-                  </span>
-                </td>
-                <td>{grade.grade_name}</td>
-                <td>{grade.percent_from}%</td>
-                <td>{grade.percent_upto}%</td>
-                <td>{grade.grade_point || '-'}</td>
-                <td>{grade.description || '-'}</td>
+        <div className="exam-table-scroll">
+          <table className="data-table">
+            <thead>
+              <tr>
+                <th>Exam Type</th>
+                <th>Grade Name</th>
+                <th>Percent From</th>
+                <th>Percent Upto</th>
+                <th>Grade Point</th>
+                <th>Description</th>
               </tr>
-            ))}
-          </tbody>
-        </table>
+            </thead>
+            <tbody>
+              {marksGrades.map((grade) => (
+                <tr key={grade.id}>
+                  <td>
+                    <span className="badge">
+                      {grade.exam_type.replace('_', ' ').replace(/\b\w/g, (l) => l.toUpperCase())}
+                    </span>
+                  </td>
+                  <td>{grade.grade_name}</td>
+                  <td>{grade.percent_from}%</td>
+                  <td>{grade.percent_upto}%</td>
+                  <td>{grade.grade_point || '-'}</td>
+                  <td>{grade.description || '-'}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
       ) : (
         <div className="empty-state">No marks grades found</div>
       )}
@@ -949,40 +952,42 @@ const ExamGroupsTab = () => {
       {isLoading ? (
         <div className="loading">Loading...</div>
       ) : examGroups.length > 0 ? (
-        <table className="data-table">
-          <thead>
-            <tr>
-              <th>Name</th>
-              <th>Exam Type</th>
-              <th>Description</th>
-              <th>Actions</th>
-            </tr>
-          </thead>
-          <tbody>
-            {examGroups.map((group) => (
-              <tr key={group.id}>
-                <td>{group.name}</td>
-                <td>
-                  <span className="badge">
-                    {group.exam_type.replace('_', ' ').replace(/\b\w/g, (l) => l.toUpperCase())}
-                  </span>
-                </td>
-                <td>{group.description || '-'}</td>
-                <td>
-                  <button
-                    className="btn-sm btn-secondary"
-                    onClick={() => {
-                      // Navigate to exams tab with this group selected
-                      window.location.href = '/examinations?tab=exams&group=' + group.id;
-                    }}
-                  >
-                    View Exams
-                  </button>
-                </td>
+        <div className="exam-table-scroll">
+          <table className="data-table">
+            <thead>
+              <tr>
+                <th>Name</th>
+                <th>Exam Type</th>
+                <th>Description</th>
+                <th>Actions</th>
               </tr>
-            ))}
-          </tbody>
-        </table>
+            </thead>
+            <tbody>
+              {examGroups.map((group) => (
+                <tr key={group.id}>
+                  <td>{group.name}</td>
+                  <td>
+                    <span className="badge">
+                      {group.exam_type.replace('_', ' ').replace(/\b\w/g, (l) => l.toUpperCase())}
+                    </span>
+                  </td>
+                  <td>{group.description || '-'}</td>
+                  <td>
+                    <button
+                      className="btn-sm btn-secondary"
+                      onClick={() => {
+                        // Navigate to exams tab with this group selected
+                        window.location.href = '/examinations?tab=exams&group=' + group.id;
+                      }}
+                    >
+                      View Exams
+                    </button>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
       ) : (
         <div className="empty-state">No exam groups found</div>
       )}
@@ -1238,54 +1243,45 @@ const ExamsTab = () => {
       {isLoading ? (
         <div className="loading">Loading...</div>
       ) : exams && Array.isArray(exams) && exams.length > 0 ? (
-        <table className="data-table">
-          <thead>
-            <tr>
-              <th>Exam Name</th>
-              <th>Exam Group</th>
-              <th>Session</th>
-              <th>Type</th>
-              <th>Status</th>
-              <th>Actions</th>
-            </tr>
-          </thead>
-          <tbody>
-            {exams.map((exam) => (
-              <tr key={exam.id}>
-                <td>{exam.name}</td>
-                <td>{exam.exam_group_name}</td>
-                <td>{exam.session_name}</td>
-                <td>
-                  <span className="badge">
-                    {exam.exam_type?.replace('_', ' ').replace(/\b\w/g, (l) => l.toUpperCase())}
-                  </span>
-                </td>
-                <td>
-                  <span className={`badge ${exam.is_published ? 'badge-success' : 'badge-warning'}`}>
-                    {exam.is_published ? 'PUBLISHED' : 'DRAFT'}
-                  </span>
-                </td>
-                <td>
-                  <div className="action-buttons">
-                    <button
-                      className="btn-sm btn-secondary"
-                      onClick={() => handleViewDetails(exam)}
-                    >
-                      View
-                    </button>
-                    <button
-                      className="btn-sm btn-danger"
-                      onClick={() => handleDeleteExam(exam)}
-                      title="Delete Exam"
-                    >
-                      Delete
-                    </button>
-                  </div>
-                </td>
+        <div className="exam-table-scroll">
+          <table className="data-table">
+            <thead>
+              <tr>
+                <th>Exam Name</th>
+                <th>Exam Group</th>
+                <th>Session</th>
+                <th>Type</th>
+                <th>Status</th>
+                <th>Actions</th>
               </tr>
-            ))}
-          </tbody>
-        </table>
+            </thead>
+            <tbody>
+              {exams.map((exam) => (
+                <tr key={exam.id}>
+                  <td>{exam.name}</td>
+                  <td>{exam.exam_group_name}</td>
+                  <td>{exam.session_name}</td>
+                  <td>
+                    <span className="badge">
+                      {exam.exam_type?.replace('_', ' ').replace(/\b\w/g, (l) => l.toUpperCase())}
+                    </span>
+                  </td>
+                  <td>
+                    <span className={`badge ${exam.is_published ? 'badge-success' : 'badge-warning'}`}>
+                      {exam.is_published ? 'PUBLISHED' : 'DRAFT'}
+                    </span>
+                  </td>
+                  <td>
+                    <div className="action-buttons">
+                      <ActionIconButton variant="view" onClick={() => handleViewDetails(exam)} tooltip="View exam" />
+                      <ActionIconButton variant="delete" onClick={() => handleDeleteExam(exam)} tooltip="Delete exam" />
+                    </div>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
       ) : (
         <div className="empty-state">No exams found</div>
       )}
@@ -2207,7 +2203,8 @@ const DesignAdmitCardTab = () => {
           ) : isLoading ? (
             <div className="loading">Loading...</div>
           ) : templates.length > 0 ? (
-            <table className="data-table">
+            <div className="exam-table-scroll">
+              <table className="data-table">
               <thead>
                 <tr>
                   <th>Certificate Name</th>
@@ -2260,13 +2257,7 @@ const DesignAdmitCardTab = () => {
                     </td>
                     <td>
                       <div className="action-buttons">
-                        <button
-                          className="btn-sm btn-secondary"
-                          onClick={() => handleEdit(template)}
-                          title="Edit"
-                        >
-                          ✏️
-                        </button>
+                        <ActionIconButton variant="edit" onClick={() => handleEdit(template)} tooltip="Edit template" />
                         <button
                           className="btn-sm btn-danger"
                           onClick={async () => {
@@ -2297,7 +2288,8 @@ const DesignAdmitCardTab = () => {
                   </tr>
                 ))}
               </tbody>
-            </table>
+              </table>
+            </div>
           ) : (
             <div className="empty-state">No templates found</div>
           )}
@@ -2931,7 +2923,8 @@ const PrintAdmitCardTab = () => {
               🖨️ Generate Admit Cards ({selectedStudents.size} selected)
             </button>
           </div>
-          <table className="data-table">
+          <div className="exam-table-scroll">
+            <table className="data-table">
             <thead>
               <tr>
                 <th>
@@ -2968,7 +2961,8 @@ const PrintAdmitCardTab = () => {
                 </tr>
               ))}
             </tbody>
-          </table>
+            </table>
+          </div>
         </div>
       )}
 
@@ -3826,7 +3820,8 @@ const DesignMarksheetTab = () => {
       {isLoading ? (
         <div className="loading">Loading...</div>
       ) : templates && templates.length > 0 ? (
-        <table className="data-table">
+        <div className="exam-table-scroll">
+          <table className="data-table">
           <thead>
             <tr>
               <th>Name</th>
@@ -3844,14 +3839,13 @@ const DesignMarksheetTab = () => {
                 <td>{template.body_height}px</td>
                 <td>{template.show_student_photo ? 'Yes' : 'No'}</td>
                 <td>
-                  <button className="btn-sm btn-secondary" onClick={() => handleEdit(template)}>
-                    Edit
-                  </button>
+                  <ActionIconButton variant="edit" onClick={() => handleEdit(template)} tooltip="Edit template" />
                 </td>
               </tr>
             ))}
           </tbody>
-        </table>
+          </table>
+        </div>
       ) : (
         <div className="empty-state">No templates found</div>
       )}

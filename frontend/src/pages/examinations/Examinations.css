@@ -582,6 +582,33 @@
   .exam-print-admit-filters-row,
   .exam-print-marksheet-filters-row {
     grid-template-columns: 1fr;
+    justify-items: stretch;
+    align-items: start;
+  }
+
+  .exams-filters-row .form-group,
+  .exam-result-filters-row .form-group,
+  .exam-print-admit-filters-row .form-group,
+  .exam-print-marksheet-filters-row .form-group {
+    width: 100%;
+    margin: 0;
+  }
+
+  .examinations-page .table-container,
+  .examinations-page .exam-table-scroll,
+  .examinations-page .exam-results-table-wrapper,
+  .examinations-page .section-content,
+  .examinations-page .admit-card-list-section,
+  .examinations-page .student-list-section {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .examinations-page .data-table,
+  .examinations-page .exam-results-table,
+  .examinations-page .marks-entry-table table {
+    min-width: 760px;
+    width: max-content;
   }
 }
 

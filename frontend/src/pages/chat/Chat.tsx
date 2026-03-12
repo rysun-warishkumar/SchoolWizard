@@ -11,6 +11,8 @@ const Chat = () => {
   const [showNewChatModal, setShowNewChatModal] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
   const [messageText, setMessageText] = useState('');
+  const [isMobileView, setIsMobileView] = useState(() => window.innerWidth <= 768);
+  const [showMobileConversations, setShowMobileConversations] = useState(() => window.innerWidth <= 768);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const messagesContainerRef = useRef<HTMLDivElement>(null);
 
@@ -81,6 +83,17 @@ const Chat = () => {
     }
   }, [conversations]);
 
+  useEffect(() => {
+    const handleResize = () => {
+      const mobile = window.innerWidth <= 768;
+      setIsMobileView(mobile);
+      setShowMobileConversations(mobile);
+    };
+
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
+
   const handleSendMessage = (e: React.FormEvent) => {
     e.preventDefault();
     if (!messageText.trim() || !selectedConversation) return;
@@ -99,6 +112,9 @@ const Chat = () => {
 
     if (existingConv) {
       setSelectedConversation(existingConv);
+      if (isMobileView) {
+        setShowMobileConversations(false);
+      }
       setShowNewChatModal(false);
       setSearchTerm('');
     } else {
@@ -119,6 +135,9 @@ const Chat = () => {
               );
               if (newConv) {
                 setSelectedConversation(newConv);
+                if (isMobileView) {
+                  setShowMobileConversations(false);
+                }
               }
             });
             setShowNewChatModal(false);
@@ -184,7 +203,7 @@ const Chat = () => {
 
   return (
     <div className="chat-page">
-      <div className="chat-container">
+      <div className={`chat-container ${isMobileView ? (showMobileConversations ? 'mobile-show-list' : 'mobile-show-chat') : ''}`.trim()}>
         {/* Conversations List */}
         <div className="chat-sidebar">
           <div className="chat-sidebar-header">
@@ -216,7 +235,12 @@ const Chat = () => {
                   className={`conversation-item ${
                     selectedConversation?.id === conversation.id ? 'active' : ''
                   }`}
-                  onClick={() => setSelectedConversation(conversation)}
+                  onClick={() => {
+                    setSelectedConversation(conversation);
+                    if (isMobileView) {
+                      setShowMobileConversations(false);
+                    }
+                  }}
                 >
                   <div className="conversation-avatar">
                     {getPhotoUrl(conversation.other_user_photo) ? (
@@ -264,6 +288,15 @@ const Chat = () => {
           {selectedConversation ? (
             <>
               <div className="chat-header">
+                {isMobileView && (
+                  <button
+                    type="button"
+                    className="chat-back-btn"
+                    onClick={() => setShowMobileConversations(true)}
+                  >
+                    ← Chats
+                  </button>
+                )}
                 <div className="chat-header-user">
                   {getPhotoUrl(selectedConversation.other_user_photo) ? (
                     <img

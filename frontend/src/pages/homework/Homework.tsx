@@ -7,6 +7,7 @@ import { studentsService } from '../../services/api/studentsService';
 import { apiClient } from '../../services/api/apiClient';
 import { useToast } from '../../contexts/ToastContext';
 import Modal from '../../components/common/Modal';
+import ActionIconButton from '../../components/common/ActionIconButton';
 import './Homework.css';
 
 const DROPDOWN_QUERY_OPTIONS = {
@@ -394,24 +395,16 @@ const Homework = () => {
                       <td>{hw.created_by_name || '-'}</td>
                       <td>
                         <div className="action-buttons">
-                          <button
-                            className="btn-sm btn-secondary"
-                            onClick={() => handleViewEvaluate(hw)}
-                            title="View / Evaluate"
-                          >
-                            View
-                          </button>
-                          <button
-                            className="btn-sm btn-danger"
+                          <ActionIconButton variant="view" onClick={() => handleViewEvaluate(hw)} tooltip="View / Evaluate homework" />
+                          <ActionIconButton
+                            variant="delete"
                             onClick={() => {
                               if (window.confirm('Are you sure you want to delete this homework?')) {
                                 deleteMutation.mutate(hw.id);
                               }
                             }}
-                            title="Delete"
-                          >
-                            Delete
-                          </button>
+                            tooltip="Delete homework"
+                          />
                         </div>
                       </td>
                     </tr>

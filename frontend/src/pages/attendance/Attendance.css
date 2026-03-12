@@ -253,6 +253,24 @@
   .attendance-by-date-filters,
   .attendance-approve-leave-filters {
     grid-template-columns: 1fr;
+    justify-items: stretch;
+    align-items: start;
+  }
+
+  .attendance-student-filters .form-group,
+  .attendance-by-date-filters .form-group,
+  .attendance-approve-leave-filters .form-group {
+    width: 100%;
+    margin: 0;
+    align-items: flex-start;
+    text-align: left;
+  }
+
+  .attendance-student-filters .form-group label,
+  .attendance-by-date-filters .form-group label,
+  .attendance-approve-leave-filters .form-group label {
+    text-align: left;
+    width: 100%;
   }
 }
 

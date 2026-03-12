@@ -223,3 +223,30 @@
   color: var(--gray-600);
 }
 
+@media (max-width: 768px) {
+  .users-page {
+    padding: var(--spacing-md);
+  }
+
+  .users-page .filters {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .users-page .search-input,
+  .users-page .filter-select {
+    width: 100%;
+    max-width: none;
+  }
+
+  .users-page .users-table {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .users-page .users-table table {
+    min-width: 760px;
+    width: max-content;
+  }
+}
+

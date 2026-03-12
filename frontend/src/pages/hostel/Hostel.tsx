@@ -9,6 +9,7 @@ import {
 } from '../../services/api/hostelService';
 import { useToast } from '../../contexts/ToastContext';
 import Modal from '../../components/common/Modal';
+import ActionIconButton from '../../components/common/ActionIconButton';
 import './Hostel.css';
 
 type TabType = 'hostel' | 'room-type' | 'hostel-rooms';
@@ -232,17 +233,16 @@ const HostelTab = () => {
                 <td>{hostel.intake}</td>
                 <td>
                   <div className="action-buttons">
-                    <button className="btn-sm btn-secondary" onClick={() => handleEdit(hostel)}>Edit</button>
-                    <button
-                      className="btn-sm btn-danger"
+                    <ActionIconButton variant="edit" onClick={() => handleEdit(hostel)} tooltip="Edit hostel" />
+                    <ActionIconButton
+                      variant="delete"
                       onClick={() => {
                         if (window.confirm('Are you sure you want to delete this hostel?')) {
                           deleteMutation.mutate(hostel.id);
                         }
                       }}
-                    >
-                      Delete
-                    </button>
+                      tooltip="Delete hostel"
+                    />
                   </div>
                 </td>
               </tr>
@@ -503,17 +503,16 @@ const RoomTypeTab = () => {
                 <td>{roomType.description || '-'}</td>
                 <td>
                   <div className="action-buttons">
-                    <button className="btn-sm btn-secondary" onClick={() => handleEdit(roomType)}>Edit</button>
-                    <button
-                      className="btn-sm btn-danger"
+                    <ActionIconButton variant="edit" onClick={() => handleEdit(roomType)} tooltip="Edit room type" />
+                    <ActionIconButton
+                      variant="delete"
                       onClick={() => {
                         if (window.confirm('Are you sure you want to delete this room type?')) {
                           deleteMutation.mutate(roomType.id);
                         }
                       }}
-                    >
-                      Delete
-                    </button>
+                      tooltip="Delete room type"
+                    />
                   </div>
                 </td>
               </tr>
@@ -800,17 +799,16 @@ const HostelRoomsTab = () => {
                 <td>{room.description || '-'}</td>
                 <td>
                   <div className="action-buttons">
-                    <button className="btn-sm btn-secondary" onClick={() => handleEdit(room)}>Edit</button>
-                    <button
-                      className="btn-sm btn-danger"
+                    <ActionIconButton variant="edit" onClick={() => handleEdit(room)} tooltip="Edit room" />
+                    <ActionIconButton
+                      variant="delete"
                       onClick={() => {
                         if (window.confirm('Are you sure you want to delete this room?')) {
                           deleteMutation.mutate(room.id);
                         }
                       }}
-                    >
-                      Delete
-                    </button>
+                      tooltip="Delete room"
+                    />
                   </div>
                 </td>
               </tr>

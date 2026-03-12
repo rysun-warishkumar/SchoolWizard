@@ -106,6 +106,12 @@ export const createCalendarEvent = async (req: Request, res: Response, next: Nex
       throw createError('Event title and date are required', 400);
     }
 
+    const normalizedEventType = typeof event_type === 'string' && event_type.trim() ? event_type.trim() : 'private';
+    const normalizedRoleName = typeof role_name === 'string' && role_name.trim() ? role_name.trim() : null;
+    if (normalizedEventType === 'role' && !normalizedRoleName) {
+      throw createError('Role name is required for role-based events', 400);
+    }
+
     const [result] = await db.execute(
       `INSERT INTO calendar_events 
        (school_id, user_id, title, description, event_date, event_color, event_type, role_name)
@@ -117,8 +123,8 @@ export const createCalendarEvent = async (req: Request, res: Response, next: Nex
         description?.trim() || null,
         event_date,
         event_color || '#3B82F6',
-        event_type || 'private',
-        event_type === 'role' ? role_name : null,
+        normalizedEventType,
+        normalizedEventType === 'role' ? normalizedRoleName : null,
       ]
     ) as any;
 
@@ -154,6 +160,12 @@ export const updateCalendarEvent = async (req: Request, res: Response, next: Nex
       throw createError('Calendar event not found or you do not have permission to edit it', 404);
     }
 
+    const normalizedRoleName = typeof role_name === 'string' && role_name.trim() ? role_name.trim() : null;
+    const nextEventType = event_type || existing[0].event_type;
+    if (nextEventType === 'role' && !normalizedRoleName && !existing[0].role_name) {
+      throw createError('Role name is required for role-based events', 400);
+    }
+
     await db.execute(
       `UPDATE calendar_events SET
        title = ?, description = ?, event_date = ?, event_color = ?, event_type = ?, role_name = ?
@@ -163,8 +175,8 @@ export const updateCalendarEvent = async (req: Request, res: Response, next: Nex
         description?.trim() || existing[0].description,
         event_date || existing[0].event_date,
         event_color || existing[0].event_color,
-        event_type || existing[0].event_type,
-        event_type === 'role' ? role_name : null,
+        nextEventType,
+        nextEventType === 'role' ? (normalizedRoleName || existing[0].role_name || null) : null,
         id,
         userId,
         schoolId,

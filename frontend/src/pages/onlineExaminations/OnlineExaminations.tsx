@@ -11,6 +11,7 @@ import { settingsService } from '../../services/api/settingsService';
 import { studentsService } from '../../services/api/studentsService';
 import { useToast } from '../../contexts/ToastContext';
 import Modal from '../../components/common/Modal';
+import ActionIconButton from '../../components/common/ActionIconButton';
 import ExamResultsModal from './ExamResultsModal';
 import './OnlineExaminations.css';
 
@@ -460,22 +461,16 @@ const QuestionBankTab = () => {
                   <td>{question.marks}</td>
                   <td>
                     <div className="action-buttons">
-                      <button
-                        className="btn-sm btn-secondary"
-                        onClick={() => handleEdit(question)}
-                      >
-                        Edit
-                      </button>
-                      <button
-                        className="btn-sm btn-danger"
+                      <ActionIconButton variant="edit" onClick={() => handleEdit(question)} tooltip="Edit question" />
+                      <ActionIconButton
+                        variant="delete"
                         onClick={() => {
                           if (window.confirm('Are you sure you want to delete this question?')) {
                             deleteMutation.mutate(question.id);
                           }
                         }}
-                      >
-                        Delete
-                      </button>
+                        tooltip="Delete question"
+                      />
                     </div>
                   </td>
                 </tr>
@@ -1018,22 +1013,16 @@ const OnlineExamsTab = () => {
                   </td>
                   <td>
                     <div className="action-buttons">
-                      <button
-                        className="btn-sm btn-secondary"
-                        onClick={() => handleViewDetails(exam)}
-                      >
-                        View
-                      </button>
-                      <button
-                        className="btn-sm btn-danger"
+                      <ActionIconButton variant="view" onClick={() => handleViewDetails(exam)} tooltip="View exam" />
+                      <ActionIconButton
+                        variant="delete"
                         onClick={() => {
                           if (window.confirm('Are you sure you want to delete this exam?')) {
                             deleteMutation.mutate(exam.id);
                           }
                         }}
-                      >
-                        Delete
-                      </button>
+                        tooltip="Delete exam"
+                      />
                     </div>
                   </td>
                 </tr>

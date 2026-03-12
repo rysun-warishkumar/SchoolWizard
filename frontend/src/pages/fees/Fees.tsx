@@ -18,6 +18,7 @@ import { academicsService } from '../../services/api/academicsService';
 import { studentsService } from '../../services/api/studentsService';
 import { useToast } from '../../contexts/ToastContext';
 import Modal from '../../components/common/Modal';
+import ActionIconButton from '../../components/common/ActionIconButton';
 import './Fees.css';
 
 type TabType =
@@ -2406,9 +2407,7 @@ const CarryForwardTab = () => {
                     </span>
                   </td>
                   <td>
-                    <button className="btn-edit" onClick={() => handleEdit(entry)}>
-                      Edit
-                    </button>
+                    <ActionIconButton variant="edit" onClick={() => handleEdit(entry)} tooltip="Edit reminder setting" />
                   </td>
                 </tr>
               ))}

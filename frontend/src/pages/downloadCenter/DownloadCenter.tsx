@@ -8,6 +8,7 @@ import {
 import { academicsService } from '../../services/api/academicsService';
 import { useToast } from '../../contexts/ToastContext';
 import Modal from '../../components/common/Modal';
+import ActionIconButton from '../../components/common/ActionIconButton';
 import './DownloadCenter.css';
 
 type TabType = 'upload-content' | 'assignments' | 'study-material' | 'syllabus' | 'other-downloads';
@@ -481,31 +482,17 @@ const UploadContentTab = () => {
                   <td>{content.uploaded_by_name || '-'}</td>
                   <td>
                     <div className="action-buttons">
-                      <button
-                        className="btn-sm btn-primary"
-                        onClick={() => handleDownload(content)}
-                        title="Download"
-                      >
-                        Download
-                      </button>
-                      <button
-                        className="btn-sm btn-secondary"
-                        onClick={() => handleEdit(content)}
-                        title="Edit"
-                      >
-                        Edit
-                      </button>
-                      <button
-                        className="btn-sm btn-danger"
+                      <ActionIconButton variant="download" onClick={() => handleDownload(content)} tooltip="Download content" />
+                      <ActionIconButton variant="edit" onClick={() => handleEdit(content)} tooltip="Edit content" />
+                      <ActionIconButton
+                        variant="delete"
                         onClick={() => {
                           if (window.confirm('Are you sure you want to delete this content?')) {
                             deleteMutation.mutate(content.id);
                           }
                         }}
-                        title="Delete"
-                      >
-                        Delete
-                      </button>
+                        tooltip="Delete content"
+                      />
                     </div>
                   </td>
                 </tr>
@@ -949,24 +936,16 @@ const ContentListTab = ({ content_type }: ContentListTabProps) => {
                   <td>{content.uploaded_by_name || '-'}</td>
                   <td>
                     <div className="action-buttons">
-                      <button
-                        className="btn-sm btn-primary"
-                        onClick={() => handleDownload(content)}
-                        title="Download"
-                      >
-                        Download
-                      </button>
-                      <button
-                        className="btn-sm btn-danger"
+                      <ActionIconButton variant="download" onClick={() => handleDownload(content)} tooltip="Download content" />
+                      <ActionIconButton
+                        variant="delete"
                         onClick={() => {
                           if (window.confirm('Are you sure you want to delete this content?')) {
                             deleteMutation.mutate(content.id);
                           }
                         }}
-                        title="Delete"
-                      >
-                        Delete
-                      </button>
+                        tooltip="Delete content"
+                      />
                     </div>
                   </td>
                 </tr>

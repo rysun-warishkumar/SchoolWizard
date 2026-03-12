@@ -607,7 +607,7 @@
 .question-accordion-toggle {
   width: 30px;
   height: 30px;
-  border: 1px solid var(--gray-300);
+  /* border: 1px solid var(--gray-300); */
   border-radius: 50%;
   background: var(--white);
   color: var(--gray-700);
@@ -647,6 +647,20 @@
 
   .online-examinations-page .online-exam-filters-row {
     grid-template-columns: 1fr;
+    justify-items: stretch;
+    align-items: start;
+  }
+
+  .online-examinations-page .online-exam-filters-row .form-group {
+    width: 100%;
+    margin: 0;
+    align-items: flex-start;
+    text-align: left;
+  }
+
+  .online-examinations-page .online-exam-filters-row .form-group label,
+  .online-examinations-page .online-exam-filters-row .form-group select {
+    width: 100%;
   }
 }
 
@@ -662,5 +676,29 @@
   width: 100%;
   min-width: fit-content; /* Allow table to be as wide as its content */
   border-collapse: collapse;
+}
+
+@media (max-width: 768px) {
+  .online-examinations-page .table-responsive-container .data-table,
+  .online-examinations-page .data-table {
+    display: block !important;
+    overflow-x: auto !important;
+    -webkit-overflow-scrolling: touch;
+    max-width: 100%;
+    min-width: 760px !important;
+    width: max-content !important;
+  }
+}
+
+@media (max-width: 768px) {
+  .online-examinations-page .table-responsive-container .data-table,
+  .online-examinations-page .data-table {
+    display: block !important;
+    overflow-x: auto !important;
+    -webkit-overflow-scrolling: touch;
+    max-width: 100%;
+    min-width: 760px !important;
+    width: max-content !important;
+  }
 }
 

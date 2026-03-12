@@ -12,6 +12,7 @@ import { studentsService } from '../../services/api/studentsService';
 import { hrService } from '../../services/api/hrService';
 import { useToast } from '../../contexts/ToastContext';
 import Modal from '../../components/common/Modal';
+import ActionIconButton from '../../components/common/ActionIconButton';
 import './Library.css';
 
 const DROPDOWN_QUERY_OPTIONS = {
@@ -440,24 +441,16 @@ const BookListTab = () => {
                 <td>{book.book_price ? `$${book.book_price}` : '-'}</td>
                 <td>
                   <div className="action-buttons">
-                    <button
-                      className="btn-sm btn-secondary"
-                      onClick={() => handleEdit(book)}
-                      title="Edit"
-                    >
-                      Edit
-                    </button>
-                    <button
-                      className="btn-sm btn-danger"
+                    <ActionIconButton variant="edit" onClick={() => handleEdit(book)} tooltip="Edit book" />
+                    <ActionIconButton
+                      variant="delete"
                       onClick={() => {
                         if (window.confirm('Are you sure you want to delete this book?')) {
                           deleteMutation.mutate(book.id);
                         }
                       }}
-                      title="Delete"
-                    >
-                      Delete
-                    </button>
+                      tooltip="Delete book"
+                    />
                   </div>
                 </td>
               </tr>

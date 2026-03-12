@@ -8,6 +8,7 @@ import {
 } from '../../services/api/transportService';
 import { useToast } from '../../contexts/ToastContext';
 import Modal from '../../components/common/Modal';
+import ActionIconButton from '../../components/common/ActionIconButton';
 import './Transport.css';
 
 type TabType = 'routes' | 'vehicles' | 'assign-vehicle';
@@ -203,17 +204,16 @@ const RoutesTab = () => {
                 <td>{route.description || '-'}</td>
                 <td>
                   <div className="action-buttons">
-                    <button className="btn-sm btn-secondary" onClick={() => handleEdit(route)}>Edit</button>
-                    <button
-                      className="btn-sm btn-danger"
+                    <ActionIconButton variant="edit" onClick={() => handleEdit(route)} tooltip="Edit route" />
+                    <ActionIconButton
+                      variant="delete"
                       onClick={() => {
                         if (window.confirm('Are you sure you want to delete this route?')) {
                           deleteMutation.mutate(route.id);
                         }
                       }}
-                    >
-                      Delete
-                    </button>
+                      tooltip="Delete route"
+                    />
                   </div>
                 </td>
               </tr>
@@ -466,17 +466,16 @@ const VehiclesTab = () => {
                 <td>{vehicle.driver_contact || '-'}</td>
                 <td>
                   <div className="action-buttons">
-                    <button className="btn-sm btn-secondary" onClick={() => handleEdit(vehicle)}>Edit</button>
-                    <button
-                      className="btn-sm btn-danger"
+                    <ActionIconButton variant="edit" onClick={() => handleEdit(vehicle)} tooltip="Edit vehicle" />
+                    <ActionIconButton
+                      variant="delete"
                       onClick={() => {
                         if (window.confirm('Are you sure you want to delete this vehicle?')) {
                           deleteMutation.mutate(vehicle.id);
                         }
                       }}
-                    >
-                      Delete
-                    </button>
+                      tooltip="Delete vehicle"
+                    />
                   </div>
                 </td>
               </tr>
@@ -766,16 +765,15 @@ const AssignVehicleTab = () => {
                 <td>{assignment.driver_name || '-'}</td>
                 <td>
                   <div className="action-buttons">
-                    <button
-                      className="btn-sm btn-danger"
+                    <ActionIconButton
+                      variant="delete"
                       onClick={() => {
                         if (window.confirm('Are you sure you want to remove this vehicle assignment?')) {
                           deleteMutation.mutate(assignment.id);
                         }
                       }}
-                    >
-                      Remove
-                    </button>
+                      tooltip="Remove assignment"
+                    />
                   </div>
                 </td>
               </tr>

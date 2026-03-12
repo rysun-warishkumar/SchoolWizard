@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from 'react-query';
 import { rolesService, Role, ModulePermission } from '../../services/api/rolesService';
 import { useToast } from '../../contexts/ToastContext';
+import ActionIconButton from '../../components/common/ActionIconButton';
 import './Roles.css';
 
 // Module icon mapping - ensures icons always display correctly
@@ -289,12 +290,8 @@ const Roles = () => {
               <div className="role-actions">
                 {role.id !== 1 && (
                   <>
-                    <button onClick={() => handleEdit(role)} className="btn-edit">
-                      Edit
-                    </button>
-                    <button onClick={() => handleDelete(role.id)} className="btn-delete">
-                      Delete
-                    </button>
+                    <ActionIconButton variant="edit" onClick={() => handleEdit(role)} tooltip="Edit role" />
+                    <ActionIconButton variant="delete" onClick={() => handleDelete(role.id)} tooltip="Delete role" />
                   </>
                 )}
               </div>
@@ -306,7 +303,7 @@ const Roles = () => {
       {/* Add/Edit Role Modal */}
       {showModal && (
         <div className="modal-overlay" onClick={() => { setShowModal(false); resetForm(); }}>
-          <div className="modal-content" onClick={(e) => e.stopPropagation()}>
+          <div className="modal-content role-form-modal" onClick={(e) => e.stopPropagation()}>
             <h2>{editingRole ? 'Edit Role' : 'Add Role'}</h2>
             <form onSubmit={handleSubmit}>
               <div className="form-group">
@@ -390,6 +387,18 @@ const Roles = () => {
                     </button>
                   </>
                 )}
+                <button
+                  type="button"
+                  className="permissions-close-btn"
+                  onClick={() => {
+                    setIsEditing(false);
+                    setShowPermissionsModal(false);
+                  }}
+                  aria-label="Close permissions modal"
+                  title="Close"
+                >
+                  X
+                </button>
               </div>
             </div>
 

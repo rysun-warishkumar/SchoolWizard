@@ -4,6 +4,7 @@ import { useSearchParams } from 'react-router-dom';
 import { settingsService, GeneralSettings, Session, EmailSettings, NotificationSetting, SMSSetting, PaymentGateway, Language, Module, CustomField, SystemField, BackupRecord, BackupSettings } from '../../services/api/settingsService';
 import { useToast } from '../../contexts/ToastContext';
 import Modal from '../../components/common/Modal';
+import ActionIconButton from '../../components/common/ActionIconButton';
 import './Settings.css';
 
 const Settings = () => {
@@ -810,13 +811,9 @@ const Settings = () => {
                       </td>
                       <td>
                         <div className="action-buttons">
-                          <button onClick={() => handleEditSession(session)} className="btn-edit">
-                            Edit
-                          </button>
+                          <ActionIconButton variant="edit" onClick={() => handleEditSession(session)} tooltip="Edit session" />
                           {!session.is_current && (
-                            <button onClick={() => handleDeleteSession(session.id)} className="btn-delete">
-                              Delete
-                            </button>
+                            <ActionIconButton variant="delete" onClick={() => handleDeleteSession(session.id)} tooltip="Delete session" />
                           )}
                         </div>
                       </td>
@@ -1351,8 +1348,8 @@ const SMSSettingsTab = () => {
                   </td>
                   <td>
                     <div className="action-buttons">
-                      <button className="btn-edit" onClick={() => handleEdit(gateway)}>Edit</button>
-                      <button className="btn-delete" onClick={() => handleDelete(gateway.id)}>Delete</button>
+                      <ActionIconButton variant="edit" onClick={() => handleEdit(gateway)} tooltip="Edit SMS gateway" />
+                      <ActionIconButton variant="delete" onClick={() => handleDelete(gateway.id)} tooltip="Delete SMS gateway" />
                     </div>
                   </td>
                 </tr>
@@ -1627,8 +1624,8 @@ const PaymentGatewaySettingsTab = () => {
                   </td>
                   <td>
                     <div className="action-buttons">
-                      <button className="btn-edit" onClick={() => handleEdit(gateway)}>Edit</button>
-                      <button className="btn-delete" onClick={() => handleDelete(gateway.id)}>Delete</button>
+                      <ActionIconButton variant="edit" onClick={() => handleEdit(gateway)} tooltip="Edit payment gateway" />
+                      <ActionIconButton variant="delete" onClick={() => handleDelete(gateway.id)} tooltip="Delete payment gateway" />
                     </div>
                   </td>
                 </tr>
@@ -1947,9 +1944,9 @@ const LanguagesTab = () => {
                   </td>
                   <td>
                     <div className="action-buttons">
-                      <button className="btn-edit" onClick={() => handleEdit(lang)}>Edit</button>
+                      <ActionIconButton variant="edit" onClick={() => handleEdit(lang)} tooltip="Edit language" />
                       {!lang.is_default && (
-                        <button className="btn-delete" onClick={() => handleDelete(lang.id)}>Delete</button>
+                        <ActionIconButton variant="delete" onClick={() => handleDelete(lang.id)} tooltip="Delete language" />
                       )}
                     </div>
                   </td>
@@ -2263,8 +2260,8 @@ const CustomFieldsTab = () => {
                   <td>{field.is_visible ? 'Yes' : 'No'}</td>
                   <td>
                     <div className="action-buttons">
-                      <button className="btn-edit" onClick={() => handleEdit(field)}>Edit</button>
-                      <button className="btn-delete" onClick={() => handleDelete(field.id)}>Delete</button>
+                      <ActionIconButton variant="edit" onClick={() => handleEdit(field)} tooltip="Edit custom field" />
+                      <ActionIconButton variant="delete" onClick={() => handleDelete(field.id)} tooltip="Delete custom field" />
                     </div>
                   </td>
                 </tr>
@@ -2661,7 +2658,7 @@ const BackupRestoreTab = () => {
                     <div className="action-buttons">
                       <button className="btn-edit" onClick={() => handleDownload(backup)}>Download</button>
                       <button className="btn-secondary" onClick={() => handleRestore(backup.id)}>Restore</button>
-                      <button className="btn-delete" onClick={() => handleDelete(backup.id)}>Delete</button>
+                      <ActionIconButton variant="delete" onClick={() => handleDelete(backup.id)} tooltip="Delete backup" />
                     </div>
                   </td>
                 </tr>

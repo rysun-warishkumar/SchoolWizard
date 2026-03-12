@@ -12,6 +12,7 @@ import { studentsService } from '../../services/api/studentsService';
 import { hrService } from '../../services/api/hrService';
 import { useToast } from '../../contexts/ToastContext';
 import Modal from '../../components/common/Modal';
+import ActionIconButton from '../../components/common/ActionIconButton';
 import './Communicate.css';
 
 type TabType = 'notice-board' | 'send-email' | 'send-sms' | 'email-sms-log';
@@ -259,24 +260,16 @@ const NoticeBoardTab = () => {
                 <td>{notice.created_by_name || '-'}</td>
                 <td>
                   <div className="action-buttons">
-                    <button
-                      className="btn-sm btn-secondary"
-                      onClick={() => handleEdit(notice)}
-                      title="Edit"
-                    >
-                      Edit
-                    </button>
-                    <button
-                      className="btn-sm btn-danger"
+                    <ActionIconButton variant="edit" onClick={() => handleEdit(notice)} tooltip="Edit notice" />
+                    <ActionIconButton
+                      variant="delete"
                       onClick={() => {
                         if (window.confirm('Are you sure you want to delete this notice?')) {
                           deleteMutation.mutate(notice.id);
                         }
                       }}
-                      title="Delete"
-                    >
-                      Delete
-                    </button>
+                      tooltip="Delete notice"
+                    />
                   </div>
                 </td>
               </tr>

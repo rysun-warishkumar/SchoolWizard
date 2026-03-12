@@ -3,6 +3,7 @@ import { useQuery, useMutation, useQueryClient } from 'react-query';
 import { contactMessagesService, ContactMessage } from '../../services/api/contactMessagesService';
 import { useToast } from '../../contexts/ToastContext';
 import Modal from '../../components/common/Modal';
+import ActionIconButton from '../../components/common/ActionIconButton';
 import './ContactMessages.css';
 
 const ContactMessages: React.FC = () => {
@@ -152,9 +153,7 @@ const ContactMessages: React.FC = () => {
                   </td>
                   <td>{formatDate(message.created_at)}</td>
                   <td>
-                    <button className="btn-view" onClick={() => handleView(message)}>
-                      <i className="fas fa-eye"></i> View
-                    </button>
+                    <ActionIconButton variant="view" onClick={() => handleView(message)} tooltip="View message" />
                   </td>
                 </tr>
               ))}

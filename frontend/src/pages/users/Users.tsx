@@ -3,6 +3,7 @@ import { useQuery, useMutation, useQueryClient } from 'react-query';
 import { usersService } from '../../services/api/usersService';
 import { rolesService } from '../../services/api/rolesService';
 import { User } from '../../types/auth';
+import ActionIconButton from '../../components/common/ActionIconButton';
 import './Users.css';
 
 const Users = () => {
@@ -176,18 +177,14 @@ const Users = () => {
                     </td>
                     <td>
                       <div className="action-buttons">
-                        <button onClick={() => handleEdit(user)} className="btn-edit">
-                          Edit
-                        </button>
+                        <ActionIconButton variant="edit" onClick={() => handleEdit(user)} tooltip="Edit user" />
                         <button
                           onClick={() => handleToggleStatus(user.id)}
                           className={`btn-toggle ${user.is_active ? 'btn-disable' : 'btn-enable'}`}
                         >
                           {user.is_active ? 'Disable' : 'Enable'}
                         </button>
-                        <button onClick={() => handleDelete(user.id)} className="btn-delete">
-                          Delete
-                        </button>
+                        <ActionIconButton variant="delete" onClick={() => handleDelete(user.id)} tooltip="Delete user" />
                       </div>
                     </td>
                   </tr>

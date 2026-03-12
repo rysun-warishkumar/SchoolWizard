@@ -210,66 +210,68 @@ const PromoteStudentsTab: React.FC<PromoteStudentsTabProps> = ({ classes, sectio
 
           <div className="table-section">
             <h3>Student List</h3>
-            <table className="data-table">
-              <thead>
-                <tr>
-                  <th>Admission No</th>
-                  <th>Student Name</th>
-                  <th>Current Class</th>
-                  <th>Current Section</th>
-                  <th>Current Session</th>
-                  <th>Current Result</th>
-                  <th>Next Session Status</th>
-                </tr>
-              </thead>
-              <tbody>
-                {students.map((student: any) => (
-                  <tr key={student.id}>
-                    <td>{student.admission_no}</td>
-                    <td>{student.first_name} {student.last_name}</td>
-                    <td>{student.class_name}</td>
-                    <td>{student.section_name}</td>
-                    <td>{student.session_name}</td>
-                    <td>
-                      <select
-                        value={studentPromotions[student.id]?.current_result || ''}
-                        onChange={(e) => {
-                          setStudentPromotions({
-                            ...studentPromotions,
-                            [student.id]: {
-                              ...studentPromotions[student.id],
-                              current_result: e.target.value as 'pass' | 'fail' | '',
-                            },
-                          });
-                        }}
-                      >
-                        <option value="">Select</option>
-                        <option value="pass">Pass</option>
-                        <option value="fail">Fail</option>
-                      </select>
-                    </td>
-                    <td>
-                      <select
-                        value={studentPromotions[student.id]?.next_session_status || ''}
-                        onChange={(e) => {
-                          setStudentPromotions({
-                            ...studentPromotions,
-                            [student.id]: {
-                              ...studentPromotions[student.id],
-                              next_session_status: e.target.value as 'continue' | 'leave' | '',
-                            },
-                          });
-                        }}
-                      >
-                        <option value="">Select</option>
-                        <option value="continue">Continue</option>
-                        <option value="leave">Leave</option>
-                      </select>
-                    </td>
+            <div className="promote-students-table-wrap">
+              <table className="data-table promote-students-table">
+                <thead>
+                  <tr>
+                    <th>Admission No</th>
+                    <th>Student Name</th>
+                    <th>Current Class</th>
+                    <th>Current Section</th>
+                    <th>Current Session</th>
+                    <th>Current Result</th>
+                    <th>Next Session Status</th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
+                </thead>
+                <tbody>
+                  {students.map((student: any) => (
+                    <tr key={student.id}>
+                      <td>{student.admission_no}</td>
+                      <td>{student.first_name} {student.last_name}</td>
+                      <td>{student.class_name}</td>
+                      <td>{student.section_name}</td>
+                      <td>{student.session_name}</td>
+                      <td>
+                        <select
+                          value={studentPromotions[student.id]?.current_result || ''}
+                          onChange={(e) => {
+                            setStudentPromotions({
+                              ...studentPromotions,
+                              [student.id]: {
+                                ...studentPromotions[student.id],
+                                current_result: e.target.value as 'pass' | 'fail' | '',
+                              },
+                            });
+                          }}
+                        >
+                          <option value="">Select</option>
+                          <option value="pass">Pass</option>
+                          <option value="fail">Fail</option>
+                        </select>
+                      </td>
+                      <td>
+                        <select
+                          value={studentPromotions[student.id]?.next_session_status || ''}
+                          onChange={(e) => {
+                            setStudentPromotions({
+                              ...studentPromotions,
+                              [student.id]: {
+                                ...studentPromotions[student.id],
+                                next_session_status: e.target.value as 'continue' | 'leave' | '',
+                              },
+                            });
+                          }}
+                        >
+                          <option value="">Select</option>
+                          <option value="continue">Continue</option>
+                          <option value="leave">Leave</option>
+                        </select>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
           </div>
 
           <div className="form-actions" style={{ marginTop: '30px', display: 'flex', justifyContent: 'flex-end' }}>

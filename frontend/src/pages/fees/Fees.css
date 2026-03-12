@@ -428,3 +428,35 @@
   color: var(--primary-color);
 }
 
+@media (max-width: 768px) {
+  .fees-page .form-row {
+    display: grid;
+    grid-template-columns: 1fr;
+  }
+
+  .fees-page .fees-collection-filters,
+  .fees-page .due-fees-filters {
+    padding: var(--spacing-md);
+  }
+
+  .fees-page .data-table {
+    min-width: 760px;
+    width: max-content;
+    display: block;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    max-width: 100%;
+  }
+}
+
+@media (max-width: 768px) {
+  .fees-page .data-table {
+    display: block !important;
+    overflow-x: auto !important;
+    -webkit-overflow-scrolling: touch;
+    max-width: 100%;
+    min-width: 760px !important;
+    width: max-content !important;
+  }
+}
+

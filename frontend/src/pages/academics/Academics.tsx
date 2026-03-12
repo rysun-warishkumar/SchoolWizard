@@ -8,6 +8,7 @@ import { profileService } from '../../services/api/profileService';
 import { useToast } from '../../contexts/ToastContext';
 import Modal from '../../components/common/Modal';
 import ConfirmActionModal from '../../components/common/ConfirmActionModal';
+import ActionIconButton from '../../components/common/ActionIconButton';
 import './Academics.css';
 
 type TabType = 'classes' | 'sections' | 'subjects' | 'subject-groups' | 'class-teachers' | 'timetable' | 'class-timetable' | 'teachers-timetable';
@@ -464,8 +465,8 @@ const ClassesTab = ({ classes, sections, onDelete }: { classes: Class[]; section
                 <td>{classItem.sections || '-'}</td>
                 <td>
                   <div className="action-buttons">
-                    <button onClick={() => handleEdit(classItem)} className="btn-edit">Edit</button>
-                    <button onClick={() => onDelete('class', classItem.id)} className="btn-delete">Delete</button>
+                    <ActionIconButton variant="edit" onClick={() => handleEdit(classItem)} title="Edit class" />
+                    <ActionIconButton variant="delete" onClick={() => onDelete('class', classItem.id)} title="Delete class" />
                   </div>
                 </td>
               </tr>
@@ -632,8 +633,8 @@ const SectionsTab = ({ sections, onDelete }: { sections: Section[]; onDelete: (t
                 <td>{section.name}</td>
                 <td>
                   <div className="action-buttons">
-                    <button onClick={() => handleEdit(section)} className="btn-edit">Edit</button>
-                    <button onClick={() => onDelete('section', section.id)} className="btn-delete">Delete</button>
+                    <ActionIconButton variant="edit" onClick={() => handleEdit(section)} title="Edit section" />
+                    <ActionIconButton variant="delete" onClick={() => onDelete('section', section.id)} title="Delete section" />
                   </div>
                 </td>
               </tr>
@@ -744,8 +745,8 @@ const SubjectsTab = ({ subjects, onDelete }: { subjects: Subject[]; onDelete: (t
                 <td><span className="type-badge">{subject.type}</span></td>
                 <td>
                   <div className="action-buttons">
-                    <button onClick={() => handleEdit(subject)} className="btn-edit">Edit</button>
-                    <button onClick={() => onDelete('subject', subject.id)} className="btn-delete">Delete</button>
+                    <ActionIconButton variant="edit" onClick={() => handleEdit(subject)} title="Edit subject" />
+                    <ActionIconButton variant="delete" onClick={() => onDelete('subject', subject.id)} title="Delete subject" />
                   </div>
                 </td>
               </tr>
@@ -954,8 +955,8 @@ const SubjectGroupsTab = ({
                   <td>{group.subjects || '-'}</td>
                   <td>
                     <div className="action-buttons">
-                      <button className="btn-edit" onClick={() => handleEdit(group)}>Edit</button>
-                      <button className="btn-delete" onClick={() => handleDelete(group.id)}>Delete</button>
+                      <ActionIconButton variant="edit" onClick={() => handleEdit(group)} title="Edit subject group" />
+                      <ActionIconButton variant="delete" onClick={() => handleDelete(group.id)} title="Delete subject group" />
                     </div>
                   </td>
                 </tr>
@@ -1214,7 +1215,7 @@ const ClassTeachersTab = ({ classes, sections }: { classes: Class[]; sections: S
     : [];
 
   return (
-    <div className="tab-content">
+    <div className="tab-content class-teachers-tab">
       <div className="form-section">
         <h2>Assign Class Teachers</h2>
         <div className="form-row class-teachers-filters-row">
@@ -1268,8 +1269,8 @@ const ClassTeachersTab = ({ classes, sections }: { classes: Class[]; sections: S
         </div>
 
         {selectedClassId && selectedSectionId && (
-          <div className="form-row" style={{ marginTop: '20px' }}>
-            <div className="form-group" style={{ flex: 1 }}>
+          <div className="form-row class-teachers-assign-row">
+            <div className="form-group class-teachers-assign-field">
               <label>Select Teacher</label>
               <select
                 value={selectedTeacherId}
@@ -1288,10 +1289,10 @@ const ClassTeachersTab = ({ classes, sections }: { classes: Class[]; sections: S
                   })}
               </select>
             </div>
-            <div className="form-group" style={{ marginLeft: '20px', display: 'flex', alignItems: 'flex-end' }}>
+            <div className="form-group class-teachers-assign-action-wrap">
               <button
                 type="button"
-                className="btn-primary"
+                className="btn-primary class-teachers-assign-btn"
                 onClick={handleAssign}
                 disabled={!selectedTeacherId}
               >
@@ -1309,7 +1310,7 @@ const ClassTeachersTab = ({ classes, sections }: { classes: Class[]; sections: S
         ) : classTeachers.length === 0 ? (
           <div className="empty-state">No class teachers assigned yet for this class-section</div>
         ) : (
-          <table className="data-table">
+          <table className="data-table class-teachers-list-table">
             <thead>
               <tr>
                 <th>Class</th>
@@ -1850,19 +1851,10 @@ const TimetableTab = ({
                             <td>{entry.teacher_name || '-'}</td>
                             <td>{entry.room_no || '-'}</td>
                             <td>
-                              <button
-                                className="btn-edit"
-                                onClick={() => handleEditEntry(entry)}
-                                style={{ marginRight: '5px' }}
-                              >
-                                Edit
-                              </button>
-                              <button
-                                className="btn-delete"
-                                onClick={() => handleDeleteEntry(entry.id)}
-                              >
-                                Delete
-                              </button>
+                              <div className="action-buttons">
+                                <ActionIconButton variant="edit" onClick={() => handleEditEntry(entry)} title="Edit timetable entry" />
+                                <ActionIconButton variant="delete" onClick={() => handleDeleteEntry(entry.id)} title="Delete timetable entry" />
+                              </div>
                             </td>
                           </tr>
                         ))}

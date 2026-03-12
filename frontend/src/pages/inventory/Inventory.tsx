@@ -13,6 +13,7 @@ import { studentsService } from '../../services/api/studentsService';
 import { hrService } from '../../services/api/hrService';
 import { useToast } from '../../contexts/ToastContext';
 import Modal from '../../components/common/Modal';
+import ActionIconButton from '../../components/common/ActionIconButton';
 import './Inventory.css';
 
 type TabType = 'item-category' | 'item-store' | 'item-supplier' | 'add-item' | 'stock-add-item' | 'issue-item';
@@ -206,17 +207,16 @@ const ItemCategoryTab = () => {
                 <td>{category.description || '-'}</td>
                 <td>
                   <div className="action-buttons">
-                    <button className="btn-sm btn-secondary" onClick={() => handleEdit(category)}>Edit</button>
-                    <button
-                      className="btn-sm btn-danger"
+                    <ActionIconButton variant="edit" onClick={() => handleEdit(category)} tooltip="Edit category" />
+                    <ActionIconButton
+                      variant="delete"
                       onClick={() => {
                         if (window.confirm('Are you sure you want to delete this category?')) {
                           deleteMutation.mutate(category.id);
                         }
                       }}
-                    >
-                      Delete
-                    </button>
+                      tooltip="Delete category"
+                    />
                   </div>
                 </td>
               </tr>
@@ -405,17 +405,16 @@ const ItemStoreTab = () => {
                 <td>{store.description || '-'}</td>
                 <td>
                   <div className="action-buttons">
-                    <button className="btn-sm btn-secondary" onClick={() => handleEdit(store)}>Edit</button>
-                    <button
-                      className="btn-sm btn-danger"
+                    <ActionIconButton variant="edit" onClick={() => handleEdit(store)} tooltip="Edit store" />
+                    <ActionIconButton
+                      variant="delete"
                       onClick={() => {
                         if (window.confirm('Are you sure you want to delete this store?')) {
                           deleteMutation.mutate(store.id);
                         }
                       }}
-                    >
-                      Delete
-                    </button>
+                      tooltip="Delete store"
+                    />
                   </div>
                 </td>
               </tr>
@@ -643,17 +642,16 @@ const ItemSupplierTab = () => {
                 <td>{supplier.contact_person_name || '-'}</td>
                 <td>
                   <div className="action-buttons">
-                    <button className="btn-sm btn-secondary" onClick={() => handleEdit(supplier)}>Edit</button>
-                    <button
-                      className="btn-sm btn-danger"
+                    <ActionIconButton variant="edit" onClick={() => handleEdit(supplier)} tooltip="Edit supplier" />
+                    <ActionIconButton
+                      variant="delete"
                       onClick={() => {
                         if (window.confirm('Are you sure you want to delete this supplier?')) {
                           deleteMutation.mutate(supplier.id);
                         }
                       }}
-                    >
-                      Delete
-                    </button>
+                      tooltip="Delete supplier"
+                    />
                   </div>
                 </td>
               </tr>
@@ -984,17 +982,16 @@ const AddItemTab = () => {
                 <td>{item.description || '-'}</td>
                 <td>
                   <div className="action-buttons">
-                    <button className="btn-sm btn-secondary" onClick={() => handleEdit(item)}>Edit</button>
-                    <button
-                      className="btn-sm btn-danger"
+                    <ActionIconButton variant="edit" onClick={() => handleEdit(item)} tooltip="Edit item" />
+                    <ActionIconButton
+                      variant="delete"
                       onClick={() => {
                         if (window.confirm('Are you sure you want to delete this item?')) {
                           deleteMutation.mutate(item.id);
                         }
                       }}
-                    >
-                      Delete
-                    </button>
+                      tooltip="Delete item"
+                    />
                   </div>
                 </td>
               </tr>
@@ -1328,17 +1325,16 @@ const StockAddItemTab = () => {
                 <td>{new Date(stock.stock_date).toLocaleDateString()}</td>
                 <td>
                   <div className="action-buttons">
-                    <button className="btn-sm btn-secondary" onClick={() => handleEdit(stock)}>Edit</button>
-                    <button
-                      className="btn-sm btn-danger"
+                    <ActionIconButton variant="edit" onClick={() => handleEdit(stock)} tooltip="Edit stock" />
+                    <ActionIconButton
+                      variant="delete"
                       onClick={() => {
                         if (window.confirm('Are you sure you want to delete this stock?')) {
                           deleteMutation.mutate(stock.id);
                         }
                       }}
-                    >
-                      Delete
-                    </button>
+                      tooltip="Delete stock"
+                    />
                   </div>
                 </td>
               </tr>
@@ -1814,27 +1810,25 @@ const IssueItemTab = () => {
                 <td>
                   <div className="action-buttons">
                     {issue.status === 'issued' && (
-                      <button
-                        className="btn-sm btn-primary"
+                      <ActionIconButton
+                        variant="return"
                         onClick={() => {
                           if (window.confirm('Are you sure you want to return this item?')) {
                             returnMutation.mutate(issue.id);
                           }
                         }}
-                      >
-                        Return
-                      </button>
+                        tooltip="Return item"
+                      />
                     )}
-                    <button
-                      className="btn-sm btn-danger"
+                    <ActionIconButton
+                      variant="delete"
                       onClick={() => {
                         if (window.confirm('Are you sure you want to delete this issue?')) {
                           deleteMutation.mutate(issue.id);
                         }
                       }}
-                    >
-                      Delete
-                    </button>
+                      tooltip="Delete issue"
+                    />
                   </div>
                 </td>
               </tr>

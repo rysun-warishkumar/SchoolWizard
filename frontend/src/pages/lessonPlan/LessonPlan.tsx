@@ -10,6 +10,7 @@ import {
 import { academicsService } from '../../services/api/academicsService';
 import { useToast } from '../../contexts/ToastContext';
 import Modal from '../../components/common/Modal';
+import ActionIconButton from '../../components/common/ActionIconButton';
 import './LessonPlan.css';
 
 type TabType = 'subject-status' | 'lesson-plans';
@@ -402,12 +403,8 @@ const SubjectStatusTab = () => {
                       </div>
                     </td>
                     <td>
-                      <button className="btn-sm btn-edit" onClick={() => handleEditClick(status)}>
-                        Edit
-                      </button>
-                      <button className="btn-sm btn-delete" onClick={() => handleDelete(status.id)}>
-                        Delete
-                      </button>
+                      <ActionIconButton variant="edit" onClick={() => handleEditClick(status)} tooltip="Edit subject status" />
+                      <ActionIconButton variant="delete" onClick={() => handleDelete(status.id)} tooltip="Delete subject status" />
                     </td>
                   </tr>
                 ))
@@ -818,15 +815,9 @@ const LessonPlansTab = () => {
                       </span>
                     </td>
                     <td>
-                      <button className="btn-sm btn-view" onClick={() => handleViewClick(plan)}>
-                        View
-                      </button>
-                      <button className="btn-sm btn-edit" onClick={() => handleEditClick(plan)}>
-                        Edit
-                      </button>
-                      <button className="btn-sm btn-delete" onClick={() => handleDelete(plan.id)}>
-                        Delete
-                      </button>
+                      <ActionIconButton variant="view" onClick={() => handleViewClick(plan)} tooltip="View lesson plan" />
+                      <ActionIconButton variant="edit" onClick={() => handleEditClick(plan)} tooltip="Edit lesson plan" />
+                      <ActionIconButton variant="delete" onClick={() => handleDelete(plan.id)} tooltip="Delete lesson plan" />
                     </td>
                   </tr>
                 ))

@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Student } from '../../../services/api/studentsService';
 import ViewStudentModal from './ViewStudentModal';
 import EditStudentModal from './EditStudentModal';
+import ActionIconButton from '../../../components/common/ActionIconButton';
 
 interface PaginationInfo {
   page: number;
@@ -296,9 +297,9 @@ const StudentListTab: React.FC<StudentListTabProps> = ({
                         </td>
                         <td>
                           <div className="action-buttons">
-                            <button onClick={() => setViewStudentId(student.id)} className="btn-view">View</button>
-                            <button onClick={() => setEditStudentId(student.id)} className="btn-edit">Edit</button>
-                            <button onClick={() => onDelete(student.id)} className="btn-delete">Delete</button>
+                            <ActionIconButton variant="view" onClick={() => setViewStudentId(student.id)} tooltip="View student" />
+                            <ActionIconButton variant="edit" onClick={() => setEditStudentId(student.id)} tooltip="Edit student" />
+                            <ActionIconButton variant="delete" onClick={() => onDelete(student.id)} tooltip="Delete student" />
                           </div>
                         </td>
                       </tr>
