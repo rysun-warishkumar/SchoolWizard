@@ -148,7 +148,7 @@
 }
 
 /* Modal Styles */
-.modal-overlay {
+.staff-leave-page .modal-overlay {
   position: fixed;
   top: 0;
   left: 0;
@@ -162,7 +162,7 @@
   padding: var(--spacing-lg);
 }
 
-.modal-content {
+.staff-leave-page .modal-content {
   background: white;
   border-radius: var(--radius-lg);
   padding: var(--spacing-xl);
@@ -173,7 +173,7 @@
   box-shadow: var(--shadow-xl);
 }
 
-.modal-content h2 {
+.staff-leave-page .modal-content h2 {
   margin: 0 0 var(--spacing-lg) 0;
   font-size: var(--font-size-xl);
   color: var(--gray-900);

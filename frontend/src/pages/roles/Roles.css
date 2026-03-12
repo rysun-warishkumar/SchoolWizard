@@ -324,7 +324,7 @@
   overflow: hidden;
 }
 
-.modal-content h2 {
+.roles-page .modal-content h2 {
   margin: 0 0 var(--spacing-lg) 0;
   font-size: var(--font-size-xl);
   color: var(--gray-900);

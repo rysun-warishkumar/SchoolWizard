@@ -35,20 +35,21 @@
   }
 }
 
-.modal-small {
-  max-width: 400px;
+/* Strongly scoped size rules to prevent page CSS leakage */
+.modal-overlay > .modal-content.modal-small {
+  max-width: 400px !important;
 }
 
-.modal-medium {
-  max-width: 600px;
+.modal-overlay > .modal-content.modal-medium {
+  max-width: 600px !important;
 }
 
-.modal-large {
-  max-width: 900px;
+.modal-overlay > .modal-content.modal-large {
+  max-width: 900px !important;
 }
 
-.modal-xlarge {
-  max-width: 1200px;
+.modal-overlay > .modal-content.modal-xlarge {
+  max-width: 1200px !important;
 }
 
 .modal-header {
@@ -132,6 +133,13 @@
   display: flex;
   gap: var(--spacing-md);
   justify-content: center;
+  flex-wrap: wrap;
+}
+
+.confirmation-actions > button {
+  width: auto !important;
+  min-width: 96px;
+  flex: 0 0 auto;
 }
 
 @media print {

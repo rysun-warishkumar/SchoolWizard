@@ -3,6 +3,7 @@ import { useQuery, useMutation, useQueryClient } from 'react-query';
 import { studentsService } from '../../services/api/studentsService';
 import { academicsService } from '../../services/api/academicsService';
 import { useToast } from '../../contexts/ToastContext';
+import ConfirmActionModal from '../../components/common/ConfirmActionModal';
 import './Students.css';
 
 // Import all tab components
@@ -41,6 +42,7 @@ const Students = () => {
   const [showImportModal, setShowImportModal] = useState(false);
   const [importFile, setImportFile] = useState<File | null>(null);
   const [importResults, setImportResults] = useState<any>(null);
+  const [deleteStudentId, setDeleteStudentId] = useState<number | null>(null);
 
   const queryClient = useQueryClient();
 
@@ -64,8 +66,16 @@ const Students = () => {
     }
   );
 
-  const { data: classesData } = useQuery('classes', () => academicsService.getClasses());
-  const { data: sectionsData } = useQuery('sections', () => academicsService.getSections());
+  const { data: classesData, isLoading: classesLoading } = useQuery(
+    'classes',
+    () => academicsService.getClasses(),
+    { staleTime: 0, refetchOnMount: 'always' }
+  );
+  const { data: sectionsData, isLoading: sectionsLoading } = useQuery(
+    'sections',
+    () => academicsService.getSections(),
+    { staleTime: 0, refetchOnMount: 'always' }
+  );
 
   const { showToast } = useToast();
 
@@ -80,8 +90,22 @@ const Students = () => {
   });
 
   const handleDelete = (id: number) => {
-    if (window.confirm('Are you sure you want to delete this student?')) {
-      deleteMutation.mutate(String(id));
+    setDeleteStudentId(id);
+  };
+
+  const handleAdmissionSuccess = (mode: 'save' | 'save_add_new') => {
+    if (mode === 'save') {
+      // Ensure newly added student is visible at top on list page
+      setClassFilter('');
+      setSectionFilter('');
+      setSearchTerm('');
+      setPage(1);
+      setActiveTab('list');
+      queryClient.invalidateQueries('students');
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    } else {
+      // Stay on admission tab, just keep context refreshed
+      queryClient.invalidateQueries('students');
     }
   };
 
@@ -252,6 +276,7 @@ const Students = () => {
             }}
             onDelete={handleDelete}
             isLoading={isLoading}
+            areFiltersLoading={classesLoading || sectionsLoading}
             error={error}
             isError={isError}
           />
@@ -260,6 +285,8 @@ const Students = () => {
           <StudentAdmissionTab
             classes={classesData?.data || []}
             sections={sectionsData?.data || []}
+            isReferenceLoading={classesLoading || sectionsLoading}
+            onAdmissionSuccess={handleAdmissionSuccess}
           />
         )}
         {activeTab === 'categories' && (
@@ -289,6 +316,24 @@ const Students = () => {
           onImportSuccess={() => {
             queryClient.invalidateQueries('students');
           }}
+        />
+      )}
+
+      {deleteStudentId != null && (
+        <ConfirmActionModal
+          isOpen={deleteStudentId != null}
+          title="Delete Student?"
+          message="This student record will be deleted permanently. This action cannot be undone."
+          onClose={() => setDeleteStudentId(null)}
+          onConfirm={() => {
+            if (deleteStudentId != null) {
+              deleteMutation.mutate(String(deleteStudentId));
+            }
+            setDeleteStudentId(null);
+          }}
+          confirmText="Delete"
+          isLoading={deleteMutation.isLoading}
+          variant="danger"
         />
       )}
     </div>

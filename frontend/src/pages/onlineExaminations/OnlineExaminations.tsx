@@ -16,6 +16,36 @@ import './OnlineExaminations.css';
 
 type TabType = 'question-bank' | 'online-exams';
 
+const DROPDOWN_QUERY_OPTIONS = {
+  staleTime: 0,
+  refetchOnMount: 'always' as const,
+  refetchOnWindowFocus: false,
+};
+
+type QuestionFormData = {
+  subject_id: string;
+  question: string;
+  option_a: string;
+  option_b: string;
+  option_c: string;
+  option_d: string;
+  option_e: string;
+  correct_answer: 'A' | 'B' | 'C' | 'D' | 'E';
+  marks: string;
+};
+
+const createEmptyQuestionForm = (): QuestionFormData => ({
+  subject_id: '',
+  question: '',
+  option_a: '',
+  option_b: '',
+  option_c: '',
+  option_d: '',
+  option_e: '',
+  correct_answer: 'A',
+  marks: '1.00',
+});
+
 const OnlineExaminations = () => {
   const [searchParams, setSearchParams] = useSearchParams();
   const tabFromUrl = searchParams.get('tab') as TabType;
@@ -169,39 +199,25 @@ const QuestionBankTab = () => {
   const [showModal, setShowModal] = useState(false);
   const [selectedQuestion, setSelectedQuestion] = useState<Question | null>(null);
   const [subjectFilter, setSubjectFilter] = useState<string>('');
-  const [formData, setFormData] = useState({
-    subject_id: '',
-    question: '',
-    option_a: '',
-    option_b: '',
-    option_c: '',
-    option_d: '',
-    option_e: '',
-    correct_answer: 'A' as 'A' | 'B' | 'C' | 'D' | 'E',
-    marks: '1.00',
-  });
+  const [bulkSubjectId, setBulkSubjectId] = useState('');
+  const [questionForms, setQuestionForms] = useState<QuestionFormData[]>([createEmptyQuestionForm()]);
+  const [activeQuestionIndex, setActiveQuestionIndex] = useState<number | null>(0);
+  const [isSavingMultiple, setIsSavingMultiple] = useState(false);
 
   const queryClient = useQueryClient();
   const { showToast } = useToast();
 
-  const { data: subjectsData } = useQuery('subjects', () => academicsService.getSubjects().then(res => res.data || []));
+  const { data: subjectsData, isLoading: subjectsLoading } = useQuery(
+    'subjects',
+    () => academicsService.getSubjects().then(res => res.data || []),
+    DROPDOWN_QUERY_OPTIONS
+  );
   const subjects = Array.isArray(subjectsData) ? subjectsData : [];
   const { data: questions = [], isLoading } = useQuery(
     ['question-bank', subjectFilter],
-    () => onlineExaminationsService.getQuestionBank(subjectFilter ? Number(subjectFilter) : undefined)
+    () => onlineExaminationsService.getQuestionBank(subjectFilter ? Number(subjectFilter) : undefined),
+    DROPDOWN_QUERY_OPTIONS
   );
-
-  const createMutation = useMutation(onlineExaminationsService.createQuestion, {
-    onSuccess: () => {
-      queryClient.invalidateQueries('question-bank');
-      showToast('Question created successfully', 'success');
-      setShowModal(false);
-      resetForm();
-    },
-    onError: (error: any) => {
-      showToast(error.response?.data?.message || 'Failed to create question', 'error');
-    },
-  });
 
   const updateMutation = useMutation(
     (data: { id: number; data: Partial<Question> }) => onlineExaminationsService.updateQuestion(data.id, data.data),
@@ -229,23 +245,16 @@ const QuestionBankTab = () => {
   });
 
   const resetForm = () => {
-    setFormData({
-      subject_id: '',
-      question: '',
-      option_a: '',
-      option_b: '',
-      option_c: '',
-      option_d: '',
-      option_e: '',
-      correct_answer: 'A',
-      marks: '1.00',
-    });
+    setQuestionForms([createEmptyQuestionForm()]);
+    setActiveQuestionIndex(0);
+    setBulkSubjectId('');
     setSelectedQuestion(null);
   };
 
   const handleEdit = (question: Question) => {
     setSelectedQuestion(question);
-    setFormData({
+    setBulkSubjectId(String(question.subject_id));
+    setQuestionForms([{
       subject_id: String(question.subject_id),
       question: question.question,
       option_a: question.option_a || '',
@@ -255,33 +264,135 @@ const QuestionBankTab = () => {
       option_e: question.option_e || '',
       correct_answer: question.correct_answer,
       marks: String(question.marks),
-    });
+    }]);
+    setActiveQuestionIndex(0);
     setShowModal(true);
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const updateQuestionForm = (index: number, updates: Partial<QuestionFormData>) => {
+    setQuestionForms((prev) => prev.map((item, i) => (i === index ? { ...item, ...updates } : item)));
+  };
+
+  const addNewQuestionForm = () => {
+    setQuestionForms((prev) => [...prev, createEmptyQuestionForm()]);
+    setActiveQuestionIndex(questionForms.length);
+  };
+
+  const removeQuestionForm = (index: number) => {
+    setQuestionForms((prev) => {
+      const next = prev.filter((_, i) => i !== index);
+      return next.length > 0 ? next : [createEmptyQuestionForm()];
+    });
+    setActiveQuestionIndex((prev) => {
+      if (prev == null) return null;
+      if (prev === index) return Math.max(0, index - 1);
+      if (prev > index) return prev - 1;
+      return prev;
+    });
+  };
+
+  const isQuestionFormEmpty = (form: QuestionFormData) => {
+    return (
+      !form.subject_id &&
+      !form.question.trim() &&
+      !form.option_a.trim() &&
+      !form.option_b.trim() &&
+      !form.option_c.trim() &&
+      !form.option_d.trim() &&
+      !form.option_e.trim()
+    );
+  };
+
+  const buildQuestionPayload = (form: QuestionFormData, forcedSubjectId?: string) => ({
+    subject_id: Number(forcedSubjectId || form.subject_id),
+    question: form.question.trim(),
+    option_a: form.option_a.trim() || undefined,
+    option_b: form.option_b.trim() || undefined,
+    option_c: form.option_c.trim() || undefined,
+    option_d: form.option_d.trim() || undefined,
+    option_e: form.option_e.trim() || undefined,
+    correct_answer: form.correct_answer,
+    marks: Number(form.marks || '0'),
+  });
+
+  const validateQuestionForm = (form: QuestionFormData, requireSubject: boolean): string | null => {
+    if (requireSubject && !form.subject_id) return 'Subject is required';
+    if (!form.question.trim()) return 'Question is required';
+    const optionsMap: Record<'A' | 'B' | 'C' | 'D' | 'E', string> = {
+      A: form.option_a.trim(),
+      B: form.option_b.trim(),
+      C: form.option_c.trim(),
+      D: form.option_d.trim(),
+      E: form.option_e.trim(),
+    };
+    if (!optionsMap[form.correct_answer]) {
+      return `Correct answer ${form.correct_answer} must have a value`;
+    }
+    if (Number(form.marks || '0') <= 0) return 'Marks must be greater than 0';
+    return null;
+  };
+
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!formData.subject_id || !formData.question || !formData.correct_answer) {
-      showToast('Subject, question, and correct answer are required', 'error');
+
+    if (selectedQuestion) {
+      const form = questionForms[0];
+      const validationError = validateQuestionForm(form, true);
+      if (validationError) {
+        showToast(validationError, 'error');
+        return;
+      }
+      updateMutation.mutate({ id: selectedQuestion.id, data: buildQuestionPayload(form) });
       return;
     }
 
-    const questionData = {
-      subject_id: Number(formData.subject_id),
-      question: formData.question.trim(),
-      option_a: formData.option_a.trim() || undefined,
-      option_b: formData.option_b.trim() || undefined,
-      option_c: formData.option_c.trim() || undefined,
-      option_d: formData.option_d.trim() || undefined,
-      option_e: formData.option_e.trim() || undefined,
-      correct_answer: formData.correct_answer,
-      marks: Number(formData.marks),
-    };
+    if (!bulkSubjectId) {
+      showToast('Please select subject once for all questions', 'error');
+      return;
+    }
 
-    if (selectedQuestion) {
-      updateMutation.mutate({ id: selectedQuestion.id, data: questionData });
-    } else {
-      createMutation.mutate(questionData);
+    const nonEmptyForms = questionForms
+      .map((form, index) => ({ form, index }))
+      .filter(({ form }) => !isQuestionFormEmpty(form));
+
+    if (nonEmptyForms.length === 0) {
+      showToast('Please add at least one question', 'error');
+      return;
+    }
+
+    for (const { form, index } of nonEmptyForms) {
+      const validationError = validateQuestionForm(form, false);
+      if (validationError) {
+        setActiveQuestionIndex(index);
+        showToast(`Question ${index + 1}: ${validationError}`, 'error');
+        return;
+      }
+    }
+
+    setIsSavingMultiple(true);
+    try {
+      const results = await Promise.allSettled(
+        nonEmptyForms.map(({ form }) => onlineExaminationsService.createQuestion(buildQuestionPayload(form, bulkSubjectId)))
+      );
+      const successCount = results.filter((result) => result.status === 'fulfilled').length;
+      const failedCount = results.length - successCount;
+
+      queryClient.invalidateQueries('question-bank');
+
+      if (failedCount === 0) {
+        showToast(`${successCount} question${successCount > 1 ? 's' : ''} created successfully`, 'success');
+        setShowModal(false);
+        resetForm();
+      } else {
+        showToast(
+          `${successCount} question${successCount > 1 ? 's' : ''} saved, ${failedCount} failed. Please review and retry.`,
+          'warning'
+        );
+      }
+    } catch (error: any) {
+      showToast(error.response?.data?.message || 'Failed to create questions', 'error');
+    } finally {
+      setIsSavingMultiple(false);
     }
   };
 
@@ -289,13 +400,13 @@ const QuestionBankTab = () => {
     <div className="online-examinations-tab-content">
       <div className="tab-header">
         <h2>Question Bank</h2>
-        <div style={{ display: 'flex', gap: 'var(--spacing-md)', alignItems: 'center' }}>
-          <div className="form-group" style={{ margin: 0 }}>
+        <div className="question-bank-filters-row">
+          <div className="form-group question-bank-filter-group">
             <label>Filter by Subject:</label>
             <select
               value={subjectFilter}
               onChange={(e) => setSubjectFilter(e.target.value)}
-              style={{ minWidth: '200px' }}
+              disabled={subjectsLoading}
             >
               <option value="">All Subjects</option>
               {subjects.map((subject) => (
@@ -305,11 +416,12 @@ const QuestionBankTab = () => {
               ))}
             </select>
           </div>
-          <button className="btn-primary btn-wm" onClick={() => { resetForm(); setShowModal(true); }}>
+          <button className="btn-primary btn-wm" onClick={() => { resetForm(); setShowModal(true); }} disabled={subjectsLoading}>
             + Add Question
           </button>
         </div>
       </div>
+      {subjectsLoading && <small className="online-exam-inline-loader">Loading filter data...</small>}
 
       {isLoading ? (
         <div className="loading">Loading...</div>
@@ -381,115 +493,197 @@ const QuestionBankTab = () => {
           setShowModal(false);
           resetForm();
         }}
-        title={selectedQuestion ? 'Edit Question' : 'Add Question'}
+        title={selectedQuestion ? 'Edit Question' : 'Add Questions'}
         size="large"
       >
         <form onSubmit={handleSubmit}>
-          <div className="form-group">
-            <label>
-              Subject <span className="required">*</span>
-            </label>
-            <select
-              value={formData.subject_id}
-              onChange={(e) => setFormData({ ...formData, subject_id: e.target.value })}
-              required
-            >
-              <option value="">Select Subject</option>
-              {subjects.map((subject) => (
-                <option key={subject.id} value={subject.id}>
-                  {subject.name} ({subject.code})
-                </option>
-              ))}
-            </select>
-          </div>
-
-          <div className="form-group">
-            <label>
-              Question <span className="required">*</span>
-            </label>
-            <textarea
-              value={formData.question}
-              onChange={(e) => setFormData({ ...formData, question: e.target.value })}
-              rows={4}
-              required
-              placeholder="Enter the question text"
-            />
-          </div>
-
-          <div className="form-row">
-            <div className="form-group">
-              <label>Option A</label>
-              <input
-                type="text"
-                value={formData.option_a}
-                onChange={(e) => setFormData({ ...formData, option_a: e.target.value })}
-              />
-            </div>
-            <div className="form-group">
-              <label>Option B</label>
-              <input
-                type="text"
-                value={formData.option_b}
-                onChange={(e) => setFormData({ ...formData, option_b: e.target.value })}
-              />
-            </div>
-          </div>
-
-          <div className="form-row">
-            <div className="form-group">
-              <label>Option C</label>
-              <input
-                type="text"
-                value={formData.option_c}
-                onChange={(e) => setFormData({ ...formData, option_c: e.target.value })}
-              />
-            </div>
-            <div className="form-group">
-              <label>Option D</label>
-              <input
-                type="text"
-                value={formData.option_d}
-                onChange={(e) => setFormData({ ...formData, option_d: e.target.value })}
-              />
-            </div>
-          </div>
-
-          <div className="form-row">
-            <div className="form-group">
-              <label>Option E (Optional)</label>
-              <input
-                type="text"
-                value={formData.option_e}
-                onChange={(e) => setFormData({ ...formData, option_e: e.target.value })}
-              />
-            </div>
+          {!selectedQuestion && (
             <div className="form-group">
               <label>
-                Correct Answer <span className="required">*</span>
+                Subject <span className="required">*</span>
               </label>
               <select
-                value={formData.correct_answer}
-                onChange={(e) => setFormData({ ...formData, correct_answer: e.target.value as any })}
+                value={bulkSubjectId}
+                onChange={(e) => setBulkSubjectId(e.target.value)}
                 required
+                disabled={subjectsLoading || isSavingMultiple}
               >
-                <option value="A">A</option>
-                <option value="B">B</option>
-                <option value="C">C</option>
-                <option value="D">D</option>
-                <option value="E">E</option>
+                <option value="">Select Subject</option>
+                {subjects.map((subject) => (
+                  <option key={subject.id} value={subject.id}>
+                    {subject.name} ({subject.code})
+                  </option>
+                ))}
               </select>
             </div>
-          </div>
+          )}
 
-          <div className="form-group">
-            <label>Marks</label>
-            <input
-              type="number"
-              step="0.01"
-              min="0"
-              value={formData.marks}
-              onChange={(e) => setFormData({ ...formData, marks: e.target.value })}
-            />
+          {!selectedQuestion && (
+            <div className="question-accordion-toolbar">
+              <button
+                type="button"
+                className="btn-secondary"
+                onClick={addNewQuestionForm}
+                disabled={isSavingMultiple}
+              >
+                + Add A New Question
+              </button>
+            </div>
+          )}
+
+          <div className="question-accordion-list">
+            {questionForms.map((questionForm, index) => {
+              const isOpen = activeQuestionIndex === index;
+              const questionLabel = questionForm.question.trim() || `Question ${index + 1}`;
+
+              return (
+                <div className={`question-accordion-item ${isOpen ? 'open' : ''}`} key={`question-form-${index}`}>
+                  <div className="question-accordion-header">
+                    <span className="question-accordion-title">{questionLabel}</span>
+                    <div className="question-accordion-meta-wrap">
+                      <span className="question-accordion-meta">#{index + 1}</span>
+                      <button
+                        type="button"
+                        className="question-accordion-toggle"
+                        aria-label={isOpen ? `Collapse question ${index + 1}` : `Expand question ${index + 1}`}
+                        onClick={() => setActiveQuestionIndex((prev) => (prev === index ? null : index))}
+                      >
+                        {isOpen ? '^' : '>'}  
+                      </button>
+                    </div>
+                  </div>
+
+                  {isOpen && (
+                    <div className="question-accordion-body">
+                      {selectedQuestion && (
+                        <div className="form-group">
+                          <label>
+                            Subject <span className="required">*</span>
+                          </label>
+                          <select
+                            value={questionForm.subject_id}
+                            onChange={(e) => updateQuestionForm(index, { subject_id: e.target.value })}
+                            required
+                            disabled={subjectsLoading}
+                          >
+                            <option value="">Select Subject</option>
+                            {subjects.map((subject) => (
+                              <option key={subject.id} value={subject.id}>
+                                {subject.name} ({subject.code})
+                              </option>
+                            ))}
+                          </select>
+                        </div>
+                      )}
+
+                      <div className="form-group">
+                        <label>
+                          Question <span className="required">*</span>
+                        </label>
+                        <textarea
+                          value={questionForm.question}
+                          onChange={(e) => updateQuestionForm(index, { question: e.target.value })}
+                          rows={4}
+                          required
+                          placeholder="Enter the question text"
+                        />
+                      </div>
+
+                      <div className="form-row">
+                        <div className="form-group">
+                          <label>Option A</label>
+                          <input
+                            type="text"
+                            value={questionForm.option_a}
+                            onChange={(e) => updateQuestionForm(index, { option_a: e.target.value })}
+                          />
+                        </div>
+                        <div className="form-group">
+                          <label>Option B</label>
+                          <input
+                            type="text"
+                            value={questionForm.option_b}
+                            onChange={(e) => updateQuestionForm(index, { option_b: e.target.value })}
+                          />
+                        </div>
+                      </div>
+
+                      <div className="form-row">
+                        <div className="form-group">
+                          <label>Option C</label>
+                          <input
+                            type="text"
+                            value={questionForm.option_c}
+                            onChange={(e) => updateQuestionForm(index, { option_c: e.target.value })}
+                          />
+                        </div>
+                        <div className="form-group">
+                          <label>Option D</label>
+                          <input
+                            type="text"
+                            value={questionForm.option_d}
+                            onChange={(e) => updateQuestionForm(index, { option_d: e.target.value })}
+                          />
+                        </div>
+                      </div>
+
+                      <div className="form-row">
+                        <div className="form-group">
+                          <label>Option E (Optional)</label>
+                          <input
+                            type="text"
+                            value={questionForm.option_e}
+                            onChange={(e) => updateQuestionForm(index, { option_e: e.target.value })}
+                          />
+                        </div>
+                        <div className="form-group">
+                          <label>
+                            Correct Answer <span className="required">*</span>
+                          </label>
+                          <select
+                            value={questionForm.correct_answer}
+                            onChange={(e) => updateQuestionForm(index, { correct_answer: e.target.value as 'A' | 'B' | 'C' | 'D' | 'E' })}
+                            required
+                          >
+                            <option value="A">A</option>
+                            <option value="B">B</option>
+                            <option value="C">C</option>
+                            <option value="D">D</option>
+                            <option value="E">E</option>
+                          </select>
+                        </div>
+                      </div>
+
+                      <div className="form-row">
+                        <div className="form-group">
+                          <label>Marks</label>
+                          <input
+                            type="number"
+                            step="0.01"
+                            min="0"
+                            value={questionForm.marks}
+                            onChange={(e) => updateQuestionForm(index, { marks: e.target.value })}
+                          />
+                        </div>
+                        {!selectedQuestion && questionForms.length > 1 && (
+                          <div className="form-group question-remove-wrap">
+                            <label>&nbsp;</label>
+                            <button
+                              type="button"
+                              className="btn-danger"
+                              onClick={() => removeQuestionForm(index)}
+                              disabled={isSavingMultiple}
+                            >
+                              Remove This Question
+                            </button>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              );
+            })}
           </div>
 
           <div className="form-actions">
@@ -506,13 +700,13 @@ const QuestionBankTab = () => {
             <button
               type="submit"
               className="btn-primary"
-              disabled={createMutation.isLoading || updateMutation.isLoading}
+              disabled={isSavingMultiple || updateMutation.isLoading}
             >
-              {createMutation.isLoading || updateMutation.isLoading
+              {isSavingMultiple || updateMutation.isLoading
                 ? 'Saving...'
                 : selectedQuestion
                 ? 'Update Question'
-                : 'Create Question'}
+                : 'Save Questions'}
             </button>
           </div>
         </form>
@@ -555,20 +749,32 @@ const OnlineExamsTab = () => {
   const queryClient = useQueryClient();
   const { showToast } = useToast();
 
-  const { data: sessionsResponse } = useQuery('sessions', () => settingsService.getSessions());
+  const { data: sessionsResponse, isLoading: sessionsLoading } = useQuery(
+    'sessions',
+    () => settingsService.getSessions(),
+    DROPDOWN_QUERY_OPTIONS
+  );
   const sessions = Array.isArray(sessionsResponse?.data) ? sessionsResponse.data : [];
-  const { data: subjectsData } = useQuery('subjects', () => academicsService.getSubjects().then(res => res.data || []));
+  const { data: subjectsData, isLoading: subjectsLoading } = useQuery(
+    'subjects',
+    () => academicsService.getSubjects().then(res => res.data || []),
+    DROPDOWN_QUERY_OPTIONS
+  );
   const subjects = Array.isArray(subjectsData) ? subjectsData : [];
-  const { data: classes = [] } = useQuery('classes', () => academicsService.getClasses().then(res => res.data));
-  const { data: sections = [] } = useQuery(
+  const { data: classes = [], isLoading: classesLoading } = useQuery(
+    'classes',
+    () => academicsService.getClasses().then(res => res.data),
+    DROPDOWN_QUERY_OPTIONS
+  );
+  const { data: sections = [], isLoading: sectionsLoading } = useQuery(
     ['sections', filters.class_id],
     () => academicsService.getSections(filters.class_id ? Number(filters.class_id) : undefined).then(res => res.data),
-    { enabled: !!filters.class_id }
+    { ...DROPDOWN_QUERY_OPTIONS, enabled: !!filters.class_id }
   );
-  const { data: createSections = [] } = useQuery(
+  const { data: createSections = [], isLoading: createSectionsLoading } = useQuery(
     ['create-sections', createFormData.class_id],
     () => academicsService.getSections(createFormData.class_id ? Number(createFormData.class_id) : undefined).then(res => res.data),
-    { enabled: !!createFormData.class_id }
+    { ...DROPDOWN_QUERY_OPTIONS, enabled: !!createFormData.class_id }
   );
 
   const { data: exams = [], isLoading } = useQuery(
@@ -581,11 +787,13 @@ const OnlineExamsTab = () => {
         is_published: filters.is_published ? filters.is_published === 'true' : undefined,
       }),
     {
+      ...DROPDOWN_QUERY_OPTIONS,
       onError: (error: any) => {
         console.error('Error fetching online exams:', error);
       },
     }
   );
+  const isFiltersLoading = sessionsLoading || subjectsLoading || classesLoading || sectionsLoading;
 
   const createMutation = useMutation(onlineExaminationsService.createOnlineExam, {
     onSuccess: () => {
@@ -708,12 +916,13 @@ const OnlineExamsTab = () => {
       </div>
 
       <div className="filters-section" style={{ marginBottom: 'var(--spacing-lg)' }}>
-        <div className="form-row">
+        <div className="form-row online-exam-filters-row">
           <div className="form-group">
             <label>Filter by Session:</label>
             <select
               value={filters.session_id}
               onChange={(e) => setFilters({ ...filters, session_id: e.target.value, class_id: '' })}
+              disabled={sessionsLoading}
             >
               <option value="">All Sessions</option>
               {sessions && Array.isArray(sessions) && sessions.map((session: any) => (
@@ -728,6 +937,7 @@ const OnlineExamsTab = () => {
             <select
               value={filters.subject_id}
               onChange={(e) => setFilters({ ...filters, subject_id: e.target.value })}
+              disabled={subjectsLoading}
             >
               <option value="">All Subjects</option>
               {subjects.map((subject: any) => (
@@ -742,7 +952,7 @@ const OnlineExamsTab = () => {
             <select
               value={filters.class_id}
               onChange={(e) => setFilters({ ...filters, class_id: e.target.value })}
-              disabled={!filters.session_id}
+              disabled={!filters.session_id || classesLoading}
             >
               <option value="">All Classes</option>
               {classes.map((cls: any) => (
@@ -757,6 +967,7 @@ const OnlineExamsTab = () => {
             <select
               value={filters.is_published}
               onChange={(e) => setFilters({ ...filters, is_published: e.target.value })}
+              disabled={isFiltersLoading}
             >
               <option value="">All</option>
               <option value="true">Published</option>
@@ -764,6 +975,7 @@ const OnlineExamsTab = () => {
             </select>
           </div>
         </div>
+        {isFiltersLoading && <small className="online-exam-inline-loader">Loading filter data...</small>}
       </div>
 
       {isLoading ? (
@@ -864,6 +1076,7 @@ const OnlineExamsTab = () => {
               <select
                 value={createFormData.subject_id}
                 onChange={(e) => setCreateFormData({ ...createFormData, subject_id: e.target.value })}
+                disabled={subjectsLoading}
                 required
               >
                 <option value="">Select Subject</option>
@@ -881,6 +1094,7 @@ const OnlineExamsTab = () => {
               <select
                 value={createFormData.session_id}
                 onChange={(e) => setCreateFormData({ ...createFormData, session_id: e.target.value, class_id: '', section_id: '' })}
+                disabled={sessionsLoading}
                 required
               >
                 <option value="">Select Session</option>
@@ -899,7 +1113,7 @@ const OnlineExamsTab = () => {
               <select
                 value={createFormData.class_id}
                 onChange={(e) => setCreateFormData({ ...createFormData, class_id: e.target.value, section_id: '' })}
-                disabled={!createFormData.session_id}
+                disabled={!createFormData.session_id || classesLoading}
               >
                 <option value="">All Classes</option>
                 {classes.map((cls: any) => (
@@ -914,7 +1128,7 @@ const OnlineExamsTab = () => {
               <select
                 value={createFormData.section_id}
                 onChange={(e) => setCreateFormData({ ...createFormData, section_id: e.target.value })}
-                disabled={!createFormData.class_id}
+                disabled={!createFormData.class_id || createSectionsLoading}
               >
                 <option value="">All Sections</option>
                 {createSections.map((sec: any) => (
@@ -925,6 +1139,9 @@ const OnlineExamsTab = () => {
               </select>
             </div>
           </div>
+          {(subjectsLoading || sessionsLoading || classesLoading || createSectionsLoading) && (
+            <small className="online-exam-inline-loader">Loading reference data...</small>
+          )}
 
           <div className="form-row">
             <div className="form-group">

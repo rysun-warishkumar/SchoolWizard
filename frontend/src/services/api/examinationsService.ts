@@ -241,6 +241,11 @@ export const examinationsService = {
         exam_roll_number?: string;
         first_name: string;
         last_name?: string;
+        father_name?: string;
+        mother_name?: string;
+        date_of_birth?: string;
+        class_name?: string;
+        section_name?: string;
         photo?: string;
         subjects: Array<{
           subject_id: number;

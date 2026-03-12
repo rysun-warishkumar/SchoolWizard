@@ -17,6 +17,12 @@
   margin-bottom: var(--spacing-lg);
 }
 
+.homework-inline-loader {
+  display: inline-block;
+  margin-top: var(--spacing-sm);
+  color: #6b7280;
+}
+
 .homework-page .form-row {
   display: flex;
   flex-wrap: wrap;
@@ -38,7 +44,7 @@
   transition: all 0.2s;
 }
 
-.btn-sm {
+.homework-page .btn-sm {
   padding: var(--spacing-xs) var(--spacing-sm);
   font-size: var(--font-size-sm);
   border-radius: var(--border-radius-sm);
@@ -54,12 +60,12 @@
   transform: scale(1.05);
 }
 
-.btn-danger {
+.homework-page .btn-danger {
   background: var(--danger-color);
   color: var(--red);
 }
 
-.btn-danger:hover {
+.homework-page .btn-danger:hover {
   opacity: 0.8;
   transform: scale(1.05);
 }
@@ -123,14 +129,14 @@
 }
 
 /* Table responsive container for horizontal scrolling */
-.table-responsive-container {
+.homework-page .table-responsive-container {
   overflow-x: auto;
   -webkit-overflow-scrolling: touch; /* Smooth scrolling on iOS */
   width: 100%;
   margin-top: var(--spacing-md);
 }
 
-.table-responsive-container table {
+.homework-page .table-responsive-container table {
   width: 100%;
   min-width: fit-content; /* Allow table to be as wide as its content */
   border-collapse: collapse;
@@ -161,7 +167,7 @@
   gap: var(--spacing-sm);
 }
 
-.search-input {
+.homework-page .search-input {
   padding: var(--spacing-sm);
   border: 1px solid var(--gray-300);
   border-radius: var(--border-radius-sm);

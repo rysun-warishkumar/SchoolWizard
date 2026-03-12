@@ -3,6 +3,8 @@ import { isDevelopment } from '../config/env';
 
 // In development, use very lenient limits; in production, use stricter limits
 const isDev = isDevelopment();
+// Default disabled unless explicitly enabled.
+const globalRateLimitEnabled = process.env.API_RATE_LIMIT_ENABLED === 'true';
 
 export const rateLimiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutes
@@ -11,6 +13,7 @@ export const rateLimiter = rateLimit({
   standardHeaders: true,
   legacyHeaders: false,
   skip: (req) => {
+    if (!globalRateLimitEnabled) return true;
     // Skip rate limiting for chat endpoints (they have their own logic)
     return req.path.startsWith('/api/v1/chat');
   },

@@ -682,12 +682,15 @@ export const getExamResults = async (
     ) as any[];
 
     const [students] = await db.execute(
-      `SELECT s.*, es.roll_number as exam_roll_number
+      `SELECT s.*, es.roll_number as exam_roll_number,
+              c.name as class_name, sec.name as section_name
        FROM students s
        LEFT JOIN exam_students es ON s.id = es.student_id AND es.exam_id = ? AND es.school_id = ?
+       LEFT JOIN classes c ON s.class_id = c.id AND c.school_id = ?
+       LEFT JOIN sections sec ON s.section_id = sec.id AND sec.school_id = ?
        WHERE s.school_id = ? AND s.class_id = ? AND s.section_id = ? AND s.session_id = ? AND s.is_active = 1
        ORDER BY s.admission_no ASC`,
-      [exam_id, schoolId, schoolId, class_id, section_id, session_id]
+      [exam_id, schoolId, schoolId, schoolId, schoolId, class_id, section_id, session_id]
     ) as any[];
 
     const [allMarks] = await db.execute(
@@ -784,6 +787,11 @@ export const getExamResults = async (
         exam_roll_number: student.exam_roll_number,
         first_name: student.first_name,
         last_name: student.last_name,
+        father_name: student.father_name,
+        mother_name: student.mother_name,
+        date_of_birth: student.date_of_birth,
+        class_name: student.class_name,
+        section_name: student.section_name,
         photo: student.photo,
         subjects: subjectResults,
         total_marks_obtained: Math.round(totalMarksObtained * 100) / 100, // Round to 2 decimal places

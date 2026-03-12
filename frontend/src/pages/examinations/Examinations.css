@@ -232,7 +232,7 @@
   align-items: start;
 }
 
-.modal-content{
+.examinations-page .modal-content{
   max-width: 1500px !important;
 }
 
@@ -360,7 +360,7 @@
 }
 
 /* Empty State */
-.empty-state {
+.examinations-page .empty-state {
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -371,19 +371,19 @@
   color: var(--gray-600);
 }
 
-.empty-state-icon {
+.examinations-page .empty-state-icon {
   font-size: 3em;
   margin-bottom: var(--spacing-md);
   opacity: 0.5;
 }
 
-.empty-state p {
+.examinations-page .empty-state p {
   margin: var(--spacing-sm) 0 var(--spacing-md) 0;
   font-size: var(--font-size-base);
   color: var(--gray-600);
 }
 
-.empty-state .btn-sm {
+.examinations-page .empty-state .btn-sm {
   margin-top: var(--spacing-sm);
 }
 
@@ -539,22 +539,50 @@
 }
 
 /* Action buttons */
-.action-buttons {
+.examinations-page .action-buttons {
   display: flex;
   gap: var(--spacing-sm);
 }
 
-.btn-sm {
+.examinations-page .btn-sm {
   padding: var(--spacing-xs) var(--spacing-sm);
   font-size: var(--font-size-sm);
   border-radius: var(--border-radius-sm);
 }
 
 /* Filters section */
-.filters-section {
+.examinations-page .filters-section {
   background: var(--gray-50);
   padding: var(--spacing-md);
   border-radius: var(--border-radius);
+}
+
+/* Scoped horizontal filter layouts for Examinations tabs */
+.exams-filters-row,
+.exam-result-filters-row,
+.exam-print-admit-filters-row,
+.exam-print-marksheet-filters-row {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
+  gap: var(--spacing-md);
+  align-items: flex-end;
+  width: 100%;
+}
+
+.exams-filters-row .form-group,
+.exam-result-filters-row .form-group,
+.exam-print-admit-filters-row .form-group,
+.exam-print-marksheet-filters-row .form-group {
+  min-width: 0;
+}
+
+@media (max-width: 768px) {
+  .exams-filters-row,
+  .exam-result-filters-row,
+  .exam-print-admit-filters-row,
+  .exam-print-marksheet-filters-row {
+    grid-template-columns: 1fr;
+  }
 }
 
 /* Exam Results */
@@ -657,12 +685,12 @@
   font-weight: 600;
 }
 
-.action-buttons {
+.examinations-page .action-buttons {
   display: flex;
   gap: var(--spacing-xs);
 }
 
-.action-buttons button {
+.examinations-page .action-buttons button {
   padding: var(--spacing-xs) var(--spacing-sm);
   border: none;
   border-radius: var(--border-radius-sm);
@@ -672,7 +700,7 @@
   
 }
 
-.action-buttons button:hover {
+.examinations-page .action-buttons button:hover {
   opacity: 0.8;
   transform: scale(1.05);
 }

@@ -15,6 +15,7 @@ interface EmailOptions {
   subject: string;
   html: string;
   text?: string;
+  schoolId?: number;
 }
 
 let transporter: nodemailer.Transporter | null = null;
@@ -73,22 +74,41 @@ export const initializeEmailService = async (config: EmailConfig): Promise<void>
 /**
  * Get email configuration from database
  */
-export const getEmailConfig = async (): Promise<EmailConfig | null> => {
+export const getEmailConfig = async (schoolId?: number): Promise<EmailConfig | null> => {
   try {
     const { getDatabase } = await import('../config/database.js');
     const db = getDatabase();
 
-    const [settings] = await db.execute(
-      `SELECT 
-        smtp_host,
-        smtp_port,
-        smtp_secure,
-        smtp_username,
-        smtp_password
-      FROM email_settings 
-      WHERE is_enabled = 1 
-      LIMIT 1`
+    let query = `SELECT 
+      smtp_host,
+      smtp_port,
+      smtp_secure,
+      smtp_username,
+      smtp_password
+    FROM email_settings 
+    WHERE is_enabled = 1`;
+    const params: any[] = [];
+
+    const [schoolIdColumn] = await db.execute(
+      `SELECT 1 FROM information_schema.columns
+       WHERE table_schema = DATABASE()
+       AND table_name = 'email_settings'
+       AND column_name = 'school_id'
+       LIMIT 1`
     ) as any[];
+    const hasSchoolIdColumn = Array.isArray(schoolIdColumn) && schoolIdColumn.length > 0;
+
+    if (hasSchoolIdColumn) {
+      if (schoolId != null) {
+        query += ` AND (school_id = ? OR school_id IS NULL) ORDER BY (school_id = ?) DESC`;
+        params.push(schoolId, schoolId);
+      } else {
+        query += ' AND school_id IS NULL';
+      }
+    }
+
+    query += ' LIMIT 1';
+    const [settings] = await db.execute(query, params) as any[];
 
     if (settings.length === 0) {
       return null;
@@ -136,7 +156,7 @@ export const sendEmail = async (options: EmailOptions): Promise<void> => {
 
     // Get email config if not initialized
     if (!transporter || !emailConfig) {
-      const config = await getEmailConfig();
+      const config = await getEmailConfig(options.schoolId);
       if (!config) {
         throw new Error('Email service is not configured. Please configure SMTP settings in System Settings.');
       }
@@ -154,12 +174,28 @@ export const sendEmail = async (options: EmailOptions): Promise<void> => {
     try {
       const { getDatabase } = await import('../config/database.js');
       const db = getDatabase();
-      const [settings] = await db.execute(
-        `SELECT from_email, from_name 
-         FROM email_settings 
-         WHERE is_enabled = 1 
+      const [schoolIdColumn] = await db.execute(
+        `SELECT 1 FROM information_schema.columns
+         WHERE table_schema = DATABASE()
+         AND table_name = 'email_settings'
+         AND column_name = 'school_id'
          LIMIT 1`
       ) as any[];
+      const hasSchoolIdColumn = Array.isArray(schoolIdColumn) && schoolIdColumn.length > 0;
+
+      let fromQuery = `SELECT from_email, from_name FROM email_settings WHERE is_enabled = 1`;
+      const fromParams: any[] = [];
+      if (hasSchoolIdColumn) {
+        if (options.schoolId != null) {
+          fromQuery += ' AND (school_id = ? OR school_id IS NULL) ORDER BY (school_id = ?) DESC';
+          fromParams.push(options.schoolId, options.schoolId);
+        } else {
+          fromQuery += ' AND school_id IS NULL';
+        }
+      }
+      fromQuery += ' LIMIT 1';
+
+      const [settings] = await db.execute(fromQuery, fromParams) as any[];
 
       if (settings.length > 0 && settings[0].from_email) {
         fromEmail = settings[0].from_email;
@@ -210,8 +246,9 @@ export const sendStudentAdmissionEmail = async (
   studentEmail: string,
   studentName: string,
   admissionNo: string,
-  password: string,
-  loginUrl?: string
+  setupUrl: string,
+  loginUrl?: string,
+  schoolId?: number
 ): Promise<void> => {
   const emailHtml = `
     <!DOCTYPE html>
@@ -294,7 +331,7 @@ export const sendStudentAdmissionEmail = async (
           <p>Congratulations! Your admission has been confirmed. Your student account has been created successfully.</p>
           
           <div class="credentials">
-            <h3>Your Login Credentials:</h3>
+            <h3>Your Account Details:</h3>
             <div class="credentials-item">
               <span class="credentials-label">Admission Number:</span>
               <div class="credentials-value">${admissionNo}</div>
@@ -303,10 +340,10 @@ export const sendStudentAdmissionEmail = async (
               <span class="credentials-label">Email:</span>
               <div class="credentials-value">${studentEmail}</div>
             </div>
-            <div class="credentials-item">
-              <span class="credentials-label">Password:</span>
-              <div class="credentials-value">${password}</div>
-            </div>
+          </div>
+
+          <div style="text-align: center;">
+            <a href="${setupUrl}" class="button">Set Your Password</a>
           </div>
 
           ${loginUrl ? `
@@ -316,7 +353,7 @@ export const sendStudentAdmissionEmail = async (
           ` : ''}
 
           <div class="warning">
-            <strong>Important:</strong> Please change your password after your first login for security purposes.
+            <strong>Important:</strong> Use the secure password setup link above before your first login.
           </div>
 
           <p>If you have any questions or need assistance, please contact the school administration.</p>
@@ -333,8 +370,9 @@ export const sendStudentAdmissionEmail = async (
 
   await sendEmail({
     to: studentEmail,
-    subject: 'Welcome to Make My School - Your Login Credentials',
+    subject: 'Welcome to Make My School - Set Your Password',
     html: emailHtml,
+    schoolId,
   });
 };
 
@@ -348,7 +386,7 @@ export const sendSchoolOnboardingEmail = async (data: {
   trialStartsAt: Date;
   trialEndsAt: Date;
   adminEmail: string;
-  adminPassword: string;
+  setupUrl: string;
   loginUrl?: string;
   contactEmail?: string;
   contactPhone?: string;
@@ -447,22 +485,22 @@ export const sendSchoolOnboardingEmail = async (data: {
           </div>
 
           <div class="credentials">
-            <h3>Your Admin Login Credentials:</h3>
+            <h3>Your Admin Account:</h3>
             <div class="credentials-item">
               <span class="credentials-label">Email:</span>
               <div class="credentials-value">${data.adminEmail}</div>
             </div>
-            <div class="credentials-item">
-              <span class="credentials-label">Password:</span>
-              <div class="credentials-value">${data.adminPassword}</div>
-            </div>
+          </div>
+
+          <div style="text-align: center;">
+            <a href="${data.setupUrl}" class="button">Set Admin Password</a>
           </div>
 
           <div style="text-align: center;">
             <a href="${loginUrl}" class="button">Go to Login Page</a>
           </div>
 
-          <p>Please change your password after first login for security reasons.</p>
+          <p>Please use the secure setup link above to create your password.</p>
 
           <p>If you need assistance, contact us at <a href="mailto:${contactEmail}">${contactEmail}</a>${contactPhone ? ' or call ' + contactPhone : ''}.</p>
 
@@ -483,15 +521,65 @@ export const sendSchoolOnboardingEmail = async (data: {
   });
 };
 
+// Password reset email helper
+export const sendPasswordResetEmail = async (
+  to: string,
+  userName: string,
+  resetUrl: string
+): Promise<void> => {
+  const emailHtml = `
+    <!DOCTYPE html>
+    <html>
+    <head>
+      <meta charset="utf-8">
+      <style>
+        body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
+        .container { max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #ddd; border-radius: 5px; }
+        .header { background-color: #2563eb; color: white; padding: 20px; text-align: center; border-radius: 5px 5px 0 0; }
+        .content { padding: 20px; background-color: #f9fafb; }
+        .button { display: inline-block; padding: 12px 24px; background-color: #2563eb; color: white; text-decoration: none; border-radius: 5px; margin: 20px 0; }
+        .footer { text-align: center; padding: 20px; color: #666; font-size: 12px; }
+      </style>
+    </head>
+    <body>
+      <div class="container">
+        <div class="header">
+          <h1>Password Reset Request</h1>
+        </div>
+        <div class="content">
+          <p>Dear ${userName || 'User'},</p>
+          <p>We received a request to reset your password. Click the button below to choose a new password. This link will expire in one hour.</p>
+          <div style="text-align: center;">
+            <a href="${resetUrl}" class="button">Reset Password</a>
+          </div>
+          <p>If you did not request a password reset, please ignore this email or contact support if you have concerns.</p>
+          <p>Best regards,<br>SchoolWizard Support Team</p>
+        </div>
+        <div class="footer">
+          <p>This is an automated email. Please do not reply.</p>
+        </div>
+      </div>
+    </body>
+    </html>
+  `;
+
+  await sendEmail({
+    to,
+    subject: 'SchoolWizard Password Reset',
+    html: emailHtml,
+  });
+};
+
 export const sendParentAccountEmail = async (data: {
   to: string;
   parentName: string;
   studentName: string;
   studentAdmissionNo: string;
   email: string;
-  password: string;
+  setupUrl: string;
   isPasswordReset?: boolean;
   loginUrl?: string;
+  schoolId?: number;
 }): Promise<void> => {  // Use default login URL if not provided
   // Note: FRONTEND_URL is not in env schema, so we use a default
   const loginUrl = data.loginUrl || 'http://localhost:5173/login';
@@ -588,15 +676,15 @@ export const sendParentAccountEmail = async (data: {
           }</p>
           
           <div class="credentials">
-            <h3>Your Login Credentials:</h3>
+            <h3>Your Parent Account:</h3>
             <div class="credentials-item">
               <span class="credentials-label">Email:</span>
               <div class="credentials-value">${data.email}</div>
             </div>
-            <div class="credentials-item">
-              <span class="credentials-label">Password:</span>
-              <div class="credentials-value">${data.password}</div>
-            </div>
+          </div>
+
+          <div style="text-align: center;">
+            <a href="${data.setupUrl}" class="button">Set Password</a>
           </div>
 
           <div style="text-align: center;">
@@ -617,7 +705,7 @@ export const sendParentAccountEmail = async (data: {
           </div>
 
           <div class="warning">
-            <strong>Important:</strong> Please change your password after your first login for security purposes.
+            <strong>Important:</strong> Use the secure setup link above before your first login.
           </div>
 
           <p>If you have multiple children, you can switch between them using the child selector in the portal.</p>
@@ -637,9 +725,10 @@ export const sendParentAccountEmail = async (data: {
   await sendEmail({
     to: data.to,
     subject: data.isPasswordReset
-      ? 'Make My School - Parent Account Password Reset'
-      : 'Welcome to Make My School Parent Portal - Your Login Credentials',
+      ? 'Make My School - Parent Account Password Setup'
+      : 'Welcome to Make My School Parent Portal - Set Password',
     html: emailHtml,
+    schoolId: data.schoolId,
   });
 };
 

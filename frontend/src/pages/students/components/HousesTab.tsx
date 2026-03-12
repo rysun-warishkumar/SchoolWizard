@@ -1,9 +1,14 @@
 import React, { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from 'react-query';
 import { studentsService } from '../../../services/api/studentsService';
+import Modal from '../../../components/common/Modal';
 
 const HousesTab: React.FC = () => {
-  const { data: housesData } = useQuery('student-houses', () => studentsService.getHouses());
+  const { data: housesData, isLoading } = useQuery(
+    'student-houses',
+    () => studentsService.getHouses(),
+    { staleTime: 0, refetchOnMount: 'always' }
+  );
   const queryClient = useQueryClient();
   const [showModal, setShowModal] = useState(false);
   const [formData, setFormData] = useState({ name: '' });
@@ -24,6 +29,7 @@ const HousesTab: React.FC = () => {
       </div>
 
       <div className="table-container">
+        {isLoading && <div className="loading" style={{ padding: '12px' }}>Loading houses...</div>}
         <table>
           <thead>
             <tr>
@@ -41,26 +47,23 @@ const HousesTab: React.FC = () => {
       </div>
 
       {showModal && (
-        <div className="modal-overlay" onClick={() => setShowModal(false)}>
-          <div className="modal-content" onClick={(e) => e.stopPropagation()}>
-            <h2>Add House</h2>
-            <form onSubmit={(e) => { e.preventDefault(); createMutation.mutate(formData); }}>
-              <div className="form-group">
-                <label>House Name</label>
-                <input
-                  type="text"
-                  value={formData.name}
-                  onChange={(e) => setFormData({ name: e.target.value })}
-                  required
-                />
-              </div>
-              <div className="modal-actions">
-                <button type="button" onClick={() => setShowModal(false)}>Cancel</button>
-                <button type="submit" className="btn-primary">Create</button>
-              </div>
-            </form>
-          </div>
-        </div>
+        <Modal isOpen={showModal} onClose={() => setShowModal(false)} title="Add House" size="small">
+          <form onSubmit={(e) => { e.preventDefault(); createMutation.mutate(formData); }}>
+            <div className="form-group">
+              <label>House Name</label>
+              <input
+                type="text"
+                value={formData.name}
+                onChange={(e) => setFormData({ name: e.target.value })}
+                required
+              />
+            </div>
+            <div className="modal-actions">
+              <button type="button" onClick={() => setShowModal(false)}>Cancel</button>
+              <button type="submit" className="btn-primary">Create</button>
+            </div>
+          </form>
+        </Modal>
       )}
     </div>
   );

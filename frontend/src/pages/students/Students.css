@@ -137,6 +137,11 @@
   box-shadow: var(--shadow-md);
 }
 
+/* Keep all small modals compact within Students module */
+.students-page .modal-content.modal-small {
+  max-width: 420px !important;
+}
+
 .student-admission-form {
   max-width: 900px;
 }
@@ -201,13 +206,13 @@
   margin-bottom: var(--spacing-lg);
 }
 
-.form-group {
+.students-page .form-group {
   display: flex;
   flex-direction: column;
   gap: var(--spacing-xs);
 }
 
-.form-group label {
+.students-page .form-group label {
   font-weight: 500;
   color: var(--gray-700);
   font-size: var(--font-size-sm);
@@ -222,14 +227,14 @@
 .student-admission-form .form-group input[type="url"],
 .student-admission-form .form-group select,
 .student-admission-form .form-group textarea,
-.form-group input[type="text"],
-.form-group input[type="email"],
-.form-group input[type="tel"],
-.form-group input[type="date"],
-.form-group input[type="number"],
-.form-group input[type="url"],
-.form-group select,
-.form-group textarea {
+.students-page .form-group input[type="text"],
+.students-page .form-group input[type="email"],
+.students-page .form-group input[type="tel"],
+.students-page .form-group input[type="date"],
+.students-page .form-group input[type="number"],
+.students-page .form-group input[type="url"],
+.students-page .form-group select,
+.students-page .form-group textarea {
   width: 100%;
   padding: var(--spacing-sm) var(--spacing-md);
   border: 1px solid var(--gray-300) !important;
@@ -242,20 +247,20 @@
   box-sizing: border-box;
 }
 
-.form-group input:focus,
-.form-group select:focus,
-.form-group textarea:focus {
+.students-page .form-group input:focus,
+.students-page .form-group select:focus,
+.students-page .form-group textarea:focus {
   outline: none;
   border-color: var(--primary-color);
   box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1);
 }
 
-.form-group textarea {
+.students-page .form-group textarea {
   resize: vertical;
   min-height: 80px;
 }
 
-.form-group small {
+.students-page .form-group small {
   font-size: var(--font-size-xs);
   color: var(--gray-500);
   margin-top: var(--spacing-xs);
@@ -265,7 +270,7 @@
   text-transform: capitalize;
 }
 
-.action-buttons {
+.students-page .action-buttons {
   display: flex !important;
   gap: var(--spacing-xs);
   align-items: center;
@@ -273,7 +278,7 @@
   visibility: visible !important;
 }
 
-.action-buttons button {
+.students-page .action-buttons button {
   opacity: 1 !important;
   visibility: visible !important;
   display: inline-block !important;
@@ -292,7 +297,7 @@
   max-width: fit-content !important;
 }
 
-.btn-view {
+.students-page .btn-view {
   background: var(--info-color);
   color: var(--white);
   padding: var(--spacing-sm) var(--spacing-md);
@@ -308,14 +313,14 @@
   box-shadow: 0 2px 4px rgba(59, 130, 246, 0.2);
 }
 
-.btn-view:hover:not(:disabled) {
+.students-page .btn-view:hover:not(:disabled) {
   background: var(--primary-dark);
   color: var(--white) !important;
   transform: translateY(-1px);
   box-shadow: 0 4px 8px rgba(59, 130, 246, 0.3);
 }
 
-.btn-edit {
+.students-page .btn-edit {
   background: var(--warning-color);
   color: var(--white);
   padding: var(--spacing-sm) var(--spacing-md);
@@ -331,14 +336,14 @@
   box-shadow: 0 2px 4px rgba(245, 158, 11, 0.2);
 }
 
-.btn-edit:hover:not(:disabled) {
+.students-page .btn-edit:hover:not(:disabled) {
   background: #d97706;
   color: var(--white) !important;
   transform: translateY(-1px);
   box-shadow: 0 4px 8px rgba(245, 158, 11, 0.3);
 }
 
-.btn-delete {
+.students-page .btn-delete {
   background: var(--error-color);
   color: var(--white);
   padding: var(--spacing-sm) var(--spacing-md);
@@ -354,14 +359,14 @@
   box-shadow: 0 2px 4px rgba(239, 68, 68, 0.2);
 }
 
-.btn-delete:hover:not(:disabled) {
+.students-page .btn-delete:hover:not(:disabled) {
   background: #dc2626;
   color: var(--white) !important;
   transform: translateY(-1px);
   box-shadow: 0 4px 8px rgba(239, 68, 68, 0.3);
 }
 
-.status-badge.pending {
+.students-page .status-badge.pending {
   background: #fef3c7;
   color: #92400e;
 }
@@ -373,16 +378,16 @@
   margin-top: var(--spacing-xs);
 }
 
-.form-group input.error,
-.form-group select.error,
-.form-group textarea.error {
+.students-page .form-group input.error,
+.students-page .form-group select.error,
+.students-page .form-group textarea.error {
   border-color: #dc2626;
   background-color: #fef2f2;
 }
 
-.form-group input.error:focus,
-.form-group select.error:focus,
-.form-group textarea.error:focus {
+.students-page .form-group input.error:focus,
+.students-page .form-group select.error:focus,
+.students-page .form-group textarea.error:focus {
   outline-color: #dc2626;
   border-color: #dc2626;
 }
@@ -566,7 +571,7 @@
   margin-right: var(--spacing-xs);
 }
 
-.status-badge-large {
+.students-page .status-badge-large {
   padding: var(--spacing-xs) var(--spacing-md);
   border-radius: var(--radius-full);
   font-size: var(--font-size-sm);
@@ -575,12 +580,12 @@
   letter-spacing: 0.5px;
 }
 
-.status-badge-large.active {
+.students-page .status-badge-large.active {
   background-color: var(--green);
   color: var(--white);
 }
 
-.status-badge-large.inactive {
+.students-page .status-badge-large.inactive {
   background-color: var(--red);
   color: var(--white);
 }
@@ -650,7 +655,7 @@
   text-transform: capitalize;
 }
 
-.btn-secondary {
+.students-page .btn-secondary {
   background: var(--gray-200);
   color: var(--gray-700);
   padding: var(--spacing-sm) var(--spacing-lg);
@@ -661,7 +666,7 @@
   transition: all var(--transition-base);
 }
 
-.btn-secondary:hover {
+.students-page .btn-secondary:hover {
   background: var(--gray-300);
 }
 

@@ -142,7 +142,7 @@ const Login = () => {
                   />
                   <span>Remember me</span>
                 </label>
-                <a href="#" className="login-forgot" onClick={(e) => e.preventDefault()}>Forgot Password?</a>
+                <Link to="/forgot-password" className="login-forgot">Forgot Password?</Link>
               </div>
               <button type="submit" className="login-button" disabled={loading}>
                 {loading ? 'Signing in...' : 'Sign in'}

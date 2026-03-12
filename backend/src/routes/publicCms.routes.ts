@@ -14,16 +14,26 @@ import {
 } from '../controllers/frontCms.controller';
 import { getFrontCMSSettings } from '../controllers/settings.controller';
 import { getDatabase } from '../config/database';
+import { resolvePublicSchoolContext } from '../middleware/publicSchoolContext';
 
 const router = express.Router();
 
 // Middleware to check if CMS is enabled
-const checkCMSEnabled = async (_req: express.Request, res: express.Response, next: express.NextFunction) => {
+const checkCMSEnabled = async (req: express.Request, res: express.Response, next: express.NextFunction) => {
   try {
+    const schoolId = Number(req.query.school_id ?? (req as any).user?.schoolId);
+    if (!schoolId) {
+      return res.status(400).json({
+        success: false,
+        message: 'Valid school_id is required for public school content',
+      });
+    }
+
     const db = getDatabase();
-    // Check front_cms_settings table for is_enabled
+    // Check front_cms_settings table for is_enabled in the requested school
     const [settings] = await db.execute(
-      'SELECT is_enabled FROM front_cms_settings ORDER BY id DESC LIMIT 1'
+      'SELECT is_enabled FROM front_cms_settings WHERE school_id = ? ORDER BY id DESC LIMIT 1',
+      [schoolId]
     ) as any[];
 
     // If no settings exist, allow access (default to enabled)
@@ -38,9 +48,12 @@ const checkCMSEnabled = async (_req: express.Request, res: express.Response, nex
     
     next();
   } catch (error) {
-    // On error, allow access (fail open for public routes)
+    // Fail closed for public CMS if validation/check fails.
     console.error('Error checking CMS enabled status:', error);
-    next();
+    return res.status(503).json({
+      success: false,
+      message: 'Public CMS is temporarily unavailable',
+    });
   }
 };
 
@@ -48,25 +61,26 @@ const checkCMSEnabled = async (_req: express.Request, res: express.Response, nex
 // All routes check if CMS is enabled
 
 // CMS Settings (public)
-router.get('/settings', checkCMSEnabled, getFrontCMSSettings);
+router.get('/settings', resolvePublicSchoolContext, checkCMSEnabled, getFrontCMSSettings);
 
 // Menus (public)
-router.get('/menus', checkCMSEnabled, getMenus);
-router.get('/menus/:menuId/items', checkCMSEnabled, getMenuItems);
+router.get('/menus', resolvePublicSchoolContext, checkCMSEnabled, getMenus);
+router.get('/menus/:menuId/items', resolvePublicSchoolContext, checkCMSEnabled, getMenuItems);
 
 // Pages (public)
-router.get('/pages', checkCMSEnabled, getPages);
-router.get('/pages/:id', checkCMSEnabled, getPageById);
+router.get('/pages', resolvePublicSchoolContext, checkCMSEnabled, getPages);
+router.get('/pages/:id', resolvePublicSchoolContext, checkCMSEnabled, getPageById);
 
 // Get page by slug (public)
-router.get('/pages/slug/:slug', checkCMSEnabled, async (req, res, next) => {
+router.get('/pages/slug/:slug', resolvePublicSchoolContext, checkCMSEnabled, async (req, res, next) => {
   try {
     const { slug } = req.params;
+    const schoolId = Number(req.query.school_id ?? (req as any).user?.schoolId);
     const db = getDatabase();
 
     const [pages] = await db.execute(
-      'SELECT * FROM front_cms_pages WHERE slug = ?',
-      [slug]
+      'SELECT * FROM front_cms_pages WHERE school_id = ? AND slug = ?',
+      [schoolId, slug]
     ) as any[];
 
     if (pages.length === 0) {
@@ -86,18 +100,19 @@ router.get('/pages/slug/:slug', checkCMSEnabled, async (req, res, next) => {
 });
 
 // Events (public)
-router.get('/events', checkCMSEnabled, getEvents);
-router.get('/events/:id', checkCMSEnabled, getEventById);
+router.get('/events', resolvePublicSchoolContext, checkCMSEnabled, getEvents);
+router.get('/events/:id', resolvePublicSchoolContext, checkCMSEnabled, getEventById);
 
 // Get event by slug (public)
-router.get('/events/slug/:slug', checkCMSEnabled, async (req, res, next) => {
+router.get('/events/slug/:slug', resolvePublicSchoolContext, checkCMSEnabled, async (req, res, next) => {
   try {
     const { slug } = req.params;
+    const schoolId = Number(req.query.school_id ?? (req as any).user?.schoolId);
     const db = getDatabase();
 
     const [events] = await db.execute(
-      'SELECT * FROM front_cms_events WHERE slug = ?',
-      [slug]
+      'SELECT * FROM front_cms_events WHERE school_id = ? AND slug = ?',
+      [schoolId, slug]
     ) as any[];
 
     if (events.length === 0) {
@@ -117,18 +132,19 @@ router.get('/events/slug/:slug', checkCMSEnabled, async (req, res, next) => {
 });
 
 // Galleries (public)
-router.get('/galleries', checkCMSEnabled, getGalleries);
-router.get('/galleries/:id', checkCMSEnabled, getGalleryById);
+router.get('/galleries', resolvePublicSchoolContext, checkCMSEnabled, getGalleries);
+router.get('/galleries/:id', resolvePublicSchoolContext, checkCMSEnabled, getGalleryById);
 
 // Get gallery by slug (public)
-router.get('/galleries/slug/:slug', checkCMSEnabled, async (req, res, next) => {
+router.get('/galleries/slug/:slug', resolvePublicSchoolContext, checkCMSEnabled, async (req, res, next) => {
   try {
     const { slug } = req.params;
+    const schoolId = Number(req.query.school_id ?? (req as any).user?.schoolId);
     const db = getDatabase();
 
     const [galleries] = await db.execute(
-      'SELECT * FROM front_cms_galleries WHERE slug = ?',
-      [slug]
+      'SELECT * FROM front_cms_galleries WHERE school_id = ? AND slug = ?',
+      [schoolId, slug]
     ) as any[];
 
     if (galleries.length === 0) {
@@ -140,8 +156,8 @@ router.get('/galleries/slug/:slug', checkCMSEnabled, async (req, res, next) => {
 
     // Get gallery images
     const [images] = await db.execute(
-      'SELECT * FROM front_cms_gallery_images WHERE gallery_id = ? ORDER BY sort_order ASC',
-      [galleries[0].id]
+      'SELECT * FROM front_cms_gallery_images WHERE school_id = ? AND gallery_id = ? ORDER BY sort_order ASC',
+      [schoolId, galleries[0].id]
     ) as any[];
 
     galleries[0].images = images;
@@ -156,18 +172,19 @@ router.get('/galleries/slug/:slug', checkCMSEnabled, async (req, res, next) => {
 });
 
 // News (public)
-router.get('/news', checkCMSEnabled, getNews);
-router.get('/news/:id', checkCMSEnabled, getNewsById);
+router.get('/news', resolvePublicSchoolContext, checkCMSEnabled, getNews);
+router.get('/news/:id', resolvePublicSchoolContext, checkCMSEnabled, getNewsById);
 
 // Get news by slug (public)
-router.get('/news/slug/:slug', checkCMSEnabled, async (req, res, next) => {
+router.get('/news/slug/:slug', resolvePublicSchoolContext, checkCMSEnabled, async (req, res, next) => {
   try {
     const { slug } = req.params;
+    const schoolId = Number(req.query.school_id ?? (req as any).user?.schoolId);
     const db = getDatabase();
 
     const [news] = await db.execute(
-      'SELECT * FROM front_cms_news WHERE slug = ?',
-      [slug]
+      'SELECT * FROM front_cms_news WHERE school_id = ? AND slug = ?',
+      [schoolId, slug]
     ) as any[];
 
     if (news.length === 0) {
@@ -187,7 +204,7 @@ router.get('/news/slug/:slug', checkCMSEnabled, async (req, res, next) => {
 });
 
 // Banner Images (public)
-router.get('/banner-images', checkCMSEnabled, getBannerImages);
+router.get('/banner-images', resolvePublicSchoolContext, checkCMSEnabled, getBannerImages);
 
 export default router;
 

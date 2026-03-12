@@ -305,7 +305,7 @@ const StudentAttendanceTab = () => {
       </div>
 
       <div className="attendance-filters">
-        <div className="form-row">
+        <div className="form-row attendance-student-filters">
           <div className="form-group">
             <label>Class</label>
             <select
@@ -682,7 +682,7 @@ const ApproveLeaveTab = () => {
       </div>
 
       <div className="leave-requests-filters">
-        <div className="form-row">
+        <div className="form-row attendance-approve-leave-filters">
           <div className="form-group">
             <label>Class</label>
             <select

@@ -14,6 +14,12 @@ import { useToast } from '../../contexts/ToastContext';
 import Modal from '../../components/common/Modal';
 import './Library.css';
 
+const DROPDOWN_QUERY_OPTIONS = {
+  staleTime: 0,
+  refetchOnMount: 'always' as const,
+  refetchOnWindowFocus: false,
+};
+
 type TabType = 'book-list' | 'issue-return' | 'add-student' | 'add-staff';
 
 const Library = () => {
@@ -1181,7 +1187,7 @@ const AddStudentTab = () => {
   const { showToast } = useToast();
   const queryClient = useQueryClient();
 
-  const { data: studentsData } = useQuery(
+  const { data: studentsData, isLoading: studentsLoading } = useQuery(
     ['students', classFilter, sectionFilter, searchTerm],
     () =>
       studentsService.getStudents({
@@ -1189,18 +1195,21 @@ const AddStudentTab = () => {
         section_id: sectionFilter ? Number(sectionFilter) : undefined,
         search: searchTerm || undefined,
         page: 1,
-        limit: 1000,
+        limit: 100,
       }),
     {
       enabled: !!classFilter && !!sectionFilter,
+      ...DROPDOWN_QUERY_OPTIONS,
     }
   );
 
-  const { data: classes = [] } = useQuery('classes', () =>
-    academicsService.getClasses().then((res) => res.data)
+  const { data: classes = [], isLoading: classesLoading } = useQuery('classes', () =>
+    academicsService.getClasses().then((res) => res.data),
+    DROPDOWN_QUERY_OPTIONS
   );
-  const { data: sections = [] } = useQuery('sections', () =>
-    academicsService.getSections().then((res) => res.data)
+  const { data: sections = [], isLoading: sectionsLoading } = useQuery('sections', () =>
+    academicsService.getSections().then((res) => res.data),
+    DROPDOWN_QUERY_OPTIONS
   );
 
   const { data: libraryMembers = [], refetch: refetchStudentMembers } = useQuery(
@@ -1248,8 +1257,8 @@ const AddStudentTab = () => {
 
   return (
     <div className="library-tab-content">
-      <div className="filters-section">
-        <div className="form-row">
+      <div className="filters-section library-member-filters-section">
+        <div className="form-row library-member-filters-row">
           <div className="form-group">
             <label>Class</label>
             <select
@@ -1258,6 +1267,7 @@ const AddStudentTab = () => {
                 setClassFilter(e.target.value);
                 setSectionFilter('');
               }}
+              disabled={classesLoading}
             >
               <option value="">Select Class</option>
               {classes.map((cls: any) => (
@@ -1272,7 +1282,7 @@ const AddStudentTab = () => {
             <select
               value={sectionFilter}
               onChange={(e) => setSectionFilter(e.target.value)}
-              disabled={!classFilter}
+              disabled={!classFilter || sectionsLoading}
             >
               <option value="">Select Section</option>
               {sections.map((sec: any) => (
@@ -1285,6 +1295,7 @@ const AddStudentTab = () => {
           <div className="form-group">
             <label>Search</label>
             <input
+              className="search-input"
               type="text"
               placeholder="Search students..."
               value={searchTerm}
@@ -1292,10 +1303,15 @@ const AddStudentTab = () => {
             />
           </div>
         </div>
+        {(classesLoading || sectionsLoading) && (
+          <small className="library-inline-loader">Loading filter data...</small>
+        )}
       </div>
 
       {classFilter && sectionFilter ? (
-        students.length > 0 ? (
+        studentsLoading ? (
+          <div className="loading">Loading students...</div>
+        ) : students.length > 0 ? (
           <table className="data-table">
             <thead>
               <tr>
@@ -1366,17 +1382,18 @@ const AddStaffTab = () => {
   const { showToast } = useToast();
   const queryClient = useQueryClient();
 
-  const { data: staffData } = useQuery(
+  const { data: staffData, isLoading: staffLoading } = useQuery(
     ['staff', roleFilter, searchTerm],
     () =>
       hrService.getStaff({
         search: searchTerm || undefined,
         is_active: true,
         page: 1,
-        limit: 1000,
+        limit: 100,
       }).then((res) => res.data),
     {
       enabled: true,
+      ...DROPDOWN_QUERY_OPTIONS,
     }
   );
 
@@ -1429,8 +1446,8 @@ const AddStaffTab = () => {
 
   return (
     <div className="library-tab-content">
-      <div className="filters-section">
-        <div className="form-row">
+      <div className="filters-section library-member-filters-section">
+        <div className="form-row library-staff-filters-row">
           <div className="form-group">
             <label>Role</label>
             <select
@@ -1457,7 +1474,9 @@ const AddStaffTab = () => {
         </div>
       </div>
 
-      {staff.length > 0 ? (
+      {staffLoading ? (
+        <div className="loading">Loading staff...</div>
+      ) : staff.length > 0 ? (
         <table className="data-table">
           <thead>
             <tr>

@@ -1,12 +1,17 @@
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
+import { ReactNode } from 'react';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
 import { ToastProvider } from './contexts/ToastContext';
 import { QueryClient, QueryClientProvider } from 'react-query';
 import Layout from './layouts/Layout';
 import Login from './pages/auth/Login';
+import ForgotPassword from './pages/auth/ForgotPassword';
+import ResetPassword from './pages/auth/ResetPassword';
 import RegisterSchool from './pages/auth/RegisterSchool';
 import TrialExpired from './pages/auth/TrialExpired';
 import PlatformAdmin from './pages/platform/PlatformAdmin';
+import HostingGuide from './pages/platform/HostingGuide';
+import PlatformSchoolDetails from './pages/platform/PlatformSchoolDetails';
 import Dashboard from './pages/Dashboard';
 import Users from './pages/users/Users';
 import Roles from './pages/roles/Roles';
@@ -106,6 +111,19 @@ function DefaultRedirect() {
   return <Navigate to={isPlatformAdmin ? '/platform' : '/dashboard'} replace />;
 }
 
+function PlatformAdminOnlyRoute({ children }: { children: ReactNode }) {
+  const { user } = useAuth();
+  const isPlatformAdmin =
+    user?.isPlatformAdmin === true ||
+    (user?.role === 'superadmin' && (user?.schoolId == null || user?.schoolId === undefined));
+
+  if (!isPlatformAdmin) {
+    return <Navigate to="/dashboard" replace />;
+  }
+
+  return children;
+}
+
 function App() {
   return (
     <QueryClientProvider client={queryClient}>
@@ -114,6 +132,8 @@ function App() {
           <Router>
             <Routes>
               <Route path="/login" element={<Login />} />
+              <Route path="/forgot-password" element={<ForgotPassword />} />
+              <Route path="/reset-password" element={<ResetPassword />} />
               <Route path="/register-school" element={<RegisterSchool />} />
               <Route path="/trial-expired" element={<TrialExpired />} />
               {/* Root: platform admin -> /platform, others -> /dashboard, not logged in -> /login */}
@@ -159,6 +179,15 @@ function App() {
                         <Route path="/admission-inquiries" element={<AdmissionInquiries />} />
                         <Route path="/contact-messages" element={<ContactMessages />} />
                         <Route path="/platform" element={<PlatformAdmin />} />
+                        <Route path="/platform/schools/:id" element={<PlatformSchoolDetails />} />
+                        <Route
+                          path="/hosting-guide"
+                          element={
+                            <PlatformAdminOnlyRoute>
+                              <HostingGuide />
+                            </PlatformAdminOnlyRoute>
+                          }
+                        />
                         {/* More routes will be added as modules are developed */}
                       </Routes>
                     </Layout>

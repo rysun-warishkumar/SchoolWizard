@@ -1,6 +1,23 @@
 import axios from 'axios';
 
-const PUBLIC_API_BASE_URL = (import.meta as any).env?.VITE_API_BASE_URL?.replace('/api/v1', '/api/public') || 'http://localhost:5000/api/public';
+const PUBLIC_API_BASE_URL =
+  (import.meta as any).env?.VITE_API_BASE_URL?.replace('/api/v1', '/api/v1/public/cms') ||
+  'http://localhost:5000/api/v1/public/cms';
+
+const getSchoolIdFromContext = (): number | undefined => {
+  const urlParams = new URLSearchParams(window.location.search);
+  const schoolIdRaw = urlParams.get('school_id') || (import.meta as any).env?.VITE_PUBLIC_SCHOOL_ID;
+  const schoolId = Number(schoolIdRaw);
+  if (!schoolIdRaw || Number.isNaN(schoolId) || schoolId < 1) {
+    return undefined;
+  }
+  return schoolId;
+};
+
+const withSchoolContext = (params?: Record<string, unknown>) => {
+  const schoolId = getSchoolIdFromContext();
+  return schoolId ? { ...(params || {}), school_id: schoolId } : params;
+};
 
 // Public API client (no authentication required)
 const publicApiClient = axios.create({
@@ -141,88 +158,88 @@ export interface PublicCMSSettings {
 export const publicCmsService = {
   // ========== Settings ==========
   async getSettings(): Promise<PublicCMSSettings> {
-    const response = await publicApiClient.get('/cms/settings');
+    const response = await publicApiClient.get('/settings', { params: withSchoolContext() });
     return response.data.data;
   },
 
   // ========== Menus ==========
   async getMenus(): Promise<PublicMenu[]> {
-    const response = await publicApiClient.get('/cms/menus');
+    const response = await publicApiClient.get('/menus', { params: withSchoolContext() });
     return response.data.data;
   },
 
   async getMenuItems(menuId: number): Promise<PublicMenuItem[]> {
-    const response = await publicApiClient.get(`/cms/menus/${menuId}/items`);
+    const response = await publicApiClient.get(`/menus/${menuId}/items`, { params: withSchoolContext() });
     return response.data.data;
   },
 
   // ========== Pages ==========
   async getPages(params?: { page_type?: string; search?: string }): Promise<PublicPage[]> {
-    const response = await publicApiClient.get('/cms/pages', { params });
+    const response = await publicApiClient.get('/pages', { params: withSchoolContext(params) });
     return response.data.data;
   },
 
   async getPageBySlug(slug: string): Promise<PublicPage> {
-    const response = await publicApiClient.get(`/cms/pages/slug/${slug}`);
+    const response = await publicApiClient.get(`/pages/slug/${slug}`, { params: withSchoolContext() });
     return response.data.data;
   },
 
   async getPageById(id: number): Promise<PublicPage> {
-    const response = await publicApiClient.get(`/cms/pages/${id}`);
+    const response = await publicApiClient.get(`/pages/${id}`, { params: withSchoolContext() });
     return response.data.data;
   },
 
   // ========== Events ==========
   async getEvents(params?: { search?: string; start_date?: string; end_date?: string }): Promise<PublicEvent[]> {
-    const response = await publicApiClient.get('/cms/events', { params });
+    const response = await publicApiClient.get('/events', { params: withSchoolContext(params) });
     return response.data.data;
   },
 
   async getEventBySlug(slug: string): Promise<PublicEvent> {
-    const response = await publicApiClient.get(`/cms/events/slug/${slug}`);
+    const response = await publicApiClient.get(`/events/slug/${slug}`, { params: withSchoolContext() });
     return response.data.data;
   },
 
   async getEventById(id: number): Promise<PublicEvent> {
-    const response = await publicApiClient.get(`/cms/events/${id}`);
+    const response = await publicApiClient.get(`/events/${id}`, { params: withSchoolContext() });
     return response.data.data;
   },
 
   // ========== Galleries ==========
   async getGalleries(params?: { search?: string }): Promise<PublicGallery[]> {
-    const response = await publicApiClient.get('/cms/galleries', { params });
+    const response = await publicApiClient.get('/galleries', { params: withSchoolContext(params) });
     return response.data.data;
   },
 
   async getGalleryBySlug(slug: string): Promise<PublicGallery> {
-    const response = await publicApiClient.get(`/cms/galleries/slug/${slug}`);
+    const response = await publicApiClient.get(`/galleries/slug/${slug}`, { params: withSchoolContext() });
     return response.data.data;
   },
 
   async getGalleryById(id: number): Promise<PublicGallery> {
-    const response = await publicApiClient.get(`/cms/galleries/${id}`);
+    const response = await publicApiClient.get(`/galleries/${id}`, { params: withSchoolContext() });
     return response.data.data;
   },
 
   // ========== News ==========
   async getNews(params?: { search?: string; start_date?: string; end_date?: string }): Promise<PublicNews[]> {
-    const response = await publicApiClient.get('/cms/news', { params });
+    const response = await publicApiClient.get('/news', { params: withSchoolContext(params) });
     return response.data.data;
   },
 
   async getNewsBySlug(slug: string): Promise<PublicNews> {
-    const response = await publicApiClient.get(`/cms/news/slug/${slug}`);
+    const response = await publicApiClient.get(`/news/slug/${slug}`, { params: withSchoolContext() });
     return response.data.data;
   },
 
   async getNewsById(id: number): Promise<PublicNews> {
-    const response = await publicApiClient.get(`/cms/news/${id}`);
+    const response = await publicApiClient.get(`/news/${id}`, { params: withSchoolContext() });
     return response.data.data;
   },
 
   // ========== Banner Images ==========
   async getBannerImages(): Promise<PublicBannerImage[]> {
-    const response = await publicApiClient.get('/cms/banner-images');
+    const response = await publicApiClient.get('/banner-images', { params: withSchoolContext() });
     return response.data.data;
   },
 };

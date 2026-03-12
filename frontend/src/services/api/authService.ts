@@ -42,7 +42,11 @@ export const authService = {
   },
 
   async logout(): Promise<void> {
-    await apiClient.post('/auth/logout');
+    try {
+      await apiClient.post('/auth/logout');
+    } catch {
+      // Keep client logout resilient if server is unreachable.
+    }
   },
 
   async getCurrentUser(): Promise<User> {
@@ -54,7 +58,20 @@ export const authService = {
   },
 
   async refreshToken(refreshToken: string): Promise<{ token: string }> {
-    const response = await apiClient.post<{ token: string }>('/auth/refresh', { refreshToken });
+    const response = await apiClient.post<{ token?: string; message?: string }>('/auth/refresh', { refreshToken });
+    if (!response.data?.token) {
+      throw new Error(response.data?.message || 'Token refresh is not available');
+    }
+    return { token: response.data.token };
+  },
+
+  async forgotPassword(data: { email: string }): Promise<{ success: boolean; message: string }> {
+    const response = await apiClient.post<{ success: boolean; message: string }>('/auth/forgot-password', data);
+    return response.data;
+  },
+
+  async resetPassword(data: { token: string; newPassword: string; confirmPassword: string }): Promise<{ success: boolean; message: string }> {
+    const response = await apiClient.post<{ success: boolean; message: string }>('/auth/reset-password', data);
     return response.data;
   },
 };

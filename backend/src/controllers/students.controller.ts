@@ -1,9 +1,11 @@
 import { Request, Response, NextFunction } from 'express';
 import { AuthRequest, getSchoolId } from '../middleware/auth';
 import bcrypt from 'bcryptjs';
+import crypto from 'crypto';
 import { getDatabase } from '../config/database';
 import { createError } from '../middleware/errorHandler';
 import { sendStudentAdmissionEmail } from '../utils/emailService';
+import { createPasswordSetupLink } from '../utils/passwordSetupService';
 import multer from 'multer';
 import path from 'path';
 import fs from 'fs';
@@ -298,7 +300,7 @@ export const getStudents = async (
       }
     }
 
-    query += ' ORDER BY s.admission_no ASC';
+    query += ' ORDER BY s.created_at DESC, s.id DESC';
 
     // Get total count first (before pagination)
     // IMPORTANT: Count query must match the main query exactly (same WHERE conditions)
@@ -706,10 +708,8 @@ export const createStudent = async (
     let plainPassword = '';
     if (email && email.trim() !== '') {
       try {
-        // Generate default password: StudentFirstName@CurrentYear (e.g. Ravi@2026)
-        const studentFirst = (first_name.trim().split(/\s+/)[0] || first_name.trim()).replace(/[^a-zA-Z0-9]/g, '') || 'Student';
-        const year = new Date().getFullYear();
-        plainPassword = `${studentFirst}@${year}`;
+        // Generate a strong temporary password. User sets final password via secure setup link email.
+        plainPassword = crypto.randomBytes(12).toString('base64url');
         const hashedPassword = await bcrypt.hash(plainPassword, 10);
 
         // Get student role
@@ -855,13 +855,18 @@ export const createStudent = async (
         throw createError('Failed to create student record. Please try again.', 500);
       }
 
-      const [newStudents] = await db.execute(
-        'SELECT * FROM students WHERE id = ?',
-        [result.insertId]
-      ) as any[];
-
-      if (!newStudents || newStudents.length === 0) {
-        throw createError('Student was created but could not be retrieved. Please refresh the list.', 500);
+      let createdStudent: any = null;
+      try {
+        const [newStudents] = await db.execute(
+          'SELECT * FROM students WHERE id = ?',
+          [result.insertId]
+        ) as any[];
+        if (newStudents && newStudents.length > 0) {
+          createdStudent = newStudents[0];
+        }
+      } catch (fetchError) {
+        // Do not fail the whole request if retrieval fails after successful insert.
+        console.error('Student created but fetch-after-insert failed:', fetchError);
       }
 
       const studentName = `${first_name} ${last_name || ''}`.trim();
@@ -870,43 +875,72 @@ export const createStudent = async (
       res.status(201).json({
         success: true,
         message: `Student "${studentName}" has been admitted successfully with Admission No: ${admission_no}`,
-        data: newStudents[0],
+        data: createdStudent || {
+          id: result.insertId,
+          school_id: schoolId,
+          admission_no: admission_no.trim(),
+          roll_no: roll_no ? roll_no.trim() : null,
+          user_id: userId,
+          class_id: Number(class_id),
+          section_id: Number(section_id),
+          session_id: Number(currentSessionId),
+          first_name: first_name.trim(),
+          last_name: last_name ? last_name.trim() : null,
+          gender,
+          date_of_birth,
+          category_id: category_id ? Number(category_id) : null,
+          student_mobile: student_mobile ? student_mobile.trim() : null,
+          email: email ? email.trim() : null,
+          admission_date,
+          photo: photoPath,
+          house_id: house_id ? Number(house_id) : null,
+          is_active: 1,
+        },
       });
 
       // Send email to student if email is provided (async, non-blocking)
-      if (email && email.trim() !== '' && plainPassword) {
-        // Don't await - send in background
-        sendStudentAdmissionEmail(
-          email.trim(),
-          studentName,
-          admission_no,
-          plainPassword,
-          process.env.FRONTEND_URL || 'http://localhost:5173/login'
-        ).catch((emailError: any) => {
-          // Log email error but don't fail the student creation
-          console.error('Failed to send admission email:', emailError);
-        });
+      if (email && email.trim() !== '' && plainPassword && userId) {
+        // Don't await - send in background. Wrap in Promise.resolve to avoid sync throw propagation.
+        Promise.resolve()
+          .then(() => createPasswordSetupLink(userId))
+          .then((setupUrl) =>
+            sendStudentAdmissionEmail(
+              email.trim(),
+              studentName,
+              admission_no,
+              setupUrl,
+              process.env.FRONTEND_URL || 'http://localhost:5173/login',
+              schoolId
+            )
+          )
+          .catch((emailError: any) => {
+            // Log email error but don't fail the student creation
+            console.error('Failed to send admission email:', emailError);
+          });
       }
 
       // Process parent emails and create/get parent accounts only if admin opted in (async, non-blocking)
       // Normalize for multipart form: body fields can be string "true"/"false"
       const shouldCreateParentAccounts = create_parent_account !== false && create_parent_account !== 'false' && create_parent_account !== 0 && create_parent_account !== '0';
       if (shouldCreateParentAccounts && (father_email || mother_email || guardian_email)) {
-        import('../services/parentUserService').then(({ processParentEmails }) => {
-          return processParentEmails(
-            father_email || null,
-            father_name || null,
-            mother_email || null,
-            mother_name || null,
-            guardian_email || null,
-            guardian_name || null,
-            studentName,
-            admission_no
-          );
-        }).catch((parentError: any) => {
-          // Log parent account creation error but don't fail the student creation
-          console.error('Failed to create parent accounts:', parentError);
-        });
+        Promise.resolve()
+          .then(() => import('../services/parentUserService'))
+          .then(({ processParentEmails }) => processParentEmails(
+              father_email || null,
+              father_name || null,
+              mother_email || null,
+              mother_name || null,
+              guardian_email || null,
+              guardian_name || null,
+              studentName,
+              admission_no,
+              schoolId
+            )
+          )
+          .catch((parentError: any) => {
+            // Log parent account creation error but don't fail the student creation
+            console.error('Failed to create parent accounts:', parentError);
+          });
       }
       
       return;
@@ -936,6 +970,8 @@ export const createStudent = async (
         throw createError('Invalid field in request. Please contact support.', 500);
       } else if (dbError.code === 'ER_DATA_TOO_LONG') {
         throw createError('One or more fields exceed the maximum allowed length. Please check your input.', 400);
+      } else if (dbError.code === 'ER_NET_PACKET_TOO_LARGE') {
+        throw createError('Uploaded data is too large. Please use a smaller image file and try again.', 413);
       } else if (dbError.code === 'ER_TRUNCATED_WRONG_VALUE_FOR_FIELD') {
         throw createError('Invalid data format for one or more fields. Please check your input.', 400);
       } else {
@@ -1069,7 +1105,8 @@ export const updateStudent = async (
           student.guardian_email || null,
           student.guardian_name || null,
           studentName,
-          student.admission_no
+          student.admission_no,
+          schoolId
         );
       } catch (parentError: any) {
         // Log parent account creation error but don't fail the update
@@ -1115,7 +1152,7 @@ export const deleteStudent = async (
     // Delete associated user account if exists
     if (userId) {
       try {
-        await db.execute('DELETE FROM users WHERE id = ?', [userId]);
+        await db.execute('DELETE FROM users WHERE id = ? AND school_id = ?', [userId, schoolId]);
       } catch (userError: any) {
         // Log error but don't fail if user deletion fails (user might already be deleted)
         console.error('Error deleting user account:', userError);
@@ -1132,18 +1169,20 @@ export const deleteStudent = async (
 };
 
 export const disableStudent = async (
-  req: Request,
+  req: AuthRequest,
   res: Response,
   next: NextFunction
 ): Promise<void> => {
   try {
+    const schoolId = getSchoolId(req);
+    if (schoolId == null) return next(createError('School context required', 403));
     const { id } = req.params;
     const { disable_reason_id } = req.body;
     const db = getDatabase();
 
     await db.execute(
-      'UPDATE students SET is_active = 0, disable_reason_id = ?, disable_date = CURDATE(), updated_at = NOW() WHERE id = ?',
-      [disable_reason_id || null, id]
+      'UPDATE students SET is_active = 0, disable_reason_id = ?, disable_date = CURDATE(), updated_at = NOW() WHERE id = ? AND school_id = ?',
+      [disable_reason_id || null, id, schoolId]
     );
 
     res.json({
@@ -1157,17 +1196,22 @@ export const disableStudent = async (
 
 // ========== Online Admissions ==========
 export const getOnlineAdmissions = async (
-  req: Request,
+  req: AuthRequest,
   res: Response,
   next: NextFunction
 ): Promise<void> => {
   try {
+    const schoolId = getSchoolId(req);
+    if (schoolId == null) return next(createError('School context required', 403));
     const db = getDatabase();
     const [admissions] = await db.execute(
       `SELECT oa.*, c.name as class_name
        FROM online_admissions oa
-       LEFT JOIN classes c ON oa.class_id = c.id
+       LEFT JOIN classes c ON oa.class_id = c.id AND c.school_id = ?
+       WHERE oa.school_id = ?
        ORDER BY oa.created_at DESC`
+      ,
+      [schoolId, schoolId]
     ) as any[];
 
     res.json({
@@ -1180,18 +1224,20 @@ export const getOnlineAdmissions = async (
 };
 
 export const approveOnlineAdmission = async (
-  req: Request,
+  req: AuthRequest,
   res: Response,
   next: NextFunction
 ): Promise<void> => {
   try {
+    const schoolId = getSchoolId(req);
+    if (schoolId == null) return next(createError('School context required', 403));
     const { id } = req.params;
     const db = getDatabase();
 
     // Get online admission
     const [admissions] = await db.execute(
-      'SELECT * FROM online_admissions WHERE id = ?',
-      [id]
+      'SELECT * FROM online_admissions WHERE id = ? AND school_id = ?',
+      [id, schoolId]
     ) as any[];
 
     if (admissions.length === 0) {
@@ -1204,12 +1250,13 @@ export const approveOnlineAdmission = async (
     // This is a simplified version - you may want to add more fields
     const [result] = await db.execute(
       `INSERT INTO students (
-        admission_no, class_id, first_name, last_name, gender, date_of_birth,
+        school_id, admission_no, class_id, first_name, last_name, gender, date_of_birth,
         email, student_mobile, admission_date, father_name, father_phone,
         mother_name, mother_phone, guardian_name, guardian_phone, current_address,
         is_active, created_at
       ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, CURDATE(), ?, ?, ?, ?, ?, ?, ?, 1, NOW())`,
       [
+        schoolId,
         admission.admission_no || `OA${id}`,
         admission.class_id,
         admission.first_name,
@@ -1230,8 +1277,8 @@ export const approveOnlineAdmission = async (
 
     // Update online admission status
     await db.execute(
-      'UPDATE online_admissions SET status = ?, updated_at = NOW() WHERE id = ?',
-      ['approved', id]
+      'UPDATE online_admissions SET status = ?, updated_at = NOW() WHERE id = ? AND school_id = ?',
+      ['approved', id, schoolId]
     );
 
     res.json({
@@ -1245,17 +1292,19 @@ export const approveOnlineAdmission = async (
 };
 
 export const rejectOnlineAdmission = async (
-  req: Request,
+  req: AuthRequest,
   res: Response,
   next: NextFunction
 ): Promise<void> => {
   try {
+    const schoolId = getSchoolId(req);
+    if (schoolId == null) return next(createError('School context required', 403));
     const { id } = req.params;
     const db = getDatabase();
 
     await db.execute(
-      'UPDATE online_admissions SET status = ?, updated_at = NOW() WHERE id = ?',
-      ['rejected', id]
+      'UPDATE online_admissions SET status = ?, updated_at = NOW() WHERE id = ? AND school_id = ?',
+      ['rejected', id, schoolId]
     );
 
     res.json({
@@ -1274,6 +1323,8 @@ export const bulkImportStudents = async (
   next: NextFunction
 ): Promise<void> => {
   try {
+    const schoolId = getSchoolId(req);
+    if (schoolId == null) return next(createError('School context required', 403));
     const db = getDatabase();
     const { students } = req.body;
 
@@ -1283,7 +1334,8 @@ export const bulkImportStudents = async (
 
     // Get current session (no transaction needed for this)
     const [sessions] = await db.execute(
-      'SELECT id FROM sessions WHERE is_current = 1 LIMIT 1'
+      'SELECT id FROM sessions WHERE school_id = ? AND is_current = 1 LIMIT 1',
+      [schoolId]
     ) as any[];
     const currentSessionId = sessions[0]?.id;
 
@@ -1393,8 +1445,8 @@ export const bulkImportStudents = async (
 
         // Check if admission number already exists
         const [existing] = await studentConnection.execute(
-          'SELECT id FROM students WHERE admission_no = ?',
-          [String(admission_no).trim()]
+          'SELECT id FROM students WHERE admission_no = ? AND school_id = ?',
+          [String(admission_no).trim(), schoolId]
         ) as any[];
 
         if (existing.length > 0) {
@@ -1415,10 +1467,7 @@ export const bulkImportStudents = async (
           const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
           if (emailRegex.test(emailStr)) {
             try {
-              // Generate default password: StudentFirstName@CurrentYear (e.g. Ravi@2026)
-              const studentFirst = (String(first_name).trim().split(/\s+/)[0] || String(first_name).trim()).replace(/[^a-zA-Z0-9]/g, '') || 'Student';
-              const year = new Date().getFullYear();
-              const plainPassword = `${studentFirst}@${year}`;
+              const plainPassword = crypto.randomBytes(12).toString('base64url');
               const hashedPassword = await bcrypt.hash(plainPassword, 10);
 
               // Get student role
@@ -1429,8 +1478,8 @@ export const bulkImportStudents = async (
 
               if (roles.length > 0) {
                 const [userResult] = await studentConnection.execute(
-                  'INSERT INTO users (email, password, name, role_id, is_active, created_at) VALUES (?, ?, ?, ?, 1, NOW())',
-                  [emailStr, hashedPassword, `${String(first_name).trim()} ${String(last_name || '').trim()}`.trim(), roles[0].id]
+                  'INSERT INTO users (email, password, name, role_id, school_id, is_active, created_at) VALUES (?, ?, ?, ?, ?, 1, NOW())',
+                  [emailStr, hashedPassword, `${String(first_name).trim()} ${String(last_name || '').trim()}`.trim(), roles[0].id, schoolId]
                 ) as any;
                 studentUserId = userResult.insertId;
               }
@@ -1443,6 +1492,7 @@ export const bulkImportStudents = async (
 
         // Prepare student data
         const studentFields: Record<string, any> = {
+          school_id: schoolId,
           admission_no: String(admission_no).trim(),
           roll_no: roll_no ? String(roll_no).trim() : null,
           user_id: studentUserId,
@@ -1541,7 +1591,8 @@ export const bulkImportStudents = async (
             guardian_email || null,
             guardian_name || null,
             studentName,
-            String(admission_no).trim()
+            String(admission_no).trim(),
+            schoolId
           );
           parentUserIds = parentResult.parentUserIds;
         } catch (parentError: any) {
@@ -1597,11 +1648,13 @@ export const bulkImportStudents = async (
 
 // ========== Promote Students ==========
 export const getStudentsForPromotion = async (
-  req: Request,
+  req: AuthRequest,
   res: Response,
   next: NextFunction
 ): Promise<void> => {
   try {
+    const schoolId = getSchoolId(req);
+    if (schoolId == null) return next(createError('School context required', 403));
     const { class_id, section_id } = req.query;
     const db = getDatabase();
 
@@ -1625,9 +1678,9 @@ export const getStudentsForPromotion = async (
       LEFT JOIN classes c ON s.class_id = c.id
       LEFT JOIN sections sec ON s.section_id = sec.id
       LEFT JOIN sessions sess ON s.session_id = sess.id
-      WHERE s.class_id = ? AND s.section_id = ? AND s.is_active = 1
+      WHERE s.school_id = ? AND s.class_id = ? AND s.section_id = ? AND s.is_active = 1
       ORDER BY s.admission_no ASC`,
-      [class_id, section_id]
+      [schoolId, class_id, section_id]
     ) as any[];
 
     res.json({
@@ -1640,11 +1693,13 @@ export const getStudentsForPromotion = async (
 };
 
 export const promoteStudents = async (
-  req: Request,
+  req: AuthRequest,
   res: Response,
   next: NextFunction
 ): Promise<void> => {
   try {
+    const schoolId = getSchoolId(req);
+    if (schoolId == null) return next(createError('School context required', 403));
     const { promotions, target_session_id, target_class_id, target_section_id } = req.body;
 
     if (!promotions || !Array.isArray(promotions) || promotions.length === 0) {
@@ -1671,8 +1726,8 @@ export const promoteStudents = async (
 
         // Get current student data
         const [students] = await connection.execute(
-          'SELECT * FROM students WHERE id = ?',
-          [student_id]
+          'SELECT * FROM students WHERE id = ? AND school_id = ?',
+          [student_id, schoolId]
         ) as any[];
 
         if (students.length === 0) {
@@ -1704,8 +1759,8 @@ export const promoteStudents = async (
 
         // Update student
         await connection.execute(
-          'UPDATE students SET session_id = ?, class_id = ?, section_id = ?, updated_at = NOW() WHERE id = ?',
-          [newSessionId, newClassId, newSectionId, student_id]
+          'UPDATE students SET session_id = ?, class_id = ?, section_id = ?, updated_at = NOW() WHERE id = ? AND school_id = ?',
+          [newSessionId, newClassId, newSectionId, student_id, schoolId]
         );
       }
 

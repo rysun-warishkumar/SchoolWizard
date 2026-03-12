@@ -133,7 +133,7 @@
   color: var(--error-color);
 }
 
-.modal-overlay {
+.student-leave-page .modal-overlay {
   position: fixed;
   top: 0;
   left: 0;
@@ -146,7 +146,7 @@
   z-index: 1000;
 }
 
-.modal-content {
+.student-leave-page .modal-content {
   background: white;
   border-radius: var(--radius-lg);
   padding: var(--spacing-xl);
@@ -156,20 +156,20 @@
   overflow-y: auto;
 }
 
-.modal-header {
+.student-leave-page .modal-header {
   display: flex;
   justify-content: space-between;
   align-items: center;
   margin-bottom: var(--spacing-lg);
 }
 
-.modal-header h2 {
+.student-leave-page .modal-header h2 {
   margin: 0;
   font-size: var(--font-size-xl);
   color: var(--gray-900);
 }
 
-.modal-close {
+.student-leave-page .modal-close {
   background: none;
   border: none;
   font-size: 2rem;

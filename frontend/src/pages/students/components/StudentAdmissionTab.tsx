@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useQuery, useMutation, useQueryClient } from 'react-query';
 import { studentsService } from '../../../services/api/studentsService';
 import { settingsService } from '../../../services/api/settingsService';
@@ -7,9 +7,16 @@ import { useToast } from '../../../contexts/ToastContext';
 interface StudentAdmissionTabProps {
   classes: any[];
   sections: any[];
+  isReferenceLoading?: boolean;
+  onAdmissionSuccess?: (mode: 'save' | 'save_add_new') => void;
 }
 
-const StudentAdmissionTab: React.FC<StudentAdmissionTabProps> = ({ classes, sections }) => {
+const StudentAdmissionTab: React.FC<StudentAdmissionTabProps> = ({
+  classes,
+  sections,
+  isReferenceLoading = false,
+  onAdmissionSuccess,
+}) => {
   const [formData, setFormData] = useState({
     admission_no: '',
     roll_no: '',
@@ -36,15 +43,22 @@ const StudentAdmissionTab: React.FC<StudentAdmissionTabProps> = ({ classes, sect
     create_parent_account: true,
   });
   const [photoPreview, setPhotoPreview] = useState<string>('');
+  const [photoFile, setPhotoFile] = useState<File | null>(null);
 
   const [error, setError] = useState<string | null>(null);
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
+  const [submitMode, setSubmitMode] = useState<'save' | 'save_add_new'>('save');
+  const submitModeRef = useRef<'save' | 'save_add_new'>('save');
 
   const queryClient = useQueryClient();
   const { showToast } = useToast();
 
   // Fetch sessions and auto-select current session
-  const { data: sessionsResponse } = useQuery('sessions', () => settingsService.getSessions());
+  const { data: sessionsResponse, isLoading: sessionsLoading } = useQuery(
+    'sessions',
+    () => settingsService.getSessions(),
+    { staleTime: 0, refetchOnMount: 'always' }
+  );
   const sessionsData = sessionsResponse?.data || [];
 
   useEffect(() => {
@@ -166,7 +180,12 @@ const StudentAdmissionTab: React.FC<StudentAdmissionTabProps> = ({ classes, sect
     return true;
   };
 
-  const createMutation = useMutation(studentsService.createStudent, {
+  const createMutation = useMutation((payload: any) => {
+    if (payload instanceof FormData) {
+      return studentsService.createStudentWithPhoto(payload);
+    }
+    return studentsService.createStudent(payload);
+  }, {
     onSuccess: (response) => {
       queryClient.invalidateQueries('students');
       setError(null);
@@ -204,6 +223,14 @@ const StudentAdmissionTab: React.FC<StudentAdmissionTabProps> = ({ classes, sect
         create_parent_account: true,
       });
       setPhotoPreview('');
+      setPhotoFile(null);
+
+      if (submitModeRef.current === 'save') {
+        onAdmissionSuccess?.('save');
+      } else {
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+        onAdmissionSuccess?.('save_add_new');
+      }
     },
     onError: (err: any) => {
       // Extract error message from response
@@ -235,14 +262,28 @@ const StudentAdmissionTab: React.FC<StudentAdmissionTabProps> = ({ classes, sect
       return;
     }
 
-    createMutation.mutate({
+    const payload = {
       ...formData,
       class_id: Number(formData.class_id),
       section_id: Number(formData.section_id),
       session_id: Number(formData.session_id),
       gender: formData.gender as 'male' | 'female' | 'other',
       create_parent_account: formData.create_parent_account,
-    });
+    };
+
+    if (photoFile) {
+      const multipart = new FormData();
+      Object.entries(payload).forEach(([key, value]) => {
+        if (key === 'photo') return;
+        if (value === undefined || value === null || value === '') return;
+        multipart.append(key, String(value));
+      });
+      multipart.append('photo', photoFile);
+      createMutation.mutate(multipart as any);
+      return;
+    }
+
+    createMutation.mutate(payload as any);
   };
 
   return (
@@ -315,6 +356,7 @@ const StudentAdmissionTab: React.FC<StudentAdmissionTabProps> = ({ classes, sect
                   }
                 }}
                 className={fieldErrors.session_id ? 'error' : ''}
+                disabled={sessionsLoading}
                 required
               >
                 <option value="">Select Session</option>
@@ -339,6 +381,7 @@ const StudentAdmissionTab: React.FC<StudentAdmissionTabProps> = ({ classes, sect
                   }
                 }}
                 className={fieldErrors.class_id ? 'error' : ''}
+                disabled={isReferenceLoading}
                 required
               >
                 <option value="">Select Class</option>
@@ -363,6 +406,7 @@ const StudentAdmissionTab: React.FC<StudentAdmissionTabProps> = ({ classes, sect
                   }
                 }}
                 className={fieldErrors.section_id ? 'error' : ''}
+                disabled={isReferenceLoading}
                 required
               >
                 <option value="">Select Section</option>
@@ -370,6 +414,9 @@ const StudentAdmissionTab: React.FC<StudentAdmissionTabProps> = ({ classes, sect
                   <option key={s.id} value={s.id}>{s.name}</option>
                 ))}
               </select>
+              {isReferenceLoading && (
+                <small style={{ color: '#6b7280' }}>Loading class and section data...</small>
+              )}
               {fieldErrors.section_id && (
                 <span className="field-error">{fieldErrors.section_id}</span>
               )}
@@ -513,17 +560,10 @@ const StudentAdmissionTab: React.FC<StudentAdmissionTabProps> = ({ classes, sect
                       showToast('Please select a valid image file', 'error');
                       return;
                     }
-                    // Convert to base64
-                    const reader = new FileReader();
-                    reader.onloadend = () => {
-                      const base64String = reader.result as string;
-                      setFormData({ ...formData, photo: base64String });
-                      setPhotoPreview(base64String);
-                    };
-                    reader.onerror = () => {
-                      showToast('Error reading image file', 'error');
-                    };
-                    reader.readAsDataURL(file);
+                    setPhotoFile(file);
+                    const objectUrl = URL.createObjectURL(file);
+                    setPhotoPreview(objectUrl);
+                    setFormData({ ...formData, photo: file.name });
                   }
                 }}
               />
@@ -544,6 +584,7 @@ const StudentAdmissionTab: React.FC<StudentAdmissionTabProps> = ({ classes, sect
                     type="button"
                     onClick={() => {
                       setPhotoPreview('');
+                      setPhotoFile(null);
                       setFormData({ ...formData, photo: '' });
                     }}
                     style={{
@@ -736,8 +777,29 @@ const StudentAdmissionTab: React.FC<StudentAdmissionTabProps> = ({ classes, sect
         </div>
 
         <div className="form-actions">
-          <button type="submit" className="btn-primary" disabled={createMutation.isLoading}>
-            {createMutation.isLoading ? 'Saving...' : 'Save Student'}
+          <button
+            type="submit"
+            className="btn-primary"
+            disabled={createMutation.isLoading}
+            onClick={() => {
+              submitModeRef.current = 'save';
+              setSubmitMode('save');
+            }}
+          >
+            {createMutation.isLoading && submitMode === 'save' ? 'Saving...' : 'Save Student'}
+          </button>
+          <button
+            type="submit"
+            className="btn-secondary"
+            disabled={createMutation.isLoading}
+            onClick={() => {
+              submitModeRef.current = 'save_add_new';
+              setSubmitMode('save_add_new');
+            }}
+          >
+            {createMutation.isLoading && submitMode === 'save_add_new'
+              ? 'Saving...'
+              : 'Save & Add New Students'}
           </button>
           {createMutation.isLoading && (
             <span style={{ marginLeft: 'var(--spacing-md)', color: 'var(--gray-600)' }}>

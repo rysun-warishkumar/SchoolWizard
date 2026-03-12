@@ -150,28 +150,40 @@
   margin-bottom: var(--spacing-xl);
 }
 
-/* Attendance by Date Filters - Aligned layout */
-.attendance-by-date-filters {
+/* Force horizontal filter layout only in Attendance module */
+.attendance-student-filters,
+.attendance-by-date-filters,
+.attendance-approve-leave-filters {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
   gap: var(--spacing-md);
   align-items: flex-end;
+  width: 100%;
 }
 
-.attendance-by-date-filters .form-group {
+.attendance-student-filters .form-group,
+.attendance-by-date-filters .form-group,
+.attendance-approve-leave-filters .form-group {
   display: flex;
   flex-direction: column;
   gap: var(--spacing-xs);
+  min-width: 0;
 }
 
-.attendance-by-date-filters .form-group label {
+.attendance-student-filters .form-group label,
+.attendance-by-date-filters .form-group label,
+.attendance-approve-leave-filters .form-group label {
   font-weight: 500;
   color: var(--gray-700);
   font-size: var(--font-size-sm);
 }
 
+.attendance-student-filters .form-group select,
+.attendance-student-filters .form-group input[type="date"],
 .attendance-by-date-filters .form-group select,
-.attendance-by-date-filters .form-group input[type="date"] {
+.attendance-by-date-filters .form-group input[type="date"],
+.attendance-approve-leave-filters .form-group select,
+.attendance-approve-leave-filters .form-group input[type="date"] {
   width: 100%;
   padding: var(--spacing-sm) var(--spacing-md);
   border: 1px solid var(--gray-300);
@@ -186,6 +198,20 @@
 
 .attendance-by-date-filters .form-group select:focus,
 .attendance-by-date-filters .form-group input[type="date"]:focus {
+  outline: none;
+  border-color: var(--primary-color);
+  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1);
+}
+
+.attendance-student-filters .form-group select:focus,
+.attendance-student-filters .form-group input[type="date"]:focus {
+  outline: none;
+  border-color: var(--primary-color);
+  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1);
+}
+
+.attendance-approve-leave-filters .form-group select:focus,
+.attendance-approve-leave-filters .form-group input[type="date"]:focus {
   outline: none;
   border-color: var(--primary-color);
   box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1);
@@ -220,6 +246,14 @@
   align-items: center;
   justify-content: center;
   min-height: 40px;
+}
+
+@media (max-width: 768px) {
+  .attendance-student-filters,
+  .attendance-by-date-filters,
+  .attendance-approve-leave-filters {
+    grid-template-columns: 1fr;
+  }
 }
 
 .attendance-search-button .btn-primary:hover:not(:disabled) {
@@ -318,7 +352,7 @@
   color: var(--gray-700);
 }
 
-.btn-sm {
+.attendance-page .btn-sm {
   padding: var(--spacing-xs) var(--spacing-sm);
   font-size: var(--font-size-sm);
   border-radius: var(--border-radius);
@@ -327,21 +361,21 @@
   transition: all var(--transition-base);
 }
 
-.btn-success {
+.attendance-page .btn-success {
   background: #28a745;
   color: var(--white);
 }
 
-.btn-success:hover {
+.attendance-page .btn-success:hover {
   background: #218838;
 }
 
-.btn-danger {
+.attendance-page .btn-danger {
   background: #dc3545;
   color: var(--white);
 }
 
-.btn-danger:hover {
+.attendance-page .btn-danger:hover {
   background: #c82333;
 }
 

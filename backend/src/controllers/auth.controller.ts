@@ -1,5 +1,6 @@
 import { Request, Response, NextFunction } from 'express';
 import bcrypt from 'bcryptjs';
+import crypto from 'crypto';
 import jwt from 'jsonwebtoken';
 import { getDatabase } from '../config/database';
 import { createError } from '../middleware/errorHandler';
@@ -304,4 +305,102 @@ export const refreshToken = async (
     next(error);
   }
 };
+
+export const logout = async (
+  req: Request,
+  res: Response,
+  next: NextFunction
+): Promise<void> => {
+  try {
+    // JWT is stateless; client token removal is the source of truth for logout.
+    res.json({ success: true, message: 'Logged out successfully' });
+  } catch (error) {
+    next(error);
+  }
+};
+
+// --------------------------------------------------
+// Forgot / reset password handlers
+// --------------------------------------------------
+
+export const forgotPassword = async (
+  req: Request,
+  res: Response,
+  next: NextFunction
+): Promise<void> => {
+  try {
+    const { email } = req.body;
+    const db = getDatabase();
+
+    // find user by email
+    const [users] = await db.execute(
+      'SELECT id, name FROM users WHERE email = ? AND is_active = 1 LIMIT 1',
+      [email]
+    ) as any[];
+
+    if (users.length === 0) {
+      // send generic success to avoid enumeration
+      res.json({ success: true, message: 'If an account with that email exists, a reset link has been sent.' });
+      return;
+    }
+
+    const user = users[0];
+    const rawToken = crypto.randomBytes(32).toString('hex');
+    const tokenHash = crypto.createHash('sha256').update(rawToken).digest('hex');
+    const expiresAt = new Date(Date.now() + 60 * 60 * 1000); // 1 hour
+
+    // store or update token
+    await db.execute(
+      `REPLACE INTO password_resets (user_id, token, expires_at) VALUES (?, ?, ?)`,
+      [user.id, tokenHash, expiresAt]
+    );
+
+    // send reset email
+    const frontendBase = process.env.FRONTEND_URL || '';
+    const resetUrl = `${frontendBase.replace(/\/$/, '')}/reset-password?token=${rawToken}`;
+    await import('../utils/emailService').then(({ sendPasswordResetEmail }) =>
+      sendPasswordResetEmail(email, user.name || '', resetUrl)
+    );
+
+    res.json({ success: true, message: 'If an account with that email exists, a reset link has been sent.' });
+  } catch (error) {
+    next(error);
+  }
+};
+
+export const resetPassword = async (
+  req: Request,
+  res: Response,
+  next: NextFunction
+): Promise<void> => {
+  try {
+    const { token, newPassword } = req.body;
+    const db = getDatabase();
+    const tokenHash = crypto.createHash('sha256').update(token).digest('hex');
+
+    // look up token
+    const [rows] = await db.execute(
+      'SELECT user_id, expires_at FROM password_resets WHERE token = ? LIMIT 1',
+      [tokenHash]
+    ) as any[];
+    if (rows.length === 0) {
+      throw createError('Invalid or expired reset token', 400);
+    }
+    const rec = rows[0];
+    if (new Date(rec.expires_at) < new Date()) {
+      // expired
+      await db.execute('DELETE FROM password_resets WHERE token = ?', [tokenHash]);
+      throw createError('Invalid or expired reset token', 400);
+    }
+
+    const hashed = await bcrypt.hash(newPassword, 10);
+    await db.execute('UPDATE users SET password = ? WHERE id = ?', [hashed, rec.user_id]);
+    await db.execute('DELETE FROM password_resets WHERE token = ?', [tokenHash]);
+
+    res.json({ success: true, message: 'Password has been reset successfully' });
+  } catch (error) {
+    next(error);
+  }
+};
+
 

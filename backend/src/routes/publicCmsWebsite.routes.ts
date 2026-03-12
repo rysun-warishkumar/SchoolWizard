@@ -1,18 +1,20 @@
 import express from 'express';
 import { getDatabase } from '../config/database';
+import { resolvePublicSchoolContext } from '../middleware/publicSchoolContext';
 
 const router = express.Router();
 
 // Public routes - no authentication required
 
 // Get login display info (school name for login page heading - no auth)
-router.get('/login-display', async (_req, res, _next) => {
+router.get('/login-display', resolvePublicSchoolContext, async (req, res, _next) => {
   try {
     const db = getDatabase();
+    const schoolId = Number((req as any).user?.schoolId);
     try {
       const [rows] = await db.execute(
-        'SELECT setting_value FROM general_settings WHERE setting_key = ?',
-        ['school_name']
+        'SELECT setting_value FROM general_settings WHERE school_id = ? AND setting_key = ? LIMIT 1',
+        [schoolId, 'school_name']
       ) as any[];
       const value = Array.isArray(rows) && rows.length > 0 ? (rows[0]?.setting_value || '') : '';
       const schoolName = (value && String(value).trim()) ? String(value).trim() : 'Make My School';
@@ -30,25 +32,18 @@ router.get('/login-display', async (_req, res, _next) => {
 });
 
 // Get Website Settings (Public) – optionally scoped by school_id (query) for multi-tenant
-router.get('/website-settings', async (req, res, _next) => {
+router.get('/website-settings', resolvePublicSchoolContext, async (req, res, _next) => {
   try {
     const db = getDatabase();
-    const schoolId = req.query.school_id != null ? Number(req.query.school_id) : null;
+    const schoolId = Number((req as any).user?.schoolId);
 
     try {
       let settings: any[];
-      if (schoolId != null && !Number.isNaN(schoolId)) {
-        const [rows] = await db.execute(
-          'SELECT * FROM front_cms_website_settings WHERE school_id = ? LIMIT 1',
-          [schoolId]
-        ) as any[];
-        settings = rows;
-      } else {
-        const [rows] = await db.execute(
-          'SELECT * FROM front_cms_website_settings LIMIT 1'
-        ) as any[];
-        settings = rows;
-      }
+      const [rows] = await db.execute(
+        'SELECT * FROM front_cms_website_settings WHERE school_id = ? LIMIT 1',
+        [schoolId]
+      ) as any[];
+      settings = rows;
 
       if (!settings || (Array.isArray(settings) && settings.length === 0)) {
         return res.json({
@@ -114,25 +109,18 @@ router.get('/website-settings', async (req, res, _next) => {
 });
 
 // Get Active Banners (Public) – optionally scoped by school_id (query) for multi-tenant
-router.get('/banners', async (req, res, _next) => {
+router.get('/banners', resolvePublicSchoolContext, async (req, res, _next) => {
   try {
     const db = getDatabase();
-    const schoolId = req.query.school_id != null ? Number(req.query.school_id) : null;
+    const schoolId = Number((req as any).user?.schoolId);
 
     try {
       let banners: any[];
-      if (schoolId != null && !Number.isNaN(schoolId)) {
-        const [rows] = await db.execute(
-          'SELECT * FROM front_cms_banners WHERE school_id = ? AND is_active = TRUE ORDER BY sort_order ASC, created_at ASC',
-          [schoolId]
-        ) as any[];
-        banners = rows;
-      } else {
-        const [rows] = await db.execute(
-          'SELECT * FROM front_cms_banners WHERE is_active = TRUE ORDER BY sort_order ASC, created_at ASC'
-        ) as any[];
-        banners = rows;
-      }
+      const [rows] = await db.execute(
+        'SELECT * FROM front_cms_banners WHERE school_id = ? AND is_active = TRUE ORDER BY sort_order ASC, created_at ASC',
+        [schoolId]
+      ) as any[];
+      banners = rows;
 
       res.json({
         success: true,

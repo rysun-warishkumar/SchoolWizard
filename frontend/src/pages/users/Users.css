@@ -154,7 +154,7 @@
   cursor: not-allowed;
 }
 
-.modal-overlay {
+.users-page .modal-overlay {
   position: fixed;
   top: 0;
   left: 0;
@@ -167,7 +167,7 @@
   z-index: 1000;
 }
 
-.modal-content {
+.users-page .modal-content {
   background: var(--white);
   padding: var(--spacing-xl);
   border-radius: var(--radius-lg);
@@ -177,24 +177,24 @@
   overflow-y: auto;
 }
 
-.modal-content h2 {
+.users-page .modal-content h2 {
   margin-bottom: var(--spacing-lg);
   color: var(--gray-900);
 }
 
-.modal-content .form-group {
+.users-page .modal-content .form-group {
   margin-bottom: var(--spacing-lg);
 }
 
-.modal-content label {
+.users-page .modal-content label {
   display: block;
   margin-bottom: var(--spacing-sm);
   font-weight: 500;
   color: var(--gray-700);
 }
 
-.modal-content input,
-.modal-content select {
+.users-page .modal-content input,
+.users-page .modal-content select {
   width: 100%;
   padding: var(--spacing-md);
   border: 1px solid var(--gray-300);

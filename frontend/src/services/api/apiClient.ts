@@ -50,7 +50,7 @@ class ApiClient {
       (response) => response,
       (error: AxiosError) => {
         // Log error for debugging
-        if (process.env.NODE_ENV === 'development') {
+        if (import.meta.env.DEV) {
           console.error('API Error:', {
             url: error.config?.url,
             method: error.config?.method,
@@ -60,6 +60,17 @@ class ApiClient {
         }
 
         if (error.response?.status === 401) {
+          const requestUrl = error.config?.url || '';
+          const isAuthEntryRequest =
+            requestUrl.includes('/auth/login') ||
+            requestUrl.includes('/auth/forgot-password') ||
+            requestUrl.includes('/auth/reset-password') ||
+            requestUrl.includes('/public/');
+
+          if (isAuthEntryRequest) {
+            return Promise.reject(error);
+          }
+
           // Unauthorized - clear token and redirect to login
           localStorage.removeItem('token');
           localStorage.removeItem('user');

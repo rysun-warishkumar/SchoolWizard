@@ -7,6 +7,7 @@ import { hrService } from '../../services/api/hrService';
 import { profileService } from '../../services/api/profileService';
 import { useToast } from '../../contexts/ToastContext';
 import Modal from '../../components/common/Modal';
+import ConfirmActionModal from '../../components/common/ConfirmActionModal';
 import './Academics.css';
 
 type TabType = 'classes' | 'sections' | 'subjects' | 'subject-groups' | 'class-teachers' | 'timetable' | 'class-timetable' | 'teachers-timetable';
@@ -24,11 +25,12 @@ const Academics = () => {
   const [showRightArrow, setShowRightArrow] = useState(false);
 
   const queryClient = useQueryClient();
+  const [deleteConfirm, setDeleteConfirm] = useState<{ type: 'class' | 'section' | 'subject'; id: number } | null>(null);
 
-  const { data: classesData } = useQuery('classes', () => academicsService.getClasses());
-  const { data: sectionsData } = useQuery('sections', () => academicsService.getSections());
-  const { data: subjectsData } = useQuery('subjects', () => academicsService.getSubjects());
-  const { data: subjectGroupsData } = useQuery('subject-groups', () => academicsService.getSubjectGroups());
+  const { data: classesData, isLoading: classesLoading } = useQuery('classes', () => academicsService.getClasses(), { staleTime: 0, refetchOnMount: 'always' });
+  const { data: sectionsData, isLoading: sectionsLoading } = useQuery('sections', () => academicsService.getSections(), { staleTime: 0, refetchOnMount: 'always' });
+  const { data: subjectsData, isLoading: subjectsLoading } = useQuery('subjects', () => academicsService.getSubjects(), { staleTime: 0, refetchOnMount: 'always' });
+  const { data: subjectGroupsData, isLoading: subjectGroupsLoading } = useQuery('subject-groups', () => academicsService.getSubjectGroups(), { staleTime: 0, refetchOnMount: 'always' });
 
   const deleteClassMutation = useMutation(academicsService.deleteClass, {
     onSuccess: () => queryClient.invalidateQueries('classes'),
@@ -43,19 +45,26 @@ const Academics = () => {
   });
 
   const handleDelete = (type: string, id: number) => {
-    if (window.confirm(`Are you sure you want to delete this ${type}?`)) {
-      switch (type) {
-        case 'class':
-          deleteClassMutation.mutate(String(id));
-          break;
-        case 'section':
-          deleteSectionMutation.mutate(String(id));
-          break;
-        case 'subject':
-          deleteSubjectMutation.mutate(String(id));
-          break;
-      }
+    if (type === 'class' || type === 'section' || type === 'subject') {
+      setDeleteConfirm({ type, id });
     }
+  };
+
+  const handleConfirmDelete = () => {
+    if (!deleteConfirm) return;
+    const { type, id } = deleteConfirm;
+    switch (type) {
+      case 'class':
+        deleteClassMutation.mutate(String(id));
+        break;
+      case 'section':
+        deleteSectionMutation.mutate(String(id));
+        break;
+      case 'subject':
+        deleteSubjectMutation.mutate(String(id));
+        break;
+    }
+    setDeleteConfirm(null);
   };
 
   // Scroll to active tab
@@ -252,6 +261,9 @@ const Academics = () => {
       </div>
 
       <div className="academics-content">
+        {(classesLoading || sectionsLoading || subjectsLoading || subjectGroupsLoading) && (
+          <div className="academics-inline-loader">Loading latest academic data...</div>
+        )}
         {activeTab === 'classes' && (
           <ClassesTab
             classes={classesData?.data || []}
@@ -298,12 +310,25 @@ const Academics = () => {
             classes={classesData?.data || []}
             sections={sectionsData?.data || []}
             subjects={subjectsData?.data || []}
+            subjectGroups={subjectGroupsData?.data || []}
           />
         )}
         {activeTab === 'teachers-timetable' && (
           <TeachersTimetableTab />
         )}
       </div>
+
+      {deleteConfirm && (
+        <ConfirmActionModal
+          isOpen={!!deleteConfirm}
+          title={`Delete ${deleteConfirm.type.charAt(0).toUpperCase() + deleteConfirm.type.slice(1)}?`}
+          message="This action cannot be undone. Are you sure you want to continue?"
+          onClose={() => setDeleteConfirm(null)}
+          onConfirm={handleConfirmDelete}
+          confirmText="Delete"
+          variant="danger"
+        />
+      )}
     </div>
   );
 };
@@ -313,8 +338,16 @@ const ClassesTab = ({ classes, sections, onDelete }: { classes: Class[]; section
   const [showModal, setShowModal] = useState(false);
   const [editingClass, setEditingClass] = useState<Class | null>(null);
   const [formData, setFormData] = useState({ name: '', numeric_value: '', section_ids: [] as number[] });
+  const [localSections, setLocalSections] = useState<Section[]>(sections);
+  const [newSectionName, setNewSectionName] = useState('');
+  const [pendingSectionNames, setPendingSectionNames] = useState<string[]>([]);
 
   const queryClient = useQueryClient();
+  const { showToast } = useToast();
+
+  useEffect(() => {
+    setLocalSections(sections);
+  }, [sections]);
 
   const createMutation = useMutation(academicsService.createClass, {
     onSuccess: () => {
@@ -338,30 +371,69 @@ const ClassesTab = ({ classes, sections, onDelete }: { classes: Class[]; section
   const resetForm = () => {
     setFormData({ name: '', numeric_value: '', section_ids: [] });
     setEditingClass(null);
+    setNewSectionName('');
+    setPendingSectionNames([]);
+  };
+
+  const queueNewSection = () => {
+    const normalized = newSectionName.trim();
+    if (!normalized) {
+      showToast('Please enter a section name', 'error');
+      return;
+    }
+    const lower = normalized.toLowerCase();
+    const existsInSystem = localSections.some((s) => s.name.trim().toLowerCase() === lower);
+    const existsInPending = pendingSectionNames.some((s) => s.trim().toLowerCase() === lower);
+    if (existsInSystem || existsInPending) {
+      showToast('Section already exists', 'error');
+      return;
+    }
+    setPendingSectionNames((prev) => [...prev, normalized]);
+    setNewSectionName('');
   };
 
   const handleEdit = (classItem: Class) => {
+    const selectedSectionIds = (classItem.section_ids || '')
+      .split(',')
+      .map((id) => Number(id.trim()))
+      .filter((id) => !Number.isNaN(id));
+
     setEditingClass(classItem);
     setFormData({
       name: classItem.name,
       numeric_value: String(classItem.numeric_value || ''),
-      section_ids: [],
+      section_ids: selectedSectionIds,
     });
     setShowModal(true);
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     const submitData: any = {
       name: formData.name,
       numeric_value: formData.numeric_value ? Number(formData.numeric_value) : undefined,
-      section_ids: formData.section_ids,
+      section_ids: [...formData.section_ids],
     };
 
-    if (editingClass) {
-      updateMutation.mutate({ id: String(editingClass.id), data: submitData });
-    } else {
-      createMutation.mutate(submitData);
+    try {
+      if (!editingClass && pendingSectionNames.length > 0) {
+        const createdSectionIds: number[] = [];
+        for (const sectionName of pendingSectionNames) {
+          const created = await academicsService.createSection({ name: sectionName });
+          if (created?.data?.id) {
+            createdSectionIds.push(created.data.id);
+          }
+        }
+        submitData.section_ids = Array.from(new Set([...submitData.section_ids, ...createdSectionIds]));
+      }
+
+      if (editingClass) {
+        await updateMutation.mutateAsync({ id: String(editingClass.id), data: submitData });
+      } else {
+        await createMutation.mutateAsync(submitData);
+      }
+    } catch (error: any) {
+      showToast(error?.response?.data?.message || 'Failed to save class', 'error');
     }
   };
 
@@ -403,55 +475,88 @@ const ClassesTab = ({ classes, sections, onDelete }: { classes: Class[]; section
       </div>
 
       {showModal && (
-        <div className="modal-overlay" onClick={() => { setShowModal(false); resetForm(); }}>
-          <div className="modal-content" onClick={(e) => e.stopPropagation()}>
-            <h2>{editingClass ? 'Edit Class' : 'Add Class'}</h2>
-            <form onSubmit={handleSubmit}>
-              <div className="form-group">
-                <label>Class Name</label>
-                <input
-                  type="text"
-                  value={formData.name}
-                  onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                  required
-                />
+        <Modal
+          isOpen={showModal}
+          title={editingClass ? 'Edit Class' : 'Add Class'}
+          onClose={() => { setShowModal(false); resetForm(); }}
+          size="small"
+        >
+          <form onSubmit={handleSubmit}>
+            <div className="form-group">
+              <label>Class Name</label>
+              <input
+                type="text"
+                value={formData.name}
+                onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                required
+              />
+            </div>
+            <div className="form-group">
+              <label>Numeric Value</label>
+              <input
+                type="number"
+                value={formData.numeric_value}
+                onChange={(e) => setFormData({ ...formData, numeric_value: e.target.value })}
+              />
+            </div>
+            <div className="form-group">
+              <label>Sections</label>
+              <div className="checkbox-group">
+                {localSections.map((section) => (
+                  <label key={section.id}>
+                    <input
+                      type="checkbox"
+                      checked={formData.section_ids.includes(section.id)}
+                      onChange={(e) => {
+                        if (e.target.checked) {
+                          setFormData({ ...formData, section_ids: [...formData.section_ids, section.id] });
+                        } else {
+                          setFormData({ ...formData, section_ids: formData.section_ids.filter(id => id !== section.id) });
+                        }
+                      }}
+                    />
+                    {section.name}
+                  </label>
+                ))}
               </div>
+            </div>
+            {!editingClass && (
               <div className="form-group">
-                <label>Numeric Value</label>
-                <input
-                  type="number"
-                  value={formData.numeric_value}
-                  onChange={(e) => setFormData({ ...formData, numeric_value: e.target.value })}
-                />
-              </div>
-              <div className="form-group">
-                <label>Sections</label>
-                <div className="checkbox-group">
-                  {sections.map((section) => (
-                    <label key={section.id}>
-                      <input
-                        type="checkbox"
-                        checked={formData.section_ids.includes(section.id)}
-                        onChange={(e) => {
-                          if (e.target.checked) {
-                            setFormData({ ...formData, section_ids: [...formData.section_ids, section.id] });
-                          } else {
-                            setFormData({ ...formData, section_ids: formData.section_ids.filter(id => id !== section.id) });
-                          }
-                        }}
-                      />
-                      {section.name}
-                    </label>
-                  ))}
+                <label>Add Section (Optional)</label>
+                <div style={{ display: 'flex', gap: '8px' }}>
+                  <input
+                    type="text"
+                    value={newSectionName}
+                    placeholder="Enter new section name"
+                    onChange={(e) => setNewSectionName(e.target.value)}
+                  />
+                  <button type="button" className="btn-secondary" onClick={queueNewSection}>
+                    Add Section
+                  </button>
                 </div>
+                {pendingSectionNames.length > 0 && (
+                  <div style={{ marginTop: '8px', display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
+                    {pendingSectionNames.map((name) => (
+                      <button
+                        key={name}
+                        type="button"
+                        className="btn-secondary"
+                        onClick={() => setPendingSectionNames((prev) => prev.filter((item) => item !== name))}
+                        title="Remove pending section"
+                      >
+                        {name} ×
+                      </button>
+                    ))}
+                  </div>
+                )}
               </div>
-              <div className="modal-actions">
-                <button type="button" onClick={() => { setShowModal(false); resetForm(); }}>Cancel</button>
-                <button type="submit" className="btn-primary">{editingClass ? 'Update' : 'Create'}</button>
-              </div>
-            </form>
-          </div>
-        </div>
+            )}
+            <div className="modal-actions">
+              <button type="button" onClick={() => { setShowModal(false); resetForm(); }}>Cancel</button>
+              <button type="submit" className="btn-primary">{editingClass ? 'Update' : 'Create'}</button>
+            </div>
+          </form>
+        </Modal>
       )}
     </div>
   );
@@ -538,26 +643,28 @@ const SectionsTab = ({ sections, onDelete }: { sections: Section[]; onDelete: (t
       </div>
 
       {showModal && (
-        <div className="modal-overlay" onClick={() => { setShowModal(false); resetForm(); }}>
-          <div className="modal-content" onClick={(e) => e.stopPropagation()}>
-            <h2>{editingSection ? 'Edit Section' : 'Add Section'}</h2>
-            <form onSubmit={handleSubmit}>
-              <div className="form-group">
-                <label>Section Name</label>
-                <input
-                  type="text"
-                  value={formData.name}
-                  onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                  required
-                />
-              </div>
-              <div className="modal-actions">
-                <button type="button" onClick={() => { setShowModal(false); resetForm(); }}>Cancel</button>
-                <button type="submit" className="btn-primary">{editingSection ? 'Update' : 'Create'}</button>
-              </div>
-            </form>
-          </div>
-        </div>
+        <Modal
+          isOpen={showModal}
+          title={editingSection ? 'Edit Section' : 'Add Section'}
+          onClose={() => { setShowModal(false); resetForm(); }}
+          size="small"
+        >
+          <form onSubmit={handleSubmit}>
+            <div className="form-group">
+              <label>Section Name</label>
+              <input
+                type="text"
+                value={formData.name}
+                onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                required
+              />
+            </div>
+            <div className="modal-actions">
+              <button type="button" onClick={() => { setShowModal(false); resetForm(); }}>Cancel</button>
+              <button type="submit" className="btn-primary">{editingSection ? 'Update' : 'Create'}</button>
+            </div>
+          </form>
+        </Modal>
       )}
     </div>
   );
@@ -648,44 +755,46 @@ const SubjectsTab = ({ subjects, onDelete }: { subjects: Subject[]; onDelete: (t
       </div>
 
       {showModal && (
-        <div className="modal-overlay" onClick={() => { setShowModal(false); resetForm(); }}>
-          <div className="modal-content" onClick={(e) => e.stopPropagation()}>
-            <h2>{editingSubject ? 'Edit Subject' : 'Add Subject'}</h2>
-            <form onSubmit={handleSubmit}>
-              <div className="form-group">
-                <label>Subject Name</label>
-                <input
-                  type="text"
-                  value={formData.name}
-                  onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                  required
-                />
-              </div>
-              <div className="form-group">
-                <label>Subject Code</label>
-                <input
-                  type="text"
-                  value={formData.code}
-                  onChange={(e) => setFormData({ ...formData, code: e.target.value })}
-                />
-              </div>
-              <div className="form-group">
-                <label>Type</label>
-                <select
-                  value={formData.type}
-                  onChange={(e) => setFormData({ ...formData, type: e.target.value as 'theory' | 'practical' })}
-                >
-                  <option value="theory">Theory</option>
-                  <option value="practical">Practical</option>
-                </select>
-              </div>
-              <div className="modal-actions">
-                <button type="button" onClick={() => { setShowModal(false); resetForm(); }}>Cancel</button>
-                <button type="submit" className="btn-primary">{editingSubject ? 'Update' : 'Create'}</button>
-              </div>
-            </form>
-          </div>
-        </div>
+        <Modal
+          isOpen={showModal}
+          title={editingSubject ? 'Edit Subject' : 'Add Subject'}
+          onClose={() => { setShowModal(false); resetForm(); }}
+          size="small"
+        >
+          <form onSubmit={handleSubmit}>
+            <div className="form-group">
+              <label>Subject Name</label>
+              <input
+                type="text"
+                value={formData.name}
+                onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                required
+              />
+            </div>
+            <div className="form-group">
+              <label>Subject Code</label>
+              <input
+                type="text"
+                value={formData.code}
+                onChange={(e) => setFormData({ ...formData, code: e.target.value })}
+              />
+            </div>
+            <div className="form-group">
+              <label>Type</label>
+              <select
+                value={formData.type}
+                onChange={(e) => setFormData({ ...formData, type: e.target.value as 'theory' | 'practical' })}
+              >
+                <option value="theory">Theory</option>
+                <option value="practical">Practical</option>
+              </select>
+            </div>
+            <div className="modal-actions">
+              <button type="button" onClick={() => { setShowModal(false); resetForm(); }}>Cancel</button>
+              <button type="submit" className="btn-primary">{editingSubject ? 'Update' : 'Create'}</button>
+            </div>
+          </form>
+        </Modal>
       )}
     </div>
   );
@@ -704,6 +813,8 @@ const SubjectGroupsTab = ({
   subjects: Subject[]; 
 }) => {
   const [showModal, setShowModal] = useState(false);
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [deletingGroupId, setDeletingGroupId] = useState<number | null>(null);
   const [editingGroup, setEditingGroup] = useState<SubjectGroup | null>(null);
   const [formData, setFormData] = useState({
     name: '',
@@ -785,9 +896,8 @@ const SubjectGroupsTab = ({
   };
 
   const handleDelete = (id: number) => {
-    if (window.confirm('Are you sure you want to delete this subject group?')) {
-      deleteMutation.mutate(String(id));
-    }
+    setDeletingGroupId(id);
+    setShowDeleteModal(true);
   };
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -860,6 +970,7 @@ const SubjectGroupsTab = ({
           isOpen={showModal}
           title={editingGroup ? 'Edit Subject Group' : 'Add Subject Group'}
           onClose={() => { setShowModal(false); resetForm(); }}
+          size="small"
         >
           <form onSubmit={handleSubmit}>
             <div className="form-group">
@@ -942,6 +1053,25 @@ const SubjectGroupsTab = ({
           </form>
         </Modal>
       )}
+      {showDeleteModal && (
+        <ConfirmActionModal
+          isOpen={showDeleteModal}
+          title="Delete Subject Group?"
+          message="This subject group will be removed permanently."
+          onClose={() => {
+            setShowDeleteModal(false);
+            setDeletingGroupId(null);
+          }}
+          onConfirm={() => {
+            if (deletingGroupId != null) deleteMutation.mutate(String(deletingGroupId));
+            setShowDeleteModal(false);
+            setDeletingGroupId(null);
+          }}
+          confirmText="Delete"
+          isLoading={deleteMutation.isLoading}
+          variant="danger"
+        />
+      )}
     </div>
   );
 };
@@ -953,6 +1083,8 @@ const ClassTeachersTab = ({ classes, sections }: { classes: Class[]; sections: S
   const [selectedSectionId, setSelectedSectionId] = useState<number | ''>('');
   const [selectedTeacherId, setSelectedTeacherId] = useState<number | ''>('');
   const [showAssignModal, setShowAssignModal] = useState(false);
+  const [showRemoveModal, setShowRemoveModal] = useState(false);
+  const [removingTeacherId, setRemovingTeacherId] = useState<number | null>(null);
 
   const queryClient = useQueryClient();
   const { showToast } = useToast();
@@ -1062,9 +1194,8 @@ const ClassTeachersTab = ({ classes, sections }: { classes: Class[]; sections: S
   };
 
   const handleRemove = (id: number) => {
-    if (window.confirm('Are you sure you want to remove this teacher?')) {
-      removeMutation.mutate(String(id));
-    }
+    setRemovingTeacherId(id);
+    setShowRemoveModal(true);
   };
 
   const teachers = (teachersData?.data || []).filter((staff) => {
@@ -1086,8 +1217,8 @@ const ClassTeachersTab = ({ classes, sections }: { classes: Class[]; sections: S
     <div className="tab-content">
       <div className="form-section">
         <h2>Assign Class Teachers</h2>
-        <div className="form-row">
-          <div className="form-group">
+        <div className="form-row class-teachers-filters-row">
+          <div className="form-group class-teachers-filter-field">
             <label>Class</label>
             <select
               value={selectedClassId}
@@ -1105,7 +1236,7 @@ const ClassTeachersTab = ({ classes, sections }: { classes: Class[]; sections: S
               ))}
             </select>
           </div>
-          <div className="form-group">
+          <div className="form-group class-teachers-filter-field">
             <label>Section</label>
             <select
               value={selectedSectionId}
@@ -1123,10 +1254,10 @@ const ClassTeachersTab = ({ classes, sections }: { classes: Class[]; sections: S
               ))}
             </select>
           </div>
-          <div className="form-group">
+          <div className="form-group class-teachers-refresh-wrap">
             <button
               type="button"
-              className="btn-primary"
+              className="btn-primary class-teachers-refresh-btn"
               onClick={handleSearch}
               disabled={!selectedClassId || !selectedSectionId}
               title="Refresh Class Teachers List"
@@ -1211,39 +1342,48 @@ const ClassTeachersTab = ({ classes, sections }: { classes: Class[]; sections: S
       </div>
 
       {showAssignModal && (
-        <Modal
+        <ConfirmActionModal
           isOpen={showAssignModal}
           title="Confirm Assignment"
+          message="Are you sure you want to assign this teacher to this class-section?"
           onClose={() => setShowAssignModal(false)}
+          onConfirm={handleConfirmAssign}
+          confirmText={assignMutation.isLoading ? 'Assigning...' : 'Confirm'}
+          isLoading={assignMutation.isLoading}
+          variant="primary"
         >
-          <div>
-            <p>Are you sure you want to assign this teacher to this class-section?</p>
-            {selectedTeacherId && (
-              <div style={{ marginTop: '15px', marginBottom: '15px' }}>
-                <strong>Selected Teacher:</strong>
-                <div style={{ marginTop: '8px' }}>
-                  {(() => {
-                    const teacher = teachers.find(t => t.id === Number(selectedTeacherId));
-                    const name = teacher ? `${teacher.first_name} ${teacher.last_name || ''}`.trim() || teacher.email || 'Unknown' : 'Unknown';
-                    return `${teacher?.staff_id || 'STAFF'} - ${name}`;
-                  })()}
-                </div>
+          {selectedTeacherId && (
+            <div style={{ marginTop: '6px', marginBottom: '8px', textAlign: 'left' }}>
+              <strong>Selected Teacher:</strong>
+              <div style={{ marginTop: '8px' }}>
+                {(() => {
+                  const teacher = teachers.find(t => t.id === Number(selectedTeacherId));
+                  const name = teacher ? `${teacher.first_name} ${teacher.last_name || ''}`.trim() || teacher.email || 'Unknown' : 'Unknown';
+                  return `${teacher?.staff_id || 'STAFF'} - ${name}`;
+                })()}
               </div>
-            )}
-          </div>
-          <div className="modal-actions">
-            <button className="btn-secondary" onClick={() => setShowAssignModal(false)}>
-              Cancel
-            </button>
-            <button
-              className="btn-primary"
-              onClick={handleConfirmAssign}
-              disabled={assignMutation.isLoading}
-            >
-              {assignMutation.isLoading ? 'Assigning...' : 'Confirm'}
-            </button>
-          </div>
-        </Modal>
+            </div>
+          )}
+        </ConfirmActionModal>
+      )}
+      {showRemoveModal && (
+        <ConfirmActionModal
+          isOpen={showRemoveModal}
+          title="Remove Assigned Teacher?"
+          message="This teacher assignment will be removed from the selected class-section."
+          onClose={() => {
+            setShowRemoveModal(false);
+            setRemovingTeacherId(null);
+          }}
+          onConfirm={() => {
+            if (removingTeacherId != null) removeMutation.mutate(String(removingTeacherId));
+            setShowRemoveModal(false);
+            setRemovingTeacherId(null);
+          }}
+          confirmText="Remove"
+          isLoading={removeMutation.isLoading}
+          variant="danger"
+        />
       )}
     </div>
   );
@@ -1267,10 +1407,14 @@ const TimetableTab = ({
   const [selectedSectionId, setSelectedSectionId] = useState<number | ''>('');
   const [selectedSubjectGroupId, setSelectedSubjectGroupId] = useState<number | ''>('');
   const [timetableEntries, setTimetableEntries] = useState<Record<string, Partial<TimetableEntry>>>({});
+  const [pendingEntries, setPendingEntries] = useState<Array<{ day: string; entry: Partial<TimetableEntry> }>>([]);
   const [showEditModal, setShowEditModal] = useState(false);
   const [editingEntry, setEditingEntry] = useState<Partial<TimetableEntry> | null>(null);
   const [editingDay, setEditingDay] = useState<string>('');
   const [selectedDay, setSelectedDay] = useState<string>('monday');
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [deletingEntryId, setDeletingEntryId] = useState<number | null>(null);
+  const [isSavingBatch, setIsSavingBatch] = useState(false);
 
   const queryClient = useQueryClient();
   const { showToast } = useToast();
@@ -1356,39 +1500,80 @@ const TimetableTab = ({
     }
     setViewMode('add');
     setTimetableEntries({});
+    setPendingEntries([]);
   };
 
-  const handleSaveTimetable = () => {
-    const entries = Object.entries(timetableEntries).filter(([_, entry]) => entry.subject_id && entry.time_from && entry.time_to);
-    
-    if (entries.length === 0) {
+  const handleAddDayEntry = () => {
+    const entry = timetableEntries[selectedDay];
+    if (!entry?.subject_id || !entry?.time_from || !entry?.time_to) {
+      showToast('Please fill Subject, Time From, and Time To before adding.', 'error');
+      return;
+    }
+
+    if (entry.time_from >= entry.time_to) {
+      showToast('Time To must be later than Time From.', 'error');
+      return;
+    }
+
+    const duplicateEntry = pendingEntries.some(
+      (item) =>
+        item.day === selectedDay &&
+        item.entry.time_from === entry.time_from &&
+        item.entry.time_to === entry.time_to
+    );
+    if (duplicateEntry) {
+      showToast('An entry for this day and time slot is already added.', 'error');
+      return;
+    }
+
+    const normalizedEntry: Partial<TimetableEntry> = {
+      ...entry,
+      subject_id: Number(entry.subject_id),
+      teacher_id: entry.teacher_id ? Number(entry.teacher_id) : undefined,
+      time_from: entry.time_from,
+      time_to: entry.time_to,
+      room_no: entry.room_no,
+    };
+
+    setPendingEntries((prev) => [...prev, { day: selectedDay, entry: normalizedEntry }]);
+    setTimetableEntries((prev) => ({
+      ...prev,
+      [selectedDay]: {},
+    }));
+    showToast(`Entry added for ${selectedDay.charAt(0).toUpperCase() + selectedDay.slice(1)}.`, 'success');
+  };
+
+  const handleSaveTimetable = async () => {
+    if (pendingEntries.length === 0) {
       showToast('Please add at least one timetable entry', 'error');
       return;
     }
 
-    const savePromises = entries.map(([day, entry]) =>
-      createMutation.mutateAsync({
-        class_id: Number(selectedClassId),
-        section_id: Number(selectedSectionId),
-        subject_group_id: Number(selectedSubjectGroupId),
-        subject_id: Number(entry.subject_id),
-        teacher_id: entry.teacher_id ? Number(entry.teacher_id) : undefined,
-        day_of_week: day as any,
-        time_from: entry.time_from!,
-        time_to: entry.time_to!,
-        room_no: entry.room_no,
-      })
-    );
-
-    Promise.all(savePromises)
-      .then(() => {
-        setViewMode('view');
-        setTimetableEntries({});
-        refetchTimetable();
-      })
-      .catch(() => {
-        // Errors handled in mutation
-      });
+    try {
+      setIsSavingBatch(true);
+      await Promise.all(
+        pendingEntries.map(({ day, entry }) =>
+          createMutation.mutateAsync({
+            class_id: Number(selectedClassId),
+            section_id: Number(selectedSectionId),
+            subject_group_id: Number(selectedSubjectGroupId),
+            subject_id: Number(entry.subject_id),
+            teacher_id: entry.teacher_id ? Number(entry.teacher_id) : undefined,
+            day_of_week: day as any,
+            time_from: entry.time_from!,
+            time_to: entry.time_to!,
+            room_no: entry.room_no,
+          })
+        )
+      );
+      setViewMode('view');
+      setTimetableEntries({});
+      setPendingEntries([]);
+      refetchTimetable();
+      showToast('Timetable saved successfully', 'success');
+    } finally {
+      setIsSavingBatch(false);
+    }
   };
 
   const handleEditEntry = (entry: TimetableEntry) => {
@@ -1414,9 +1599,8 @@ const TimetableTab = ({
   };
 
   const handleDeleteEntry = (id: number) => {
-    if (window.confirm('Are you sure you want to delete this timetable entry?')) {
-      deleteMutation.mutate(String(id));
-    }
+    setDeletingEntryId(id);
+    setShowDeleteModal(true);
   };
 
   // Extract teachers - handle different response structures
@@ -1491,6 +1675,7 @@ const TimetableTab = ({
   const availableSubjects = getAvailableSubjects();
 
   const daysOfWeek = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday'];
+  const hasPendingEntryForDay = (day: string) => pendingEntries.some((item) => item.day === day);
 
   // Group timetable by day
   const timetableByDay: Record<string, TimetableEntry[]> = {};
@@ -1511,6 +1696,7 @@ const TimetableTab = ({
               const newMode = viewMode === 'view' ? 'add' : 'view';
               setViewMode(newMode);
               setTimetableEntries({});
+              setPendingEntries([]);
               setSelectedDay('monday');
             }}
             title={viewMode === 'view' ? 'Switch to Add/Edit mode' : 'Switch to View mode'}
@@ -1701,11 +1887,11 @@ const TimetableTab = ({
             {daysOfWeek.map((day) => (
               <button
                 key={day}
-                className={`day-tab ${selectedDay === day ? 'active' : ''} ${timetableEntries[day] ? 'has-entry' : ''}`}
+                className={`day-tab ${selectedDay === day ? 'active' : ''} ${hasPendingEntryForDay(day) ? 'has-entry' : ''}`}
                 onClick={() => setSelectedDay(day)}
               >
                 <span>{day.charAt(0).toUpperCase() + day.slice(1)}</span>
-                {timetableEntries[day] && <span className="entry-indicator">+</span>}
+                {hasPendingEntryForDay(day) && <span className="entry-indicator">+</span>}
               </button>
             ))}
           </div>
@@ -1801,15 +1987,9 @@ const TimetableTab = ({
 
               <div className="form-actions" style={{ marginTop: '15px' }}>
                 <button
+                  type="button"
                   className="btn-primary"
-                  onClick={() => {
-                    const entry = timetableEntries[selectedDay];
-                    if (entry?.subject_id && entry?.time_from && entry?.time_to) {
-                      showToast(`Entry added for ${selectedDay}`, 'success');
-                    } else {
-                      showToast('Please fill in required fields (Subject, Time From, Time To)', 'error');
-                    }
-                  }}
+                  onClick={handleAddDayEntry}
                 >
                   + Add New
                 </button>
@@ -1819,16 +1999,14 @@ const TimetableTab = ({
             {/* Entries Summary */}
             <div className="timetable-entries-summary">
               <h4>Added Entries</h4>
-              {Object.keys(timetableEntries).length === 0 ? (
+              {pendingEntries.length === 0 ? (
                 <p className="empty-summary">No entries added yet</p>
               ) : (
                 <ul className="entries-list">
-                  {Object.entries(timetableEntries).map(([day, entry]) => (
-                    entry.subject_id && entry.time_from && entry.time_to && (
-                      <li key={day}>
-                        <strong>{day.charAt(0).toUpperCase() + day.slice(1)}</strong>: {entry.time_from} - {entry.time_to}
-                      </li>
-                    )
+                  {pendingEntries.map(({ day, entry }, index) => (
+                    <li key={`${day}-${entry.time_from}-${entry.time_to}-${index}`}>
+                      <strong>{day.charAt(0).toUpperCase() + day.slice(1)}</strong>: {entry.time_from} - {entry.time_to}
+                    </li>
                   ))}
                 </ul>
               )}
@@ -1839,15 +2017,16 @@ const TimetableTab = ({
               <button
                 className="btn-primary"
                 onClick={handleSaveTimetable}
-                disabled={createMutation.isLoading || Object.keys(timetableEntries).length === 0}
+                disabled={isSavingBatch || createMutation.isLoading || pendingEntries.length === 0}
               >
-                {createMutation.isLoading ? 'Saving...' : 'Save'}
+                {isSavingBatch || createMutation.isLoading ? 'Saving...' : 'Save'}
               </button>
               <button
                 className="btn-secondary"
                 onClick={() => {
                   setViewMode('view');
                   setTimetableEntries({});
+                  setPendingEntries([]);
                   setSelectedDay('monday');
                 }}
               >
@@ -1866,6 +2045,7 @@ const TimetableTab = ({
             setShowEditModal(false);
             setEditingEntry(null);
           }}
+          size="small"
         >
           <div className="form-group">
             <label>Subject</label>
@@ -1954,14 +2134,44 @@ const TimetableTab = ({
           </div>
         </Modal>
       )}
+      {showDeleteModal && (
+        <ConfirmActionModal
+          isOpen={showDeleteModal}
+          title="Delete Timetable Entry?"
+          message="This timetable entry will be deleted permanently."
+          onClose={() => {
+            setShowDeleteModal(false);
+            setDeletingEntryId(null);
+          }}
+          onConfirm={() => {
+            if (deletingEntryId != null) deleteMutation.mutate(String(deletingEntryId));
+            setShowDeleteModal(false);
+            setDeletingEntryId(null);
+          }}
+          confirmText="Delete"
+          isLoading={deleteMutation.isLoading}
+          variant="danger"
+        />
+      )}
     </div>
   );
 };
 
 // ========== Class Timetable Tab ==========
-const ClassTimetableTab = ({ classes, sections, subjects }: { classes: Class[]; sections: Section[]; subjects: Subject[] }) => {
+const ClassTimetableTab = ({
+  classes,
+  sections,
+  subjects,
+  subjectGroups,
+}: {
+  classes: Class[];
+  sections: Section[];
+  subjects: Subject[];
+  subjectGroups: SubjectGroup[];
+}) => {
   const [selectedClassId, setSelectedClassId] = useState<number | ''>('');
   const [selectedSectionId, setSelectedSectionId] = useState<number | ''>('');
+  const [selectedSubjectGroupId, setSelectedSubjectGroupId] = useState<number | ''>('');
   const [showForm, setShowForm] = useState(false);
   const [editing, setEditing] = useState<Partial<TimetableEntry> | null>(null);
 
@@ -2063,10 +2273,32 @@ const ClassTimetableTab = ({ classes, sections, subjects }: { classes: Class[]; 
       })
     : [];
 
+  const availableSubjectGroups = selectedClassId && selectedSectionId
+    ? subjectGroups.filter(
+        (sg) => sg.class_id === Number(selectedClassId) && sg.section_id === Number(selectedSectionId)
+      )
+    : [];
+
+  const allowedSubjectIds = useMemo(() => {
+    if (!selectedSubjectGroupId) return new Set<number>();
+    const selectedGroup = subjectGroups.find((sg) => sg.id === Number(selectedSubjectGroupId));
+    if (!selectedGroup?.subject_ids) return new Set<number>();
+    return new Set(
+      selectedGroup.subject_ids
+        .split(',')
+        .map((id) => Number(id.trim()))
+        .filter((id) => !Number.isNaN(id))
+    );
+  }, [selectedSubjectGroupId, subjectGroups]);
+
+  const subjectsForSelectedGroup = selectedSubjectGroupId
+    ? subjects.filter((s) => allowedSubjectIds.has(s.id))
+    : subjects;
+
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!selectedClassId || !selectedSectionId) {
-      showToast('Please select class and section first', 'error');
+    if (!selectedClassId || !selectedSectionId || !selectedSubjectGroupId) {
+      showToast('Please select class, section, and subject group first', 'error');
       return;
     }
     const form = e.target as HTMLFormElement;
@@ -2074,6 +2306,7 @@ const ClassTimetableTab = ({ classes, sections, subjects }: { classes: Class[]; 
     const payload: Partial<TimetableEntry> = {
       class_id: Number(selectedClassId),
       section_id: Number(selectedSectionId),
+      subject_group_id: Number(selectedSubjectGroupId),
       subject_id: Number(formData.get('subject_id')) || undefined,
       teacher_id: Number(formData.get('teacher_id')) || undefined,
       day_of_week: String(formData.get('day_of_week')) as any,
@@ -2102,6 +2335,7 @@ const ClassTimetableTab = ({ classes, sections, subjects }: { classes: Class[]; 
               onChange={(e) => {
                 setSelectedClassId(e.target.value ? Number(e.target.value) : '');
                 setSelectedSectionId('');
+                setSelectedSubjectGroupId('');
               }}
             >
               <option value="">Select Class</option>
@@ -2117,13 +2351,32 @@ const ClassTimetableTab = ({ classes, sections, subjects }: { classes: Class[]; 
             <label>Section <span className="required">*</span></label>
             <select
               value={selectedSectionId}
-              onChange={(e) => setSelectedSectionId(e.target.value ? Number(e.target.value) : '')}
+              onChange={(e) => {
+                setSelectedSectionId(e.target.value ? Number(e.target.value) : '');
+                setSelectedSubjectGroupId('');
+              }}
               disabled={!selectedClassId}
             >
               <option value="">Select Section</option>
               {availableSections.map((sec) => (
                 <option key={sec.id} value={sec.id}>
                   {sec.name}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          <div className="form-group">
+            <label>Subject Group <span className="required">*</span></label>
+            <select
+              value={selectedSubjectGroupId}
+              onChange={(e) => setSelectedSubjectGroupId(e.target.value ? Number(e.target.value) : '')}
+              disabled={!selectedClassId || !selectedSectionId}
+            >
+              <option value="">Select Subject Group</option>
+              {availableSubjectGroups.map((sg) => (
+                <option key={sg.id} value={sg.id}>
+                  {sg.name}
                 </option>
               ))}
             </select>
@@ -2142,7 +2395,7 @@ const ClassTimetableTab = ({ classes, sections, subjects }: { classes: Class[]; 
               type="button"
               className="btn-primary"
               onClick={() => { setShowForm((s) => !s); setEditing(null); }}
-              disabled={!selectedClassId || !selectedSectionId}
+              disabled={!selectedClassId || !selectedSectionId || !selectedSubjectGroupId}
             >
               {showForm ? '✕ Close' : '+ Add New'}
             </button>
@@ -2224,7 +2477,7 @@ const ClassTimetableTab = ({ classes, sections, subjects }: { classes: Class[]; 
                 <label>Subject <span className="required">*</span></label>
                 <select name="subject_id" defaultValue={editing?.subject_id ?? ''} required>
                   <option value="">Select Subject</option>
-                  {subjects.map((s) => (
+                  {subjectsForSelectedGroup.map((s) => (
                     <option key={s.id} value={s.id}>
                       {s.name} {s.code ? `(${s.code})` : ''}
                     </option>
@@ -2236,8 +2489,8 @@ const ClassTimetableTab = ({ classes, sections, subjects }: { classes: Class[]; 
                 <label>Teacher</label>
                 <select name="teacher_id" defaultValue={editing?.teacher_id ?? ''}>
                   <option value="">Select Teacher</option>
-                  {staff.map((t: any) => (
-                    <option key={t.id} value={t.id}>
+                  {staff.filter((t: any) => t.user_id).map((t: any) => (
+                    <option key={t.id} value={t.user_id}>
                       {t.first_name} {t.last_name || ''}
                     </option>
                   ))}

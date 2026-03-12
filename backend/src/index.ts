@@ -57,7 +57,7 @@ import inquiriesRoutes from './routes/inquiries.routes';
 import alumniRoutes from './routes/alumni.routes';
 import reportsRoutes from './routes/reports.routes';
 import lessonPlanRoutes from './routes/lessonPlan.routes';
-// import { rateLimiter } from './middleware/rateLimiter'; // Commented out - rate limiting disabled
+import { rateLimiter } from './middleware/rateLimiter';
 import { validateJSON } from './middleware/validateRequest';
 
 // Environment variables are validated in config/env.ts
@@ -233,8 +233,8 @@ if (isDevelopment()) {
   });
 }
 
-// Rate limiting - COMMENTED OUT
-// app.use('/api/', rateLimiter);
+// Apply API-wide rate limiting (auth routes have stricter dedicated limiter).
+app.use('/api/', rateLimiter);
 
 // Health check
 app.get('/health', (req, res) => {
@@ -628,6 +628,9 @@ const startServer = async () => {
       console.log(`🚀 Server running on port ${PORT}`);
       console.log(`📝 Environment: ${env.server.nodeEnv}`);
       console.log(`🗄️  Database: ${env.db.name}@${env.db.host}:${env.db.port}`);
+      console.log(`🧭 SaaS control-plane: ${env.saas.controlPlaneEnabled ? 'enabled' : 'disabled'}`);
+      console.log(`🌍 SaaS domain routing: ${env.saas.domainRoutingEnabled ? 'enabled' : 'disabled'}`);
+      console.log(`🏗️  SaaS dedicated workflow: ${env.saas.dedicatedWorkflowEnabled ? 'enabled' : 'disabled'}`);
       if (isDevelopment()) {
         console.log(`⚠️  Running in DEVELOPMENT mode`);
         console.log(`🌐 CORS: Allowing all localhost origins in development`);

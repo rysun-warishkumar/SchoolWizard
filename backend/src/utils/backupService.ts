@@ -484,3 +484,55 @@ export const cleanupOldBackups = async (schoolId?: number | null): Promise<void>
   }
 };
 
+/**
+ * Build a school-scoped row-count snapshot used by migration prechecks.
+ */
+export const getSchoolMigrationSnapshot = async (schoolId: number): Promise<Record<string, number>> => {
+  const db = getDatabase();
+  const targets = [
+    'users',
+    'students',
+    'staff',
+    'classes',
+    'sections',
+    'subjects',
+    'class_timetable',
+    'class_teachers',
+    'online_admissions',
+  ];
+
+  const snapshot: Record<string, number> = {};
+  for (const tableName of targets) {
+    try {
+      const [rows] = await db.execute(
+        `SELECT COUNT(*) AS c FROM ${tableName} WHERE school_id = ?`,
+        [schoolId]
+      ) as any[];
+      snapshot[tableName] = Number(rows[0]?.c || 0);
+    } catch {
+      snapshot[tableName] = 0;
+    }
+  }
+  return snapshot;
+};
+
+/**
+ * Validate that school data exists and has a minimum linked footprint before cutover.
+ */
+export const validateSchoolMigrationReadiness = async (
+  schoolId: number
+): Promise<{ ready: boolean; summary: Record<string, number>; issues: string[] }> => {
+  const summary = await getSchoolMigrationSnapshot(schoolId);
+  const issues: string[] = [];
+
+  if ((summary.users || 0) === 0) issues.push('No users found for school');
+  if ((summary.classes || 0) === 0) issues.push('No classes found for school');
+  if ((summary.sections || 0) === 0) issues.push('No sections found for school');
+
+  return {
+    ready: issues.length === 0,
+    summary,
+    issues,
+  };
+};
+

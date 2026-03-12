@@ -85,11 +85,13 @@ export const createClass = async (
 };
 
 export const updateClass = async (
-  req: Request,
+  req: AuthRequest,
   res: Response,
   next: NextFunction
 ): Promise<void> => {
   try {
+    const schoolId = getSchoolId(req);
+    if (schoolId == null) return next(createError('School context required', 403));
     const { id } = req.params;
     const { name, numeric_value, section_ids } = req.body;
     const db = getDatabase();
@@ -108,9 +110,9 @@ export const updateClass = async (
 
     if (updates.length > 0) {
       updates.push('updated_at = NOW()');
-      params.push(id);
+      params.push(id, schoolId);
       await db.execute(
-        `UPDATE classes SET ${updates.join(', ')} WHERE id = ?`,
+        `UPDATE classes SET ${updates.join(', ')} WHERE id = ? AND school_id = ?`,
         params
       );
     }
@@ -118,24 +120,24 @@ export const updateClass = async (
     // Update sections if provided
     if (section_ids && Array.isArray(section_ids)) {
       // Remove existing sections
-      await db.execute('DELETE FROM class_sections WHERE class_id = ?', [id]);
+      await db.execute('DELETE FROM class_sections WHERE class_id = ? AND school_id = ?', [id, schoolId]);
 
       // Add new sections
       if (section_ids.length > 0) {
-        const values = section_ids.map((sectionId: number) => [id, sectionId]);
-        const placeholders = values.map(() => '(?, ?)').join(', ');
+        const values = section_ids.map((sectionId: number) => [schoolId, id, sectionId]);
+        const placeholders = values.map(() => '(?, ?, ?)').join(', ');
         const flatValues = values.flat();
 
         await db.execute(
-          `INSERT INTO class_sections (class_id, section_id) VALUES ${placeholders}`,
+          `INSERT INTO class_sections (school_id, class_id, section_id) VALUES ${placeholders}`,
           flatValues
         );
       }
     }
 
     const [updatedClasses] = await db.execute(
-      'SELECT * FROM classes WHERE id = ?',
-      [id]
+      'SELECT * FROM classes WHERE id = ? AND school_id = ?',
+      [id, schoolId]
     ) as any[];
 
     res.json({
@@ -149,15 +151,17 @@ export const updateClass = async (
 };
 
 export const deleteClass = async (
-  req: Request,
+  req: AuthRequest,
   res: Response,
   next: NextFunction
 ): Promise<void> => {
   try {
+    const schoolId = getSchoolId(req);
+    if (schoolId == null) return next(createError('School context required', 403));
     const { id } = req.params;
     const db = getDatabase();
 
-    await db.execute('DELETE FROM classes WHERE id = ?', [id]);
+    await db.execute('DELETE FROM classes WHERE id = ? AND school_id = ?', [id, schoolId]);
 
     res.json({
       success: true,
@@ -256,11 +260,13 @@ export const createSection = async (
 };
 
 export const updateSection = async (
-  req: Request,
+  req: AuthRequest,
   res: Response,
   next: NextFunction
 ): Promise<void> => {
   try {
+    const schoolId = getSchoolId(req);
+    if (schoolId == null) return next(createError('School context required', 403));
     const { id } = req.params;
     const { name } = req.body;
     const db = getDatabase();
@@ -270,13 +276,13 @@ export const updateSection = async (
     }
 
     await db.execute(
-      'UPDATE sections SET name = ?, updated_at = NOW() WHERE id = ?',
-      [name, id]
+      'UPDATE sections SET name = ?, updated_at = NOW() WHERE id = ? AND school_id = ?',
+      [name, id, schoolId]
     );
 
     const [updatedSections] = await db.execute(
-      'SELECT * FROM sections WHERE id = ?',
-      [id]
+      'SELECT * FROM sections WHERE id = ? AND school_id = ?',
+      [id, schoolId]
     ) as any[];
 
     res.json({
@@ -290,15 +296,17 @@ export const updateSection = async (
 };
 
 export const deleteSection = async (
-  req: Request,
+  req: AuthRequest,
   res: Response,
   next: NextFunction
 ): Promise<void> => {
   try {
+    const schoolId = getSchoolId(req);
+    if (schoolId == null) return next(createError('School context required', 403));
     const { id } = req.params;
     const db = getDatabase();
 
-    await db.execute('DELETE FROM sections WHERE id = ?', [id]);
+    await db.execute('DELETE FROM sections WHERE id = ? AND school_id = ?', [id, schoolId]);
 
     res.json({
       success: true,
@@ -612,12 +620,50 @@ export const deleteSubjectGroup = async (
 };
 
 // ========== Class Teachers ==========
+const resolveTeacherUserId = async (
+  db: any,
+  schoolId: number,
+  teacherIdOrStaffId: number
+): Promise<number> => {
+  // Preferred path: provided value is user.id for an active teacher staff member.
+  const [byUser] = await db.execute(
+    `SELECT s.user_id
+     FROM staff s
+     INNER JOIN roles r ON s.role_id = r.id
+     WHERE s.school_id = ? AND s.user_id = ? AND s.is_active = 1 AND r.name = 'teacher'
+     LIMIT 1`,
+    [schoolId, teacherIdOrStaffId]
+  ) as any[];
+
+  if (byUser.length > 0) {
+    return Number(byUser[0].user_id);
+  }
+
+  // Backward compatibility: some screens may send staff.id instead of user.id.
+  const [byStaff] = await db.execute(
+    `SELECT s.user_id
+     FROM staff s
+     INNER JOIN roles r ON s.role_id = r.id
+     WHERE s.school_id = ? AND s.id = ? AND s.is_active = 1 AND r.name = 'teacher'
+     LIMIT 1`,
+    [schoolId, teacherIdOrStaffId]
+  ) as any[];
+
+  if (byStaff.length > 0 && byStaff[0].user_id) {
+    return Number(byStaff[0].user_id);
+  }
+
+  throw createError('Invalid teacher. The selected teacher is not active or not mapped to a user account.', 400);
+};
+
 export const getClassTeachers = async (
-  req: Request,
+  req: AuthRequest,
   res: Response,
   next: NextFunction
 ): Promise<void> => {
   try {
+    const schoolId = getSchoolId(req);
+    if (schoolId == null) return next(createError('School context required', 403));
     const { class_id, section_id } = req.query;
     const db = getDatabase();
 
@@ -626,12 +672,12 @@ export const getClassTeachers = async (
              c.name as class_name, s.name as section_name,
              u.name as teacher_name, u.email as teacher_email
        FROM class_teachers ct
-       LEFT JOIN classes c ON ct.class_id = c.id
-       LEFT JOIN sections s ON ct.section_id = s.id
-       LEFT JOIN users u ON ct.teacher_id = u.id
-       WHERE 1=1
+       LEFT JOIN classes c ON ct.class_id = c.id AND c.school_id = ?
+       LEFT JOIN sections s ON ct.section_id = s.id AND s.school_id = ?
+       LEFT JOIN users u ON ct.teacher_id = u.id AND u.school_id = ?
+       WHERE ct.school_id = ?
     `;
-    const params: any[] = [];
+    const params: any[] = [schoolId, schoolId, schoolId, schoolId];
 
     if (class_id) {
       query += ' AND ct.class_id = ?';
@@ -654,11 +700,13 @@ export const getClassTeachers = async (
 };
 
 export const assignClassTeacher = async (
-  req: Request,
+  req: AuthRequest,
   res: Response,
   next: NextFunction
 ): Promise<void> => {
   try {
+    const schoolId = getSchoolId(req);
+    if (schoolId == null) return next(createError('School context required', 403));
     const { class_id, section_id, teacher_id } = req.body;
 
     if (!class_id || !section_id || !teacher_id) {
@@ -667,30 +715,22 @@ export const assignClassTeacher = async (
 
     const db = getDatabase();
 
-    // Verify that teacher_id belongs to a staff member with teacher role (role_id = 3)
-    // This ensures we're assigning actual teachers, not just any user
-    const [staffCheck] = await db.execute(
-      `SELECT s.id, s.user_id, s.role_id 
-       FROM staff s 
-       WHERE s.user_id = ? AND s.role_id = 3 AND s.is_active = 1`,
-      [teacher_id]
+    const classId = Number(class_id);
+    const sectionId = Number(section_id);
+    const teacherInput = Number(teacher_id);
+    const teacherUserId = await resolveTeacherUserId(db, schoolId, teacherInput);
+
+    // Validate class/section linkage for this school.
+    const [classSection] = await db.execute(
+      `SELECT 1
+       FROM class_sections
+       WHERE school_id = ? AND class_id = ? AND section_id = ?
+       LIMIT 1`,
+      [schoolId, classId, sectionId]
     ) as any[];
 
-    if (staffCheck.length === 0) {
-      throw createError('Invalid teacher. The selected user is not an active teacher.', 400);
-    }
-
-    // Verify the user exists and has teacher role
-    const [userCheck] = await db.execute(
-      `SELECT u.id, u.role_id, r.name as role_name 
-       FROM users u 
-       INNER JOIN roles r ON u.role_id = r.id 
-       WHERE u.id = ? AND u.is_active = 1`,
-      [teacher_id]
-    ) as any[];
-
-    if (userCheck.length === 0) {
-      throw createError('Invalid teacher. User account not found or inactive.', 400);
+    if (classSection.length === 0) {
+      throw createError('Selected class and section are not linked in this school.', 400);
     }
 
     // Check if already assigned - get teacher name for better error message
@@ -698,8 +738,8 @@ export const assignClassTeacher = async (
       `SELECT ct.id, u.name as teacher_name, u.email as teacher_email
        FROM class_teachers ct
        INNER JOIN users u ON ct.teacher_id = u.id
-       WHERE ct.class_id = ? AND ct.section_id = ? AND ct.teacher_id = ?`,
-      [class_id, section_id, teacher_id]
+       WHERE ct.school_id = ? AND ct.class_id = ? AND ct.section_id = ? AND ct.teacher_id = ?`,
+      [schoolId, classId, sectionId, teacherUserId]
     ) as any[];
 
     if (existing.length > 0) {
@@ -712,8 +752,8 @@ export const assignClassTeacher = async (
     }
 
     const [result] = await db.execute(
-      'INSERT INTO class_teachers (class_id, section_id, teacher_id, created_at) VALUES (?, ?, ?, NOW())',
-      [class_id, section_id, teacher_id]
+      'INSERT INTO class_teachers (school_id, class_id, section_id, teacher_id, created_at) VALUES (?, ?, ?, ?, NOW())',
+      [schoolId, classId, sectionId, teacherUserId]
     ) as any;
 
     res.status(201).json({
@@ -727,15 +767,17 @@ export const assignClassTeacher = async (
 };
 
 export const removeClassTeacher = async (
-  req: Request,
+  req: AuthRequest,
   res: Response,
   next: NextFunction
 ): Promise<void> => {
   try {
+    const schoolId = getSchoolId(req);
+    if (schoolId == null) return next(createError('School context required', 403));
     const { id } = req.params;
     const db = getDatabase();
 
-    await db.execute('DELETE FROM class_teachers WHERE id = ?', [id]);
+    await db.execute('DELETE FROM class_teachers WHERE id = ? AND school_id = ?', [id, schoolId]);
 
     res.json({
       success: true,
@@ -748,11 +790,13 @@ export const removeClassTeacher = async (
 
 // ========== Timetable ==========
 export const getTimetable = async (
-  req: Request,
+  req: AuthRequest,
   res: Response,
   next: NextFunction
 ): Promise<void> => {
   try {
+    const schoolId = getSchoolId(req);
+    if (schoolId == null) return next(createError('School context required', 403));
     const { class_id, section_id } = req.query;
     const db = getDatabase();
 
@@ -766,15 +810,15 @@ export const getTimetable = async (
        u.name as teacher_name,
        c.name as class_name, s.name as section_name
        FROM class_timetable tt
-       LEFT JOIN subjects sub ON tt.subject_id = sub.id
-       LEFT JOIN users u ON tt.teacher_id = u.id
-       LEFT JOIN classes c ON tt.class_id = c.id
-       LEFT JOIN sections s ON tt.section_id = s.id
-       WHERE tt.class_id = ? AND tt.section_id = ?
+       LEFT JOIN subjects sub ON tt.subject_id = sub.id AND sub.school_id = ?
+       LEFT JOIN users u ON tt.teacher_id = u.id AND u.school_id = ?
+       LEFT JOIN classes c ON tt.class_id = c.id AND c.school_id = ?
+       LEFT JOIN sections s ON tt.section_id = s.id AND s.school_id = ?
+       WHERE tt.school_id = ? AND tt.class_id = ? AND tt.section_id = ?
        ORDER BY 
          FIELD(tt.day_of_week, 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday'),
          tt.time_from ASC`,
-      [class_id, section_id]
+      [schoolId, schoolId, schoolId, schoolId, schoolId, class_id, section_id]
     ) as any[];
 
     res.json({
@@ -787,11 +831,13 @@ export const getTimetable = async (
 };
 
 export const createTimetableEntry = async (
-  req: Request,
+  req: AuthRequest,
   res: Response,
   next: NextFunction
 ): Promise<void> => {
   try {
+    const schoolId = getSchoolId(req);
+    if (schoolId == null) return next(createError('School context required', 403));
     const { class_id, section_id, subject_group_id, subject_id, teacher_id, day_of_week, time_from, time_to, room_no } = req.body;
 
     if (!class_id || !section_id || !subject_id || !day_of_week || !time_from || !time_to) {
@@ -799,15 +845,49 @@ export const createTimetableEntry = async (
     }
 
     const db = getDatabase();
+    const classId = Number(class_id);
+    const sectionId = Number(section_id);
+    const subjectId = Number(subject_id);
+    const subjectGroupId = subject_group_id ? Number(subject_group_id) : null;
+    const teacherUserId = teacher_id ? await resolveTeacherUserId(db, schoolId, Number(teacher_id)) : null;
+
+    const [classSection] = await db.execute(
+      `SELECT 1 FROM class_sections WHERE school_id = ? AND class_id = ? AND section_id = ? LIMIT 1`,
+      [schoolId, classId, sectionId]
+    ) as any[];
+    if (classSection.length === 0) {
+      throw createError('Selected class/section combination is invalid for this school.', 400);
+    }
+
+    const [subjectExists] = await db.execute(
+      `SELECT 1 FROM subjects WHERE school_id = ? AND id = ? LIMIT 1`,
+      [schoolId, subjectId]
+    ) as any[];
+    if (subjectExists.length === 0) {
+      throw createError('Selected subject does not exist in this school.', 400);
+    }
+
+    if (subjectGroupId != null) {
+      const [subjectGroupExists] = await db.execute(
+        `SELECT 1
+         FROM subject_groups
+         WHERE school_id = ? AND id = ? AND class_id = ? AND section_id = ?
+         LIMIT 1`,
+        [schoolId, subjectGroupId, classId, sectionId]
+      ) as any[];
+      if (subjectGroupExists.length === 0) {
+        throw createError('Selected subject group is invalid for this class/section.', 400);
+      }
+    }
 
     const [result] = await db.execute(
-      'INSERT INTO class_timetable (class_id, section_id, subject_group_id, subject_id, teacher_id, day_of_week, time_from, time_to, room_no, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, NOW())',
-      [class_id, section_id, subject_group_id || null, subject_id, teacher_id || null, day_of_week, time_from, time_to, room_no || null]
+      'INSERT INTO class_timetable (school_id, class_id, section_id, subject_group_id, subject_id, teacher_id, day_of_week, time_from, time_to, room_no, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW())',
+      [schoolId, classId, sectionId, subjectGroupId, subjectId, teacherUserId, day_of_week, time_from, time_to, room_no || null]
     ) as any;
 
     const [newEntries] = await db.execute(
-      'SELECT * FROM class_timetable WHERE id = ?',
-      [result.insertId]
+      'SELECT * FROM class_timetable WHERE id = ? AND school_id = ?',
+      [result.insertId, schoolId]
     ) as any[];
 
     res.status(201).json({
@@ -821,14 +901,23 @@ export const createTimetableEntry = async (
 };
 
 export const updateTimetableEntry = async (
-  req: Request,
+  req: AuthRequest,
   res: Response,
   next: NextFunction
 ): Promise<void> => {
   try {
+    const schoolId = getSchoolId(req);
+    if (schoolId == null) return next(createError('School context required', 403));
     const { id } = req.params;
     const { subject_id, teacher_id, day_of_week, time_from, time_to, room_no } = req.body;
     const db = getDatabase();
+    const [existingEntries] = await db.execute(
+      'SELECT * FROM class_timetable WHERE id = ? AND school_id = ?',
+      [id, schoolId]
+    ) as any[];
+    if (existingEntries.length === 0) {
+      throw createError('Timetable entry not found', 404);
+    }
 
     const updates: string[] = [];
     const params: any[] = [];
@@ -839,7 +928,12 @@ export const updateTimetableEntry = async (
     }
     if (teacher_id !== undefined) {
       updates.push('teacher_id = ?');
-      params.push(teacher_id);
+      if (teacher_id === null || teacher_id === '') {
+        params.push(null);
+      } else {
+        const teacherUserId = await resolveTeacherUserId(db, schoolId, Number(teacher_id));
+        params.push(teacherUserId);
+      }
     }
     if (day_of_week) {
       updates.push('day_of_week = ?');
@@ -863,16 +957,16 @@ export const updateTimetableEntry = async (
     }
 
     updates.push('updated_at = NOW()');
-    params.push(id);
+    params.push(id, schoolId);
 
     await db.execute(
-      `UPDATE class_timetable SET ${updates.join(', ')} WHERE id = ?`,
+      `UPDATE class_timetable SET ${updates.join(', ')} WHERE id = ? AND school_id = ?`,
       params
     );
 
     const [updatedEntries] = await db.execute(
-      'SELECT * FROM class_timetable WHERE id = ?',
-      [id]
+      'SELECT * FROM class_timetable WHERE id = ? AND school_id = ?',
+      [id, schoolId]
     ) as any[];
 
     res.json({
@@ -886,15 +980,17 @@ export const updateTimetableEntry = async (
 };
 
 export const deleteTimetableEntry = async (
-  req: Request,
+  req: AuthRequest,
   res: Response,
   next: NextFunction
 ): Promise<void> => {
   try {
+    const schoolId = getSchoolId(req);
+    if (schoolId == null) return next(createError('School context required', 403));
     const { id } = req.params;
     const db = getDatabase();
 
-    await db.execute('DELETE FROM class_timetable WHERE id = ?', [id]);
+    await db.execute('DELETE FROM class_timetable WHERE id = ? AND school_id = ?', [id, schoolId]);
 
     res.json({
       success: true,
@@ -906,11 +1002,13 @@ export const deleteTimetableEntry = async (
 };
 
 export const getTeacherTimetable = async (
-  req: Request,
+  req: AuthRequest,
   res: Response,
   next: NextFunction
 ): Promise<void> => {
   try {
+    const schoolId = getSchoolId(req);
+    if (schoolId == null) return next(createError('School context required', 403));
     const { teacher_id } = req.query;
     const db = getDatabase();
 
@@ -918,21 +1016,23 @@ export const getTeacherTimetable = async (
       throw createError('Teacher ID is required', 400);
     }
 
+    const teacherUserId = await resolveTeacherUserId(db, schoolId, Number(teacher_id));
+
     const [timetable] = await db.execute(
       `SELECT tt.*, 
        sub.name as subject_name, sub.code as subject_code,
        u.name as teacher_name,
        c.name as class_name, s.name as section_name
        FROM class_timetable tt
-       LEFT JOIN subjects sub ON tt.subject_id = sub.id
-       LEFT JOIN users u ON tt.teacher_id = u.id
-       LEFT JOIN classes c ON tt.class_id = c.id
-       LEFT JOIN sections s ON tt.section_id = s.id
-       WHERE tt.teacher_id = ?
+       LEFT JOIN subjects sub ON tt.subject_id = sub.id AND sub.school_id = ?
+       LEFT JOIN users u ON tt.teacher_id = u.id AND u.school_id = ?
+       LEFT JOIN classes c ON tt.class_id = c.id AND c.school_id = ?
+       LEFT JOIN sections s ON tt.section_id = s.id AND s.school_id = ?
+       WHERE tt.school_id = ? AND tt.teacher_id = ?
        ORDER BY 
          FIELD(tt.day_of_week, 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday'),
          tt.time_from ASC`,
-      [teacher_id]
+      [schoolId, schoolId, schoolId, schoolId, schoolId, teacherUserId]
     ) as any[];
 
     res.json({

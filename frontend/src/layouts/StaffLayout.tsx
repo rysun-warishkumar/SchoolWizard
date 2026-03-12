@@ -27,7 +27,6 @@ const StaffLayout: React.FC<StaffLayoutProps> = ({ children }) => {
     { path: '/staff/timetable', label: 'Timetable', icon: '📅' },
     { path: '/staff/attendance', label: 'Mark Attendance', icon: '✅' },
     { path: '/staff/homework', label: 'Homework', icon: '📝' },
-    { path: '/staff/examinations', label: 'Examinations', icon: '📋' },
     { path: '/staff/leave', label: 'Apply Leave', icon: '🏖️' },
     { path: '/staff/payroll', label: 'Payroll', icon: '💰' },
     { path: '/staff/downloads', label: 'Download Center', icon: '📥' },

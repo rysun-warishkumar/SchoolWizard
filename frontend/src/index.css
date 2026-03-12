@@ -393,10 +393,87 @@ textarea {
   box-sizing: border-box;
 }
 
+/*
+  Strong fallback for app pages and modal forms.
+  This avoids relying on cross-module CSS leakage for field borders.
+*/
+.layout-content input[type="text"],
+.layout-content input[type="email"],
+.layout-content input[type="tel"],
+.layout-content input[type="date"],
+.layout-content input[type="number"],
+.layout-content input[type="url"],
+.layout-content input[type="password"],
+.layout-content input[type="search"],
+.layout-content select,
+.layout-content textarea,
+.staff-content input[type="text"],
+.staff-content input[type="email"],
+.staff-content input[type="tel"],
+.staff-content input[type="date"],
+.staff-content input[type="number"],
+.staff-content input[type="url"],
+.staff-content input[type="password"],
+.staff-content input[type="search"],
+.staff-content select,
+.staff-content textarea,
+.student-content input[type="text"],
+.student-content input[type="email"],
+.student-content input[type="tel"],
+.student-content input[type="date"],
+.student-content input[type="number"],
+.student-content input[type="url"],
+.student-content input[type="password"],
+.student-content input[type="search"],
+.student-content select,
+.student-content textarea,
+.parent-content input[type="text"],
+.parent-content input[type="email"],
+.parent-content input[type="tel"],
+.parent-content input[type="date"],
+.parent-content input[type="number"],
+.parent-content input[type="url"],
+.parent-content input[type="password"],
+.parent-content input[type="search"],
+.parent-content select,
+.parent-content textarea,
+.modal-body input[type="text"],
+.modal-body input[type="email"],
+.modal-body input[type="tel"],
+.modal-body input[type="date"],
+.modal-body input[type="number"],
+.modal-body input[type="url"],
+.modal-body input[type="password"],
+.modal-body input[type="search"],
+.modal-body select,
+.modal-body textarea {
+  border: 1px solid var(--gray-300);
+  background: var(--white);
+}
+
 input:focus,
 select:focus,
 textarea:focus {
   outline: none;
+  border-color: var(--primary-color);
+  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1);
+}
+
+.layout-content input:focus,
+.layout-content select:focus,
+.layout-content textarea:focus,
+.staff-content input:focus,
+.staff-content select:focus,
+.staff-content textarea:focus,
+.student-content input:focus,
+.student-content select:focus,
+.student-content textarea:focus,
+.parent-content input:focus,
+.parent-content select:focus,
+.parent-content textarea:focus,
+.modal-body input:focus,
+.modal-body select:focus,
+.modal-body textarea:focus {
   border-color: var(--primary-color);
   box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1);
 }

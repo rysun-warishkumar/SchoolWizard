@@ -153,7 +153,7 @@
   flex-wrap: wrap;
 }
 
-.filters-section {
+.library-page .filters-section {
   display: flex;
   gap: var(--spacing-md);
   align-items: center;
@@ -161,7 +161,7 @@
   flex: 1;
 }
 
-.search-input {
+.library-page .search-input {
   padding: var(--spacing-sm);
   border: 1px solid var(--gray-300);
   border-radius: var(--border-radius-sm);
@@ -171,12 +171,48 @@
   max-width: 300px;
 }
 
-.filter-select {
+.library-page .filter-select {
   padding: var(--spacing-sm);
   border: 1px solid var(--gray-300);
   border-radius: var(--border-radius-sm);
   font-size: var(--font-size-base);
   min-width: 150px;
+}
+
+.library-member-filters-section {
+  width: 100%;
+  display: block;
+}
+
+.library-member-filters-row {
+  display: grid !important;
+  grid-template-columns: repeat(3, minmax(200px, 1fr));
+  gap: var(--spacing-md);
+  align-items: end;
+  width: 100%;
+}
+
+.library-staff-filters-row {
+  display: grid !important;
+  grid-template-columns: repeat(2, minmax(220px, 1fr));
+  gap: var(--spacing-md);
+  align-items: end;
+  width: 100%;
+}
+
+.library-member-filters-row .form-group select,
+.library-staff-filters-row .form-group select,
+.library-member-filters-row .search-input,
+.library-staff-filters-row .search-input {
+  width: 100%;
+  max-width: none;
+  min-width: 0;
+}
+
+.library-inline-loader {
+  display: inline-block;
+  margin-top: var(--spacing-sm);
+  color: #6b7280;
 }
 
 .checkbox-label {
@@ -231,7 +267,7 @@
   font-weight: 600;
 }
 
-.status-badge {
+.library-page .status-badge {
   padding: var(--spacing-xs) var(--spacing-sm);
   border-radius: var(--border-radius-sm);
   font-size: var(--font-size-xs);
@@ -239,32 +275,32 @@
   text-transform: capitalize;
 }
 
-.status-badge.issued {
+.library-page .status-badge.issued {
   background: var(--warning-color);
   color: var(--white);
 }
 
-.status-badge.returned {
+.library-page .status-badge.returned {
   background: var(--success-color);
   color: var(--white);
 }
 
-.status-badge.lost {
+.library-page .status-badge.lost {
   background: var(--danger-color);
   color: var(--white);
 }
 
-.status-badge.damaged {
+.library-page .status-badge.damaged {
   background: var(--gray-600);
   color: var(--white);
 }
 
-.status-badge.active {
+.library-page .status-badge.active {
   background: var(--success-color);
   color: var(--white);
 }
 
-.status-badge.inactive {
+.library-page .status-badge.inactive {
   background: var(--gray-400);
   color: var(--white);
 }

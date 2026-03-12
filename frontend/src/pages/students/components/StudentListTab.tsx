@@ -26,6 +26,7 @@ interface StudentListTabProps {
   onPageChange: (value: number) => void;
   onDelete: (id: number) => void;
   isLoading: boolean;
+  areFiltersLoading?: boolean;
   error?: any;
   isError?: boolean;
 }
@@ -44,6 +45,7 @@ const StudentListTab: React.FC<StudentListTabProps> = ({
   onPageChange,
   onDelete,
   isLoading,
+  areFiltersLoading = false,
   error,
   isError,
 }) => {
@@ -219,6 +221,7 @@ const StudentListTab: React.FC<StudentListTabProps> = ({
           value={classFilter}
           onChange={(e) => onClassFilterChange(e.target.value)}
           className="filter-select"
+          disabled={areFiltersLoading}
         >
           <option value="">All Classes</option>
           {classes.map((c: any) => (
@@ -229,12 +232,14 @@ const StudentListTab: React.FC<StudentListTabProps> = ({
           value={sectionFilter}
           onChange={(e) => onSectionFilterChange(e.target.value)}
           className="filter-select"
+          disabled={areFiltersLoading}
         >
           <option value="">All Sections</option>
           {sections.map((s: any) => (
             <option key={s.id} value={s.id}>{s.name}</option>
           ))}
         </select>
+        {areFiltersLoading && <span style={{ color: '#6b7280' }}>Loading filters...</span>}
       </div>
 
       {isLoading ? (

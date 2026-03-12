@@ -162,7 +162,7 @@
   overflow: hidden;
 }
 
-.empty-state {
+.fees-page .empty-state {
   text-align: center;
   padding: var(--spacing-xxl);
   color: var(--gray-500);
@@ -171,7 +171,7 @@
   box-shadow: var(--shadow-sm);
 }
 
-.loading {
+.fees-page .loading {
   text-align: center;
   padding: var(--spacing-xxl);
   color: var(--gray-500);

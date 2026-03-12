@@ -45,6 +45,11 @@ const envSchema = Joi.object({
 
   // Marketing enquiries webhook (e.g. WordPress URL to receive enquiry data)
   INQUIRY_WEBHOOK_URL: Joi.string().uri().allow('').optional(),
+
+  // SaaS control-plane compatibility flags
+  SAAS_CONTROL_PLANE_ENABLED: Joi.boolean().truthy('true').falsy('false').default(false),
+  SAAS_DOMAIN_ROUTING_ENABLED: Joi.boolean().truthy('true').falsy('false').default(false),
+  SAAS_DEDICATED_WORKFLOW_ENABLED: Joi.boolean().truthy('true').falsy('false').default(false),
 }).unknown(); // Allow unknown keys for flexibility
 
 // Validate environment variables
@@ -112,6 +117,13 @@ export const env = {
 
   // Marketing enquiries webhook (optional - e.g. WordPress URL)
   inquiryWebhookUrl: envVars.INQUIRY_WEBHOOK_URL || '',
+
+  // SaaS control-plane feature flags
+  saas: {
+    controlPlaneEnabled: Boolean(envVars.SAAS_CONTROL_PLANE_ENABLED),
+    domainRoutingEnabled: Boolean(envVars.SAAS_DOMAIN_ROUTING_ENABLED),
+    dedicatedWorkflowEnabled: Boolean(envVars.SAAS_DEDICATED_WORKFLOW_ENABLED),
+  },
 };
 
 // Helper function to check if running in development

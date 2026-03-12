@@ -73,6 +73,7 @@ const Sidebar = ({ isCollapsed, onToggle, isMobileOpen = false, onMobileClose }:
     '/roles': 'roles',
     '/settings': 'settings',
     '/front-cms-website': 'settings',
+    '/hosting-guide': 'settings',
   };
 
   // Define menu items
@@ -105,10 +106,17 @@ const Sidebar = ({ isCollapsed, onToggle, isMobileOpen = false, onMobileClose }:
     { path: '/users', label: 'Users', icon: '👥', module: 'users' },
     { path: '/roles', label: 'Roles & Permissions', icon: '🔐', module: 'roles' },
     { path: '/settings', label: 'Settings', icon: '⚙️', module: 'settings' },
+    { path: '/hosting-guide', label: 'Hosting Guide', icon: '☁️', module: 'settings' },
   ];
 
   // Filter menu items based on user permissions
   const menuItems = allMenuItems.filter((item) => {
+    if (item.path === '/hosting-guide') {
+      return (
+        user?.isPlatformAdmin === true ||
+        (user?.role === 'superadmin' && (user?.schoolId == null || user?.schoolId === undefined))
+      );
+    }
     // Superadmin (with school) always has access to normal modules
     if (user?.role === 'superadmin' && user?.schoolId != null) return true;
     // Platform admin (no school) sees only Platform Admin link; filter out others for them below
@@ -149,16 +157,18 @@ const Sidebar = ({ isCollapsed, onToggle, isMobileOpen = false, onMobileClose }:
       <nav className="sidebar-nav">
         <ul className="sidebar-menu">
           {showPlatformAdmin && (
-            <li>
-              <NavLink
-                to="/platform"
-                className={({ isActive }) => (isActive ? 'active' : '')}
-                title={isCollapsed ? 'Platform Admin' : ''}
-              >
-                <span className="menu-icon">⚙</span>
-                {!isCollapsed && <span className="menu-label">Platform Admin</span>}
-              </NavLink>
-            </li>
+            <>
+              <li>
+                <NavLink
+                  to="/platform"
+                  className={({ isActive }) => (isActive ? 'active' : '')}
+                  title={isCollapsed ? 'Platform Admin' : ''}
+                >
+                  <span className="menu-icon">⚙</span>
+                  {!isCollapsed && <span className="menu-label">Platform Admin</span>}
+                </NavLink>
+              </li>
+            </>
           )}
           {menuItems.map((item) => (
             <li key={item.path}>

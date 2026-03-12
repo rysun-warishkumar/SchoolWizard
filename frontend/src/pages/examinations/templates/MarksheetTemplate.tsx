@@ -90,6 +90,7 @@ const MarksheetTemplate: React.FC<MarksheetTemplateProps> = ({
   coScholasticAreas,
   disciplineAreas,
 }) => {
+  const studentAny = student as any;
   const formatDate = (dateStr?: string) => {
     if (!dateStr) return '-';
     const date = new Date(dateStr);
@@ -100,7 +101,22 @@ const MarksheetTemplate: React.FC<MarksheetTemplateProps> = ({
     });
   };
 
-  const studentName = `${student.first_name || ''} ${student.last_name || ''}`.trim();
+  const studentName = `${studentAny.first_name || studentAny.firstName || ''} ${studentAny.last_name || studentAny.lastName || ''}`.trim();
+  const className = studentAny.class_name || studentAny.className || '-';
+  const sectionName = studentAny.section_name || studentAny.sectionName || '';
+  const fatherName = studentAny.father_name || studentAny.fatherName || '-';
+  const motherName = studentAny.mother_name || studentAny.motherName || '-';
+  const dobValue = studentAny.date_of_birth || studentAny.dateOfBirth;
+  const getLogoUrl = (logo?: string): string | null => {
+    if (!logo) return null;
+    const logoStr = String(logo).trim();
+    if (!logoStr || logoStr === 'null' || logoStr === 'undefined') return null;
+    if (logoStr.startsWith('data:image/')) return logoStr;
+    if (logoStr.startsWith('http://') || logoStr.startsWith('https://')) return logoStr;
+    const apiBaseUrl = import.meta.env.VITE_API_BASE_URL || 'http://localhost:5000/api/v1';
+    return apiBaseUrl.replace('/api/v1', '') + (logoStr.startsWith('/') ? logoStr : `/${logoStr}`);
+  };
+  const logoUrl = getLogoUrl(schoolInfo.logo);
 
   // Default grade scale if not provided
   const defaultGradeScale: GradeScale[] = gradeScale || [
@@ -141,8 +157,8 @@ const MarksheetTemplate: React.FC<MarksheetTemplateProps> = ({
             {/* Header */}
             <div className="marksheet-header">
               <div className="header-logo-section">
-                {schoolInfo.logo ? (
-                  <img src={schoolInfo.logo} alt="School Logo" className="marksheet-logo" />
+                {logoUrl ? (
+                  <img src={logoUrl} alt="School Logo" className="marksheet-logo" />
                 ) : (
                   <div className="marksheet-logo-placeholder">
                     <span>🏫</span>
@@ -174,8 +190,8 @@ const MarksheetTemplate: React.FC<MarksheetTemplateProps> = ({
                 Academic Session - {exam.session_name || '-'}
               </div>
               <div className="class-info">
-                Class: {student.class_name || '-'}
-                {student.section_name && ` (${student.section_name})`}
+                Class: {className}
+                {sectionName && ` (${sectionName})`}
               </div>
             </div>
 
@@ -194,7 +210,7 @@ const MarksheetTemplate: React.FC<MarksheetTemplateProps> = ({
               <div className="info-row">
                 <div className="info-group">
                   <span className="info-label">Mother's Name</span>
-                  <span className="info-value dotted">{student.mother_name || '-'}</span>
+                  <span className="info-value dotted">{motherName}</span>
                 </div>
                 <div className="info-group">
                   <span className="info-label">Scholar No</span>
@@ -204,11 +220,11 @@ const MarksheetTemplate: React.FC<MarksheetTemplateProps> = ({
               <div className="info-row">
                 <div className="info-group">
                   <span className="info-label">Father's Name</span>
-                  <span className="info-value dotted">{student.father_name || '-'}</span>
+                  <span className="info-value dotted">{fatherName}</span>
                 </div>
                 <div className="info-group">
                   <span className="info-label">Date of Birth</span>
-                  <span className="info-value dotted">{formatDate(student.date_of_birth)}</span>
+                  <span className="info-value dotted">{formatDate(dobValue)}</span>
                 </div>
               </div>
             </div>

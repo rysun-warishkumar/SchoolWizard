@@ -163,6 +163,19 @@
   gap: var(--spacing-lg);
 }
 
+.dashboard-content-daily {
+  grid-template-columns: 1fr;
+  margin-bottom: var(--spacing-lg);
+}
+
+.dashboard-content-secondary {
+  grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+}
+
+.dashboard-card-full {
+  width: 100%;
+}
+
 .dashboard-card {
   background: var(--white);
   padding: var(--spacing-xl);
@@ -236,14 +249,14 @@
   border-bottom: none;
 }
 
-.empty-state {
+.dashboard-page .empty-state {
   color: var(--gray-500);
   text-align: center;
   padding: var(--spacing-xl);
   font-style: italic;
 }
 
-.loading {
+.dashboard-page .loading {
   text-align: center;
   padding: var(--spacing-2xl);
   color: var(--gray-600);
@@ -307,5 +320,162 @@
   color: var(--primary-color);
   font-weight: 600;
   font-size: 0.875rem;
+}
+
+.dashboard-highlight-tiles {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: var(--spacing-md);
+}
+
+.dashboard-highlight-tile {
+  background: var(--gray-50);
+  border: 1px solid var(--gray-200);
+  border-radius: var(--radius-md);
+  padding: var(--spacing-md);
+  min-height: 150px;
+  position: relative;
+  overflow: hidden;
+}
+
+.dashboard-highlight-tile.thought-tile {
+  border-left: 4px solid var(--primary-color);
+}
+
+.highlight-title {
+  font-weight: var(--font-weight-semibold);
+  color: var(--gray-900);
+  margin-bottom: var(--spacing-sm);
+}
+
+.highlight-list {
+  margin: 0;
+  padding-left: var(--spacing-md);
+  color: var(--gray-700);
+  list-style: none;
+  padding-left: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-sm);
+}
+
+.highlight-person {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-sm);
+}
+
+.highlight-avatar {
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  background: color-mix(in srgb, var(--primary-color) 16%, white);
+  color: var(--primary-color);
+  font-size: 11px;
+  font-weight: 700;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.highlight-name {
+  color: var(--gray-700);
+  font-size: var(--font-size-sm);
+}
+
+.highlight-meta {
+  color: var(--gray-500);
+  font-size: var(--font-size-xs);
+}
+
+.highlight-empty {
+  margin: 0;
+  color: var(--gray-500);
+}
+
+.birthday-card::before,
+.anniversary-card::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background-image:
+    radial-gradient(circle at 10% 20%, rgba(59, 130, 246, 0.1) 2px, transparent 3px),
+    radial-gradient(circle at 80% 30%, rgba(16, 185, 129, 0.1) 2px, transparent 3px),
+    radial-gradient(circle at 30% 80%, rgba(245, 158, 11, 0.1) 2px, transparent 3px);
+  pointer-events: none;
+}
+
+.celebration-card {
+  position: relative;
+  z-index: 1;
+}
+
+.celebration-head {
+  display: flex;
+  gap: var(--spacing-sm);
+  align-items: center;
+  margin-bottom: var(--spacing-sm);
+}
+
+.celebration-avatar {
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  object-fit: cover;
+  border: 2px solid color-mix(in srgb, var(--primary-color) 25%, white);
+  background: var(--gray-100);
+}
+
+.celebration-wish {
+  margin: 0;
+  font-size: var(--font-size-sm);
+  color: var(--gray-700);
+  line-height: 1.45;
+}
+
+.carousel-controls {
+  margin-top: var(--spacing-sm);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--spacing-sm);
+}
+
+.carousel-nav-btn {
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  
+  background: var(--white);
+  color: var(--gray-600);
+  font-size: 18px;
+  line-height: 1;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  padding: 0;
+  appearance: none;
+  -webkit-appearance: none;
+}
+
+.carousel-nav-btn:hover {
+  border-color: var(--primary-color);
+  color: var(--primary-color);
+}
+
+.carousel-count {
+  min-width: 42px;
+  text-align: center;
+  font-size: var(--font-size-xs);
+  color: var(--gray-600);
+  font-weight: var(--font-weight-medium);
+}
+
+@media (max-width: 900px) {
+  .dashboard-highlight-tiles {
+    grid-template-columns: 1fr;
+  }
 }
 

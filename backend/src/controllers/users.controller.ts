@@ -448,11 +448,10 @@ export const resetParentUserPassword = async (
     res.json({
       success: true,
       message: send_email
-        ? 'Password reset successfully. New password has been sent to parent email.'
+        ? 'Password reset successfully. Password setup link has been sent to parent email.'
         : 'Password reset successfully.',
       data: {
         email: result.email,
-        password: result.password,
       },
     });
   } catch (error) {

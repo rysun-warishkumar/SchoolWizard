@@ -47,6 +47,17 @@ export const getHomework = async (req: Request, res: Response, next: NextFunctio
     const { class_id, section_id, subject_id, session_id, student_id } = req.query;
     const userId = (req as any).user?.id;
     const userRole = (req as any).user?.role_name;
+    const toNumberOrNull = (value: unknown): number | null => {
+      const first = Array.isArray(value) ? value[0] : value;
+      if (first === undefined || first === null || first === '') return null;
+      const parsed = Number(first);
+      return Number.isFinite(parsed) ? parsed : null;
+    };
+    const classId = toNumberOrNull(class_id);
+    const sectionId = toNumberOrNull(section_id);
+    const subjectId = toNumberOrNull(subject_id);
+    const sessionId = toNumberOrNull(session_id);
+    const studentId = toNumberOrNull(student_id);
 
     let query = `
       SELECT h.*,
@@ -57,7 +68,7 @@ export const getHomework = async (req: Request, res: Response, next: NextFunctio
              u.name as created_by_name,
              (SELECT MAX(he.evaluation_date) 
               FROM homework_evaluations he 
-              WHERE he.homework_id = h.id AND he.school_id = ?
+              WHERE he.homework_id = h.id AND he.school_id = h.school_id
               AND he.is_completed = 1) as evaluation_date
       FROM homework h
       INNER JOIN classes c ON h.class_id = c.id AND c.school_id = ?
@@ -69,22 +80,22 @@ export const getHomework = async (req: Request, res: Response, next: NextFunctio
     `;
     const params: any[] = [schoolId, schoolId, schoolId, schoolId, schoolId];
 
-    if (class_id) {
+    if (classId != null) {
       query += ' AND h.class_id = ?';
-      params.push(class_id);
+      params.push(classId);
     }
-    if (section_id) {
+    if (sectionId != null) {
       query += ' AND h.section_id = ?';
-      params.push(section_id);
+      params.push(sectionId);
     }
-    if (subject_id) {
+    if (subjectId != null) {
       query += ' AND h.subject_id = ?';
-      params.push(subject_id);
+      params.push(subjectId);
     }
-    if (session_id) {
+    if (sessionId != null) {
       // Filter by session through class
       query += ' AND c.session_id = ?';
-      params.push(session_id);
+      params.push(sessionId);
     }
 
     query += ' ORDER BY h.homework_date DESC, h.created_at DESC';
@@ -126,10 +137,10 @@ export const getHomework = async (req: Request, res: Response, next: NextFunctio
               evaluations: [],
             };
           }
-        } else if (student_id) {
+        } else if (studentId != null) {
           // If student_id is provided in query (for parent view)
           evaluationQuery += ' AND he.student_id = ?';
-          evaluationParams.push(student_id);
+          evaluationParams.push(studentId);
         }
 
         evaluationQuery += ' ORDER BY st.admission_no ASC';

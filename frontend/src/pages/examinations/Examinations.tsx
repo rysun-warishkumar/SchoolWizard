@@ -269,6 +269,16 @@ const MarksheetPredefinedTemplate: React.FC<MarksheetPredefinedTemplateProps> = 
   };
 
   const studentName = `${student.first_name || ''} ${student.last_name || ''}`.trim();
+  const getLogoUrl = (logo: string | null | undefined): string => {
+    if (!logo) return '';
+    const logoStr = String(logo).trim();
+    if (!logoStr || logoStr === 'null' || logoStr === 'undefined') return '';
+    if (logoStr.startsWith('data:image/')) return logoStr;
+    if (logoStr.startsWith('http://') || logoStr.startsWith('https://')) return logoStr;
+    const apiBaseUrl = import.meta.env.VITE_API_BASE_URL || 'http://localhost:5000/api/v1';
+    return apiBaseUrl.replace('/api/v1', '') + (logoStr.startsWith('/') ? logoStr : `/${logoStr}`);
+  };
+  const logoUrl = getLogoUrl(schoolInfo?.logo);
   const gradeScale = [
     { marks_range: '91-100', grade: 'A+' },
     { marks_range: '81-90', grade: 'A' },
@@ -286,8 +296,8 @@ const MarksheetPredefinedTemplate: React.FC<MarksheetPredefinedTemplateProps> = 
           <div className="marksheet-inner">
             <div className="marksheet-header">
               <div className="header-logo-section">
-                {schoolInfo.logo ? (
-                  <img src={schoolInfo.logo} alt="Logo" className="marksheet-logo" />
+                {logoUrl ? (
+                  <img src={logoUrl} alt="Logo" className="marksheet-logo" />
                 ) : (
                   <div className="marksheet-logo-placeholder"><span>🏫</span></div>
                 )}
@@ -442,6 +452,12 @@ type TabType =
   | 'exam-result'
   | 'print-admit-card'
   | 'print-marksheet';
+
+const DROPDOWN_QUERY_OPTIONS = {
+  staleTime: 0,
+  refetchOnMount: 'always' as const,
+  refetchOnWindowFocus: false,
+};
 
 const Examinations = () => {
   const [searchParams, setSearchParams] = useSearchParams();
@@ -1058,8 +1074,16 @@ const ExamsTab = () => {
     session_id: '',
   });
 
-  const { data: examGroups = [] } = useQuery('exam-groups', examinationsService.getExamGroups);
-  const { data: sessionsResponse } = useQuery('sessions', () => settingsService.getSessions());
+  const { data: examGroups = [], isLoading: examGroupsLoading } = useQuery(
+    'exam-groups',
+    examinationsService.getExamGroups,
+    DROPDOWN_QUERY_OPTIONS
+  );
+  const { data: sessionsResponse, isLoading: sessionsLoading } = useQuery(
+    'sessions',
+    () => settingsService.getSessions(),
+    DROPDOWN_QUERY_OPTIONS
+  );
   const sessions = Array.isArray(sessionsResponse?.data) ? sessionsResponse.data : [];
   const { data: exams = [], isLoading } = useQuery(
     ['exams', filters],
@@ -1069,11 +1093,13 @@ const ExamsTab = () => {
         session_id: filters.session_id ? Number(filters.session_id) : undefined,
       }),
     {
+      ...DROPDOWN_QUERY_OPTIONS,
       onError: (error: any) => {
         console.error('Error fetching exams:', error);
       },
     }
   );
+  const isFiltersLoading = examGroupsLoading || sessionsLoading;
 
   const [createFormData, setCreateFormData] = useState({
     exam_group_id: '',
@@ -1174,12 +1200,13 @@ const ExamsTab = () => {
       </div>
 
       <div className="filters-section" style={{ marginBottom: 'var(--spacing-lg)' }}>
-        <div className="form-row">
+        <div className="form-row exams-filters-row">
           <div className="form-group">
             <label>Filter by Exam Group:</label>
             <select
               value={filters.exam_group_id}
               onChange={(e) => setFilters({ ...filters, exam_group_id: e.target.value })}
+              disabled={isFiltersLoading}
             >
               <option value="">All Groups</option>
               {examGroups?.map((group) => (
@@ -1194,6 +1221,7 @@ const ExamsTab = () => {
             <select
               value={filters.session_id}
               onChange={(e) => setFilters({ ...filters, session_id: e.target.value })}
+              disabled={isFiltersLoading}
             >
               <option value="">All Sessions</option>
               {sessions && Array.isArray(sessions) && sessions.map((session) => (
@@ -1204,6 +1232,7 @@ const ExamsTab = () => {
             </select>
           </div>
         </div>
+        {isFiltersLoading && <small style={{ color: '#6b7280' }}>Loading filter data...</small>}
       </div>
 
       {isLoading ? (
@@ -1286,6 +1315,7 @@ const ExamsTab = () => {
               onChange={(e) =>
                 setCreateFormData({ ...createFormData, exam_group_id: e.target.value })
               }
+              disabled={isFiltersLoading}
               required
             >
               <option value="">Select Exam Group</option>
@@ -1316,6 +1346,7 @@ const ExamsTab = () => {
               onChange={(e) =>
                 setCreateFormData({ ...createFormData, session_id: e.target.value })
               }
+              disabled={isFiltersLoading}
               required
             >
               <option value="">Select Session</option>
@@ -1379,7 +1410,6 @@ const ExamsTab = () => {
             setShowAddSubjectModal(true);
           }}
           onEnterMarks={(subjectId: number) => {
-            setShowDetailsModal(false);
             setShowEnterMarksModal(true);
             // Store subject ID for marks entry
             (window as any).__selectedExamSubjectId = subjectId;
@@ -1460,7 +1490,6 @@ const ExamsTab = () => {
           isOpen={showEnterMarksModal}
           onClose={() => {
             setShowEnterMarksModal(false);
-            setSelectedExam(null);
             (window as any).__selectedExamSubjectId = null;
           }}
         />
@@ -1480,26 +1509,43 @@ const ExamResultTab = () => {
   const [isLoading, setIsLoading] = useState(false);
   const { showToast } = useToast();
 
-  const { data: examGroups } = useQuery('exam-groups', examinationsService.getExamGroups);
-  const { data: sessionsResponse } = useQuery('sessions', () => settingsService.getSessions());
+  const { data: examGroups, isLoading: examGroupsLoading } = useQuery(
+    'exam-groups',
+    examinationsService.getExamGroups,
+    DROPDOWN_QUERY_OPTIONS
+  );
+  const { data: sessionsResponse, isLoading: sessionsLoading } = useQuery(
+    'sessions',
+    () => settingsService.getSessions(),
+    DROPDOWN_QUERY_OPTIONS
+  );
   const sessions = Array.isArray(sessionsResponse?.data) ? sessionsResponse.data : [];
-  const { data: classesResponse } = useQuery('classes', async () => {
-    const response = await academicsService.getClasses();
-    return response.data;
-  });
+  const { data: classesResponse, isLoading: classesLoading } = useQuery(
+    'classes',
+    async () => {
+      const response = await academicsService.getClasses();
+      return response.data;
+    },
+    DROPDOWN_QUERY_OPTIONS
+  );
   const classes = Array.isArray(classesResponse) ? classesResponse : [];
-  const { data: sectionsResponse } = useQuery('sections', async () => {
-    const response = await academicsService.getSections();
-    return response.data;
-  });
+  const { data: sectionsResponse, isLoading: sectionsLoading } = useQuery(
+    'sections',
+    async () => {
+      const response = await academicsService.getSections();
+      return response.data;
+    },
+    DROPDOWN_QUERY_OPTIONS
+  );
   const sections = Array.isArray(sectionsResponse) ? sectionsResponse : [];
 
   // Get exams for selected exam group
-  const { data: exams } = useQuery(
+  const { data: exams, isLoading: examsLoading } = useQuery(
     ['exams', filters],
     () => examinationsService.getExams({ session_id: filters.session_id ? Number(filters.session_id) : undefined }),
-    { enabled: !!filters.session_id }
+    { ...DROPDOWN_QUERY_OPTIONS, enabled: !!filters.session_id }
   );
+  const isResultFiltersLoading = examGroupsLoading || sessionsLoading || classesLoading || sectionsLoading;
 
   const handleSearch = async () => {
     if (!filters.exam_id || !filters.class_id || !filters.section_id || !filters.session_id) {
@@ -1531,12 +1577,13 @@ const ExamResultTab = () => {
       </div>
 
       <div className="" style={{ marginBottom: 'var(--spacing-lg)' }}>
-        <div className="form-row">
+        <div className="form-row exam-result-filters-row">
           <div className="form-group">
             <label>Session <span className="required">*</span></label>
             <select
               value={filters.session_id}
               onChange={(e) => setFilters({ ...filters, session_id: e.target.value, exam_id: '' })}
+              disabled={sessionsLoading}
             >
               <option value="">Select Session</option>
               {sessions && Array.isArray(sessions) && sessions.map((session) => (
@@ -1551,7 +1598,7 @@ const ExamResultTab = () => {
             <select
               value={filters.exam_id}
               onChange={(e) => setFilters({ ...filters, exam_id: e.target.value })}
-              disabled={!filters.session_id}
+              disabled={!filters.session_id || examsLoading}
             >
               <option value="">Select Exam</option>
               {exams?.map((exam) => (
@@ -1566,6 +1613,7 @@ const ExamResultTab = () => {
             <select
               value={filters.class_id}
               onChange={(e) => setFilters({ ...filters, class_id: e.target.value, section_id: '' })}
+              disabled={classesLoading}
             >
               <option value="">Select Class</option>
               {classes.map((cls) => (
@@ -1580,7 +1628,7 @@ const ExamResultTab = () => {
             <select
               value={filters.section_id}
               onChange={(e) => setFilters({ ...filters, section_id: e.target.value })}
-              disabled={!filters.class_id}
+              disabled={!filters.class_id || sectionsLoading}
             >
               <option value="">Select Section</option>
               {sections.map((sec) => (
@@ -1591,6 +1639,7 @@ const ExamResultTab = () => {
             </select>
           </div>
         </div>
+        {isResultFiltersLoading && <small style={{ color: '#6b7280' }}>Loading filter data...</small>}
         <button
           className="btn-primary"
           onClick={handleSearch}
@@ -2275,20 +2324,37 @@ const PrintAdmitCardTab = () => {
   const { showToast } = useToast();
 
   // Fetch data for dropdowns
-  const { data: examGroups = [] } = useQuery('exam-groups', examinationsService.getExamGroups);
-  const { data: sessionsResponse } = useQuery('sessions', () => settingsService.getSessions());
+  const { data: examGroups = [], isLoading: examGroupsLoading } = useQuery(
+    'exam-groups',
+    examinationsService.getExamGroups,
+    DROPDOWN_QUERY_OPTIONS
+  );
+  const { data: sessionsResponse, isLoading: sessionsLoading } = useQuery(
+    'sessions',
+    () => settingsService.getSessions(),
+    DROPDOWN_QUERY_OPTIONS
+  );
   const sessions = Array.isArray(sessionsResponse?.data) ? sessionsResponse.data : [];
-  const { data: classesResponse } = useQuery(['classes', filters.session_id], () => academicsService.getClasses(), { enabled: !!filters.session_id });
+  const { data: classesResponse, isLoading: classesLoading } = useQuery(
+    ['classes', filters.session_id],
+    () => academicsService.getClasses(),
+    { ...DROPDOWN_QUERY_OPTIONS, enabled: !!filters.session_id }
+  );
   const classes = Array.isArray(classesResponse?.data) ? classesResponse.data : [];
-  const { data: sectionsResponse } = useQuery(['sections', filters.class_id], () => academicsService.getSections(), { enabled: !!filters.class_id });
+  const { data: sectionsResponse, isLoading: sectionsLoading } = useQuery(
+    ['sections', filters.class_id],
+    () => academicsService.getSections(),
+    { ...DROPDOWN_QUERY_OPTIONS, enabled: !!filters.class_id }
+  );
   const sections = Array.isArray(sectionsResponse?.data) ? sectionsResponse.data : [];
 
   // Fetch exams based on exam group
-  const { data: exams = [] } = useQuery(
+  const { data: exams = [], isLoading: examsLoading } = useQuery(
     ['exams', filters.exam_group_id],
     () => examinationsService.getExams({ exam_group_id: Number(filters.exam_group_id) }),
-    { enabled: !!filters.exam_group_id }
+    { ...DROPDOWN_QUERY_OPTIONS, enabled: !!filters.exam_group_id }
   );
+  const isAdmitFiltersLoading = examGroupsLoading || sessionsLoading || classesLoading || sectionsLoading || examsLoading;
 
   // Fetch school settings for school info
   useEffect(() => {
@@ -2749,7 +2815,7 @@ const PrintAdmitCardTab = () => {
       {/* Select Criteria Section */}
       <div className="select-criteria-section no-print" style={{ background: 'var(--white)', padding: 'var(--spacing-lg)', borderRadius: 'var(--border-radius)', marginBottom: 'var(--spacing-lg)', boxShadow: 'var(--shadow-sm)' }}>
         <h3 style={{ marginBottom: 'var(--spacing-md)' }}>Select Criteria</h3>
-        <div className="form-row" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 'var(--spacing-md)' }}>
+        <div className="form-row exam-print-admit-filters-row">
           <div className="form-group">
             <label>Exam Group <span className="required">*</span></label>
             <select
@@ -2758,6 +2824,7 @@ const PrintAdmitCardTab = () => {
                 setFilters({ ...filters, exam_group_id: e.target.value, exam_id: '' });
                 setStudents([]);
               }}
+              disabled={examGroupsLoading}
               required
             >
               <option value="">Select Exam Group</option>
@@ -2775,7 +2842,7 @@ const PrintAdmitCardTab = () => {
                 setStudents([]);
               }}
               required
-              disabled={!filters.exam_group_id}
+              disabled={!filters.exam_group_id || examsLoading}
             >
               <option value="">Select Exam</option>
               {exams.map((exam) => (
@@ -2792,6 +2859,7 @@ const PrintAdmitCardTab = () => {
                 setStudents([]);
               }}
               required
+              disabled={sessionsLoading}
             >
               <option value="">Select Session</option>
               {sessions && Array.isArray(sessions) && sessions.length > 0 ? (
@@ -2812,7 +2880,7 @@ const PrintAdmitCardTab = () => {
                 setStudents([]);
               }}
               required
-              disabled={!filters.session_id}
+              disabled={!filters.session_id || classesLoading}
             >
               <option value="">Select Class</option>
               {classes && Array.isArray(classes) && classes.length > 0 ? (
@@ -2833,7 +2901,7 @@ const PrintAdmitCardTab = () => {
                 setStudents([]);
               }}
               required
-              disabled={!filters.class_id}
+              disabled={!filters.class_id || sectionsLoading}
             >
               <option value="">Select Section</option>
               {sections && Array.isArray(sections) && sections.length > 0 ? (
@@ -2846,6 +2914,7 @@ const PrintAdmitCardTab = () => {
             </select>
           </div>
         </div>
+        {isAdmitFiltersLoading && <small style={{ color: '#6b7280' }}>Loading filter data...</small>}
         <div style={{ marginTop: 'var(--spacing-md)' }}>
           <button className="btn-primary" onClick={handleSearch} disabled={isLoading}>
             {isLoading ? 'Searching...' : '🔍 Search'}
@@ -3996,30 +4065,36 @@ const PrintMarksheetTab = () => {
 
   const { showToast } = useToast();
 
-  const { data: examGroups = [] } = useQuery('exam-groups', examinationsService.getExamGroups);
+  const { data: examGroups = [], isLoading: examGroupsLoading } = useQuery(
+    'exam-groups',
+    examinationsService.getExamGroups,
+    DROPDOWN_QUERY_OPTIONS
+  );
   
-  const { data: sessions = [] } = useQuery(
+  const { data: sessions = [], isLoading: sessionsLoading } = useQuery(
     'sessions',
-    () => settingsService.getSessions().then(res => res.data)
+    () => settingsService.getSessions().then(res => res.data),
+    DROPDOWN_QUERY_OPTIONS
   );
 
-  const { data: exams = [] } = useQuery(
+  const { data: exams = [], isLoading: examsLoading } = useQuery(
     ['exams', filters.exam_group_id],
     () => examinationsService.getExams({ exam_group_id: Number(filters.exam_group_id) }),
-    { enabled: !!filters.exam_group_id }
+    { ...DROPDOWN_QUERY_OPTIONS, enabled: !!filters.exam_group_id }
   );
 
-  const { data: classes = [] } = useQuery(
+  const { data: classes = [], isLoading: classesLoading } = useQuery(
     ['classes', filters.session_id],
     () => academicsService.getClasses().then(res => res.data),
-    { enabled: !!filters.session_id }
+    { ...DROPDOWN_QUERY_OPTIONS, enabled: !!filters.session_id }
   );
 
-  const { data: sections = [] } = useQuery(
+  const { data: sections = [], isLoading: sectionsLoading } = useQuery(
     ['sections', filters.class_id],
     () => academicsService.getSections().then(res => res.data),
-    { enabled: !!filters.class_id }
+    { ...DROPDOWN_QUERY_OPTIONS, enabled: !!filters.class_id }
   );
+  const isMarksheetFiltersLoading = examGroupsLoading || sessionsLoading || classesLoading || sectionsLoading || examsLoading;
 
   // Don't auto-load - wait for search button
 
@@ -4081,7 +4156,36 @@ const PrintMarksheetTab = () => {
       
       if (resultsResponse.success && resultsResponse.data) {
         const resultsArray = resultsResponse.data.results || [];
-        setExamResults(resultsArray);
+        const enrichedResults = await Promise.all(
+          resultsArray.map(async (result: any) => {
+            const needsStudentDetails =
+              !!result?.student_id &&
+              (!result?.father_name ||
+                !result?.mother_name ||
+                !result?.date_of_birth);
+
+            if (!needsStudentDetails) {
+              return result;
+            }
+
+            try {
+              const studentResponse = await studentsService.getStudentById(String(result.student_id));
+              const studentData = studentResponse?.data || {};
+              return {
+                ...result,
+                father_name: result?.father_name || studentData?.father_name || '',
+                mother_name: result?.mother_name || studentData?.mother_name || '',
+                date_of_birth: result?.date_of_birth || studentData?.date_of_birth || '',
+                class_name: result?.class_name || studentData?.class_name || '',
+                section_name: result?.section_name || studentData?.section_name || '',
+              };
+            } catch {
+              return result;
+            }
+          })
+        );
+
+        setExamResults(enrichedResults);
         setShowPreview(true);
       } else {
         showToast('Failed to load exam results', 'error');
@@ -4107,14 +4211,28 @@ const PrintMarksheetTab = () => {
         return date.toLocaleDateString('en-GB', { day: '2-digit', month: '2-digit', year: 'numeric' });
       };
 
-      const studentName = `${result.first_name || ''} ${result.last_name || ''}`.trim();
-      const marks = result.subjects || [];
+      const studentName = `${result?.first_name || result?.firstName || ''} ${result?.last_name || result?.lastName || ''}`.trim();
+      const marks = Array.isArray(result?.subjects) ? result.subjects : [];
+      const className =
+        result?.class_name ||
+        result?.className ||
+        classes.find((cls: any) => String(cls.id) === String(filters.class_id))?.name ||
+        '-';
+      const sectionName =
+        result?.section_name ||
+        result?.sectionName ||
+        sections.find((sec: any) => String(sec.id) === String(filters.section_id))?.name ||
+        '';
+      const motherName = result?.mother_name || result?.motherName || '-';
+      const fatherName = result?.father_name || result?.fatherName || '-';
+      const dateOfBirth = result?.date_of_birth || result?.dateOfBirth;
       
       // Helper function to get logo URL
       const getLogoUrl = (logo: string | null | undefined): string => {
         if (!logo) return '';
         const logoStr = String(logo).trim();
         if (!logoStr || logoStr === 'null' || logoStr === 'undefined') return '';
+        if (logoStr.startsWith('data:image/')) return logoStr;
         
         // File path - construct full URL
         if (logoStr.startsWith('/uploads/')) {
@@ -4179,7 +4297,7 @@ const PrintMarksheetTab = () => {
                 <div class="marksheet-title">
                   <h2>Academic Record</h2>
                   <div class="session-info">Academic Session - ${exam.session_name || '-'}</div>
-                  <div class="class-info">Class: ${result.class_name || '-'}${result.section_name ? ` (${result.section_name})` : ''}</div>
+                  <div class="class-info">Class: ${className}${sectionName ? ` (${sectionName})` : ''}</div>
                 </div>
                 <div class="student-info-section">
                   <div class="info-row">
@@ -4195,7 +4313,7 @@ const PrintMarksheetTab = () => {
                   <div class="info-row">
                     <div class="info-group">
                       <span class="info-label">Mother's Name</span>
-                      <span class="info-value dotted">${result.mother_name || '-'}</span>
+                      <span class="info-value dotted">${motherName}</span>
                     </div>
                     <div class="info-group">
                       <span class="info-label">Admission No</span>
@@ -4205,11 +4323,11 @@ const PrintMarksheetTab = () => {
                   <div class="info-row">
                     <div class="info-group">
                       <span class="info-label">Father's Name</span>
-                      <span class="info-value dotted">${result.father_name || '-'}</span>
+                      <span class="info-value dotted">${fatherName}</span>
                     </div>
                     <div class="info-group">
                       <span class="info-label">Date of Birth</span>
-                      <span class="info-value dotted">${formatDate(result.date_of_birth)}</span>
+                      <span class="info-value dotted">${formatDate(dateOfBirth)}</span>
                     </div>
                   </div>
                 </div>
@@ -4295,7 +4413,8 @@ const PrintMarksheetTab = () => {
     };
 
     // Generate HTML for all marksheets
-    const marksheetsHTML = examResults.map((result) => generateMarksheetHTML(result, examDetails, schoolInfo)).join('');
+    const safeResults = Array.isArray(examResults) ? examResults.filter(Boolean) : [];
+    const marksheetsHTML = safeResults.map((result) => generateMarksheetHTML(result, examDetails, schoolInfo)).join('');
 
     // Get CSS content (inline for reliability - same approach as admit card)
     const cssContent = `
@@ -4468,7 +4587,7 @@ const PrintMarksheetTab = () => {
       </div>
 
       <div className="filters-section no-print" style={{ marginBottom: 'var(--spacing-lg)', background: 'var(--white)', padding: 'var(--spacing-lg)', borderRadius: 'var(--border-radius)' }}>
-        <div className="form-row" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 'var(--spacing-md)' }}>
+        <div className="form-row exam-print-marksheet-filters-row">
           <div className="form-group">
             <label>Exam Group <span className="required">*</span></label>
             <select
@@ -4478,6 +4597,7 @@ const PrintMarksheetTab = () => {
                 setExamResults([]);
                 setShowPreview(false);
               }}
+              disabled={examGroupsLoading}
             >
               <option value="">Select Exam Group</option>
               {examGroups.map((group) => (
@@ -4494,7 +4614,7 @@ const PrintMarksheetTab = () => {
                 setExamResults([]);
                 setShowPreview(false);
               }}
-              disabled={!filters.exam_group_id}
+              disabled={!filters.exam_group_id || examsLoading}
             >
               <option value="">Select Exam</option>
               {exams.map((exam) => (
@@ -4511,6 +4631,7 @@ const PrintMarksheetTab = () => {
                 setExamResults([]);
                 setShowPreview(false);
               }}
+              disabled={sessionsLoading}
             >
               <option value="">All Sessions</option>
               {sessions && Array.isArray(sessions) && sessions.map((session: any) => (
@@ -4527,7 +4648,7 @@ const PrintMarksheetTab = () => {
                 setExamResults([]);
                 setShowPreview(false);
               }}
-              disabled={!filters.session_id}
+              disabled={!filters.session_id || classesLoading}
             >
               <option value="">All Classes</option>
               {classes && classes.map((cls: any) => (
@@ -4544,7 +4665,7 @@ const PrintMarksheetTab = () => {
                 setExamResults([]);
                 setShowPreview(false);
               }}
-              disabled={!filters.class_id}
+              disabled={!filters.class_id || sectionsLoading}
             >
               <option value="">All Sections</option>
               {sections && sections.map((sec: any) => (
@@ -4553,6 +4674,7 @@ const PrintMarksheetTab = () => {
             </select>
           </div>
         </div>
+        {isMarksheetFiltersLoading && <small style={{ color: '#6b7280' }}>Loading filter data...</small>}
         <div style={{ marginTop: 'var(--spacing-md)', textAlign: 'right' }}>
           <button
             className="btn-primary"
@@ -4582,23 +4704,31 @@ const PrintMarksheetTab = () => {
               </button>
             </div>
             <div className="marksheets-container">
-              {examResults.map((result, index) => (
+              {(Array.isArray(examResults) ? examResults.filter(Boolean) : []).map((result, index) => (
                 <MarksheetPredefinedTemplate
                   key={result.student_id || index}
                   student={{
                     ...result,
-                    first_name: result.first_name,
-                    last_name: result.last_name,
+                    first_name: result.first_name || result.firstName,
+                    last_name: result.last_name || result.lastName,
                     admission_no: result.admission_no,
                     roll_no: result.roll_no,
-                    class_name: result.class_name,
-                    section_name: result.section_name,
-                    father_name: result.father_name,
-                    mother_name: result.mother_name,
-                    date_of_birth: result.date_of_birth,
+                    class_name:
+                      result.class_name ||
+                      result.className ||
+                      classes.find((cls: any) => String(cls.id) === String(filters.class_id))?.name ||
+                      '-',
+                    section_name:
+                      result.section_name ||
+                      result.sectionName ||
+                      sections.find((sec: any) => String(sec.id) === String(filters.section_id))?.name ||
+                      '',
+                    father_name: result.father_name || result.fatherName,
+                    mother_name: result.mother_name || result.motherName,
+                    date_of_birth: result.date_of_birth || result.dateOfBirth,
                   }}
                   exam={examDetails}
-                  marks={result.subjects || []}
+                  marks={Array.isArray(result?.subjects) ? result.subjects : []}
                   schoolInfo={schoolInfo}
                   totalMarks={Number(result.total_marks_obtained) || 0}
                   maxMarks={Number(result.total_max_marks) || 0}
@@ -5513,7 +5643,8 @@ const MarksheetComponent = ({ student, exam, template }: MarksheetComponentProps
   };
 
   // Calculate totals and percentage
-  const marks = student.marks || [];
+  const marks = Array.isArray(student?.marks) ? student.marks : [];
+  const examSubjects = Array.isArray(exam?.subjects) ? exam.subjects : [];
   const totalMarks = marks.reduce((sum: number, m: any) => sum + (m.marks_obtained || 0), 0);
   const maxMarks = marks.reduce((sum: number, m: any) => sum + (m.max_marks || 0), 0);
   const percentage = maxMarks > 0 ? ((totalMarks / maxMarks) * 100).toFixed(2) : '0.00';
@@ -5657,7 +5788,7 @@ const MarksheetComponent = ({ student, exam, template }: MarksheetComponentProps
         </div>
 
         {/* Marks Table */}
-        {exam.subjects && exam.subjects.length > 0 && (
+        {examSubjects.length > 0 && (
           <div style={{ marginTop: '20px' }}>
             <table style={{ width: '100%', borderCollapse: 'collapse', border: '1px solid #000', marginTop: '15px' }}>
               <thead>
@@ -5670,7 +5801,7 @@ const MarksheetComponent = ({ student, exam, template }: MarksheetComponentProps
                 </tr>
               </thead>
               <tbody>
-                {exam.subjects.map((subject: any, idx: number) => {
+                {examSubjects.map((subject: any, idx: number) => {
                   const subjectMark = marks.find((m: any) => m.exam_subject_id === subject.id);
                   return (
                     <tr key={subject.id || idx}>

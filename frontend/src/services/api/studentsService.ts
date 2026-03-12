@@ -104,6 +104,11 @@ export const studentsService = {
     return response.data;
   },
 
+  async createStudentWithPhoto(formData: FormData): Promise<{ success: boolean; message: string; data: Student }> {
+    const response = await apiClient.post<{ success: boolean; message: string; data: Student }>('/students', formData);
+    return response.data;
+  },
+
   async updateStudent(id: string, data: Partial<Student>): Promise<{ success: boolean; message: string; data: Student }> {
     const response = await apiClient.put<{ success: boolean; message: string; data: Student }>(`/students/${id}`, data);
     return response.data;

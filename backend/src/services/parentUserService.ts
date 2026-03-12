@@ -1,7 +1,9 @@
 import bcrypt from 'bcryptjs';
+import crypto from 'crypto';
 import { getDatabase } from '../config/database';
 import { createError } from '../middleware/errorHandler';
 import { sendParentAccountEmail } from '../utils/emailService';
+import { createPasswordSetupLink } from '../utils/passwordSetupService';
 
 
 /**
@@ -12,8 +14,9 @@ export const createOrGetParentUser = async (
   email: string,
   name: string,
   studentName: string,
-  studentAdmissionNo: string
-): Promise<{ userId: number; isNewUser: boolean; password?: string }> => {
+  studentAdmissionNo: string,
+  schoolId: number
+): Promise<{ userId: number; isNewUser: boolean }> => {
   if (!email || !email.trim()) {
     throw createError('Parent email is required', 400);
   }
@@ -38,10 +41,28 @@ export const createOrGetParentUser = async (
 
   // If user exists, check if they have parent role
   if (existingUsers.length > 0) {
-    const existingUser = existingUsers[0];
+    const [sameSchoolUsers] = await db.execute(
+      `SELECT id, name, role_id
+       FROM users
+       WHERE email = ? AND school_id = ?`,
+      [trimmedEmail, schoolId]
+    ) as any[];
+
+    if (sameSchoolUsers.length === 0) {
+      throw createError(`A user with email "${trimmedEmail}" already exists in another school.`, 400);
+    }
+
+    const currentUser = sameSchoolUsers[0];
+    const [currentRoleRows] = await db.execute(
+      `SELECT r.name as role_name
+       FROM roles r
+       WHERE r.id = ? LIMIT 1`,
+      [currentUser.role_id]
+    ) as any[];
+    const currentRoleName = currentRoleRows[0]?.role_name;
 
     // If user exists but doesn't have parent role, update it
-    if (existingUser.role_name !== 'parent') {
+    if (currentRoleName !== 'parent') {
       // Get parent role ID
       const [parentRoles] = await db.execute(
         'SELECT id FROM roles WHERE name = ?',
@@ -53,22 +74,19 @@ export const createOrGetParentUser = async (
       }
 
       // Update user role to parent
-      await db.execute(
-        'UPDATE users SET role_id = ? WHERE id = ?',
-        [parentRoles[0].id, existingUser.id]
-      );
+      await db.execute('UPDATE users SET role_id = ? WHERE id = ? AND school_id = ?', [parentRoles[0].id, currentUser.id, schoolId]);
     }
 
     // Update name if provided and different
-    if (name && name.trim() && existingUser.name !== name.trim()) {
+    if (name && name.trim() && currentUser.name !== name.trim()) {
       await db.execute(
-        'UPDATE users SET name = ? WHERE id = ?',
-        [name.trim(), existingUser.id]
+        'UPDATE users SET name = ? WHERE id = ? AND school_id = ?',
+        [name.trim(), currentUser.id, schoolId]
       );
     }
 
     return {
-      userId: existingUser.id,
+      userId: currentUser.id,
       isNewUser: false,
     };
   }
@@ -84,29 +102,29 @@ export const createOrGetParentUser = async (
     throw createError('Parent role not found in system. Please contact administrator.', 500);
   }
 
-  // Generate password: FirstName@CurrentYear (e.g. John@2026)
-  const firstName = (name.trim().split(/\s+/)[0] || 'Parent').replace(/[^a-zA-Z0-9]/g, '') || 'Parent';
-  const year = new Date().getFullYear();
-  const plainPassword = `${firstName}@${year}`;
+  // Generate random temporary password and require secure setup before login.
+  const plainPassword = crypto.randomBytes(12).toString('base64url');
 
   // Hash password
   const hashedPassword = await bcrypt.hash(plainPassword, 10);
 
   // Create user
   const [result] = await db.execute(
-    'INSERT INTO users (email, password, name, role_id, is_active, created_at) VALUES (?, ?, ?, ?, 1, NOW())',
-    [trimmedEmail, hashedPassword, name.trim(), parentRoles[0].id]
+    'INSERT INTO users (email, password, name, role_id, school_id, is_active, created_at) VALUES (?, ?, ?, ?, ?, 1, NOW())',
+    [trimmedEmail, hashedPassword, name.trim(), parentRoles[0].id, schoolId]
   ) as any;
 
   // Send email with credentials
   try {
+    const setupUrl = await createPasswordSetupLink(result.insertId);
     await sendParentAccountEmail({
       to: trimmedEmail,
       parentName: name.trim(),
       studentName,
       studentAdmissionNo,
       email: trimmedEmail,
-      password: plainPassword,
+      setupUrl,
+      schoolId,
     });
   } catch (emailError) {
     // Log error but don't fail the operation
@@ -116,7 +134,6 @@ export const createOrGetParentUser = async (
   return {
     userId: result.insertId,
     isNewUser: true,
-    password: plainPassword,
   };
 };
 
@@ -133,7 +150,8 @@ export const processParentEmails = async (
   _guardianEmail: string | null,
   _guardianName: string | null,
   studentName: string,
-  studentAdmissionNo: string
+  studentAdmissionNo: string,
+  schoolId: number
 ): Promise<{ parentUserIds: number[]; createdAccounts: number }> => {
   const parentUserIds: number[] = [];
   let createdAccounts = 0;
@@ -146,7 +164,8 @@ export const processParentEmails = async (
         fatherEmail,
         fatherNameToUse,
         studentName,
-        studentAdmissionNo
+        studentAdmissionNo,
+        schoolId
       );
       if (result.isNewUser) {
         createdAccounts++;
@@ -170,7 +189,7 @@ export const resetParentPassword = async (
   userId: number,
   sendEmail: boolean = true,
   schoolId?: number | null
-): Promise<{ password: string; email: string }> => {
+): Promise<{ email: string }> => {
   const db = getDatabase();
 
   const userWhere = schoolId != null ? 'u.id = ? AND u.school_id = ?' : 'u.id = ?';
@@ -194,9 +213,7 @@ export const resetParentPassword = async (
     throw createError('User is not a parent', 400);
   }
 
-  const firstName = (user.name.trim().split(/\s+/)[0] || 'Parent').replace(/[^a-zA-Z0-9]/g, '') || 'Parent';
-  const year = new Date().getFullYear();
-  const plainPassword = `${firstName}@${year}`;
+  const plainPassword = crypto.randomBytes(12).toString('base64url');
 
   const hashedPassword = await bcrypt.hash(plainPassword, 10);
   if (schoolId != null) {
@@ -225,14 +242,16 @@ export const resetParentPassword = async (
         : 'Your Child';
       const studentAdmissionNo = studentInfo?.admission_no || 'N/A';
 
+      const setupUrl = await createPasswordSetupLink(user.id);
       await sendParentAccountEmail({
         to: user.email,
         parentName: user.name,
         studentName,
         studentAdmissionNo,
         email: user.email,
-        password: plainPassword,
+        setupUrl,
         isPasswordReset: true,
+        schoolId: schoolId ?? undefined,
       });
     } catch (emailError) {
       console.error('Failed to send password reset email:', emailError);
@@ -241,7 +260,6 @@ export const resetParentPassword = async (
   }
 
   return {
-    password: plainPassword,
     email: user.email,
   };
 };

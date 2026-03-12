@@ -127,7 +127,7 @@ const ClassTimetable: React.FC = () => {
                   <div className="timetable-entry" key={entry.id}>
                     <div className="entry-time">{entry.time_from} - {entry.time_to}</div>
                     <div className="entry-subject">{entry.subject_name || entry.subject_id}</div>
-                    <div className="entry-teacher">{entry.teacher_name || (staff.find(s=>s.id===entry.teacher_id)?.first_name ?? '')}</div>
+                    <div className="entry-teacher">{entry.teacher_name || (staff.find(s=>s.user_id===entry.teacher_id)?.first_name ?? '')}</div>
                     {canEdit && (
                       <div className="entry-actions">
                         <button className="btn-secondary small" onClick={() => { setEditing(entry); setShowForm(true); window.scrollTo({ top: 0, behavior: 'smooth' }); }}>Edit</button>
@@ -164,7 +164,7 @@ const ClassTimetable: React.FC = () => {
               <label>Teacher</label>
               <select name="teacher_id" defaultValue={editing?.teacher_id ?? ''}>
                 <option value="">Select Teacher</option>
-                {staff.map((t) => <option key={t.id} value={t.id}>{t.first_name} {t.last_name || ''}</option>)}
+                {staff.filter((t) => t.user_id).map((t) => <option key={t.id} value={t.user_id}>{t.first_name} {t.last_name || ''}</option>)}
               </select>
             </div>
 

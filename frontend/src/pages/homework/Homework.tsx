@@ -9,6 +9,12 @@ import { useToast } from '../../contexts/ToastContext';
 import Modal from '../../components/common/Modal';
 import './Homework.css';
 
+const DROPDOWN_QUERY_OPTIONS = {
+  staleTime: 0,
+  refetchOnMount: 'always' as const,
+  refetchOnWindowFocus: false,
+};
+
 const Homework = () => {
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [showEvaluateModal, setShowEvaluateModal] = useState(false);
@@ -75,10 +81,11 @@ const Homework = () => {
   };
 
   // Fetch sessions - handle errors gracefully
-  const { data: sessionsData } = useQuery(
+  const { data: sessionsData, isLoading: sessionsLoading } = useQuery(
     'sessions', 
     () => settingsService.getSessions().then(res => res.data || []),
     {
+      ...DROPDOWN_QUERY_OPTIONS,
       refetchOnWindowFocus: false,
       retry: false,
       onError: (error: any) => {
@@ -117,24 +124,37 @@ const Homework = () => {
   });
   
   // Classes query - always enabled for modal use
-  const { data: classesData } = useQuery('classes', () => academicsService.getClasses().then(res => res.data));
+  const { data: classesData, isLoading: classesLoading } = useQuery(
+    'classes',
+    () => academicsService.getClasses().then(res => res.data),
+    DROPDOWN_QUERY_OPTIONS
+  );
   const classes = Array.isArray(classesData) ? classesData : [];
   
   // Sections query - always enabled for modal use
-  const { data: sectionsData } = useQuery('sections', () => academicsService.getSections().then(res => res.data));
+  const { data: sectionsData, isLoading: sectionsLoading } = useQuery(
+    'sections',
+    () => academicsService.getSections().then(res => res.data),
+    DROPDOWN_QUERY_OPTIONS
+  );
   const sections = Array.isArray(sectionsData) ? sectionsData : [];
   
   // Subjects query - always enabled
-  const { data: subjectsData } = useQuery('subjects', () => academicsService.getSubjects().then(res => res.data));
+  const { data: subjectsData, isLoading: subjectsLoading } = useQuery(
+    'subjects',
+    () => academicsService.getSubjects().then(res => res.data),
+    DROPDOWN_QUERY_OPTIONS
+  );
   const subjects = Array.isArray(subjectsData) ? subjectsData : [];
   
   // Subject Groups query - enabled when class and section are selected
-  const { data: subjectGroupsData } = useQuery(
+  const { data: subjectGroupsData, isLoading: subjectGroupsLoading } = useQuery(
     ['subject-groups', createFormData.class_id, createFormData.section_id],
     () => academicsService.getSubjectGroups().then(res => res.data),
-    { enabled: !!createFormData.class_id && !!createFormData.section_id }
+    { ...DROPDOWN_QUERY_OPTIONS, enabled: !!createFormData.class_id && !!createFormData.section_id }
   );
   const subjectGroups = subjectGroupsData || [];
+  const isFilterDataLoading = sessionsLoading || classesLoading || sectionsLoading || subjectsLoading;
 
   const { data: homework = [], isLoading, refetch } = useQuery(
     ['homework', filters],
@@ -246,7 +266,7 @@ const Homework = () => {
         </button>
       </div>
 
-      <div className="">
+      <div>
         <div className="form-row">
           <div className="form-group">
             <label>Session <span className="required">*</span></label>
@@ -255,6 +275,7 @@ const Homework = () => {
               onChange={(e) => {
                 setFilters({ ...filters, session_id: e.target.value, class_id: '', section_id: '' });
               }}
+              disabled={sessionsLoading}
             >
               <option value="">Select Session</option>
               {sessions.map((session: any) => (
@@ -271,7 +292,7 @@ const Homework = () => {
               onChange={(e) => {
                 setFilters({ ...filters, class_id: e.target.value, section_id: '' });
               }}
-              disabled={!filters.session_id}
+              disabled={!filters.session_id || classesLoading}
             >
               <option value="">All Classes</option>
               {classes.map((cls: any) => (
@@ -286,7 +307,7 @@ const Homework = () => {
             <select
               value={filters.section_id}
               onChange={(e) => setFilters({ ...filters, section_id: e.target.value })}
-              disabled={!filters.class_id}
+              disabled={!filters.class_id || sectionsLoading}
             >
               <option value="">All Sections</option>
               {sections.map((sec: any) => (
@@ -301,6 +322,7 @@ const Homework = () => {
             <select
               value={filters.subject_id}
               onChange={(e) => setFilters({ ...filters, subject_id: e.target.value })}
+              disabled={subjectsLoading}
             >
               <option value="">All Subjects</option>
               {subjects.map((subject: any) => (
@@ -311,6 +333,7 @@ const Homework = () => {
             </select>
           </div>
         </div>
+        {isFilterDataLoading && <small className="homework-inline-loader">Loading filter data...</small>}
       </div>
 
       {isLoading ? (
@@ -425,6 +448,7 @@ const Homework = () => {
                 onChange={(e) => {
                   setCreateFormData({ ...createFormData, class_id: e.target.value, section_id: '', subject_group_id: '' });
                 }}
+                disabled={classesLoading}
                 required
               >
                 <option value="">Select Class</option>
@@ -449,7 +473,7 @@ const Homework = () => {
                   setCreateFormData({ ...createFormData, section_id: e.target.value, subject_group_id: '' });
                 }}
                 required
-                disabled={!createFormData.class_id}
+                disabled={!createFormData.class_id || sectionsLoading}
               >
                 <option value="">Select Section</option>
                 {sections && Array.isArray(sections) && sections.length > 0 ? (
@@ -471,7 +495,7 @@ const Homework = () => {
               <select
                 value={createFormData.subject_group_id}
                 onChange={(e) => setCreateFormData({ ...createFormData, subject_group_id: e.target.value })}
-                disabled={!createFormData.class_id || !createFormData.section_id}
+                disabled={!createFormData.class_id || !createFormData.section_id || subjectGroupsLoading}
               >
                 <option value="">Select Subject Group</option>
                 {subjectGroups && Array.isArray(subjectGroups) && subjectGroups.length > 0 ? (
@@ -494,6 +518,7 @@ const Homework = () => {
               <select
                 value={createFormData.subject_id}
                 onChange={(e) => setCreateFormData({ ...createFormData, subject_id: e.target.value })}
+                disabled={subjectsLoading}
                 required
               >
                 <option value="">Select Subject</option>
@@ -509,6 +534,9 @@ const Homework = () => {
               </select>
             </div>
           </div>
+          {(classesLoading || sectionsLoading || subjectsLoading || subjectGroupsLoading) && (
+            <small className="homework-inline-loader">Loading reference data...</small>
+          )}
 
           <div className="form-row">
             <div className="form-group">
@@ -691,7 +719,7 @@ const EvaluateHomeworkModal = ({ homework, isOpen, onClose }: EvaluateHomeworkMo
         class_id: homework.class_id,
         section_id: homework.section_id,
         page: 1,
-        limit: 1000,
+        limit: 100,
       }),
     { enabled: isOpen }
   );
