@@ -12,6 +12,7 @@ import { studentsService } from '../../services/api/studentsService';
 import { useToast } from '../../contexts/ToastContext';
 import Modal from '../../components/common/Modal';
 import ActionIconButton from '../../components/common/ActionIconButton';
+import { useModulePermissions } from '../../hooks/useModulePermissions';
 import ExamResultsModal from './ExamResultsModal';
 import './OnlineExaminations.css';
 
@@ -48,6 +49,8 @@ const createEmptyQuestionForm = (): QuestionFormData => ({
 });
 
 const OnlineExaminations = () => {
+  const { canAdd, canEdit, canDelete, isLoading: permissionsLoading } =
+    useModulePermissions('online-examinations');
   const [searchParams, setSearchParams] = useSearchParams();
   const tabFromUrl = searchParams.get('tab') as TabType;
   const validTabs: TabType[] = ['question-bank', 'online-exams'];
@@ -187,8 +190,16 @@ const OnlineExaminations = () => {
       </div>
 
       <div className="online-examinations-content">
-        {activeTab === 'question-bank' && <QuestionBankTab />}
-        {activeTab === 'online-exams' && <OnlineExamsTab />}
+        {permissionsLoading ? (
+          <div className="loading">Loading permissions...</div>
+        ) : (
+          <>
+            {activeTab === 'question-bank' && (
+              <QuestionBankTab canAdd={canAdd} canEdit={canEdit} canDelete={canDelete} />
+            )}
+            {activeTab === 'online-exams' && <OnlineExamsTab canAdd={canAdd} canDelete={canDelete} />}
+          </>
+        )}
       </div>
     </div>
   );
@@ -196,7 +207,15 @@ const OnlineExaminations = () => {
 
 // ========== Question Bank Tab ==========
 
-const QuestionBankTab = () => {
+const QuestionBankTab = ({
+  canAdd,
+  canEdit,
+  canDelete,
+}: {
+  canAdd: boolean;
+  canEdit: boolean;
+  canDelete: boolean;
+}) => {
   const [showModal, setShowModal] = useState(false);
   const [selectedQuestion, setSelectedQuestion] = useState<Question | null>(null);
   const [subjectFilter, setSubjectFilter] = useState<string>('');
@@ -417,9 +436,11 @@ const QuestionBankTab = () => {
               ))}
             </select>
           </div>
-          <button className="btn-primary btn-wm" onClick={() => { resetForm(); setShowModal(true); }} disabled={subjectsLoading}>
-            + Add Question
-          </button>
+          {canAdd && (
+            <button className="btn-primary btn-wm" onClick={() => { resetForm(); setShowModal(true); }} disabled={subjectsLoading}>
+              + Add Question
+            </button>
+          )}
         </div>
       </div>
       {subjectsLoading && <small className="online-exam-inline-loader">Loading filter data...</small>}
@@ -461,16 +482,20 @@ const QuestionBankTab = () => {
                   <td>{question.marks}</td>
                   <td>
                     <div className="action-buttons">
-                      <ActionIconButton variant="edit" onClick={() => handleEdit(question)} tooltip="Edit question" />
-                      <ActionIconButton
-                        variant="delete"
-                        onClick={() => {
-                          if (window.confirm('Are you sure you want to delete this question?')) {
-                            deleteMutation.mutate(question.id);
-                          }
-                        }}
-                        tooltip="Delete question"
-                      />
+                      {canEdit && (
+                        <ActionIconButton variant="edit" onClick={() => handleEdit(question)} tooltip="Edit question" />
+                      )}
+                      {canDelete && (
+                        <ActionIconButton
+                          variant="delete"
+                          onClick={() => {
+                            if (window.confirm('Are you sure you want to delete this question?')) {
+                              deleteMutation.mutate(question.id);
+                            }
+                          }}
+                          tooltip="Delete question"
+                        />
+                      )}
                     </div>
                   </td>
                 </tr>
@@ -712,7 +737,7 @@ const QuestionBankTab = () => {
 
 // ========== Online Exams Tab ==========
 
-const OnlineExamsTab = () => {
+const OnlineExamsTab = ({ canAdd, canDelete }: { canAdd: boolean; canDelete: boolean }) => {
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [showDetailsModal, setShowDetailsModal] = useState(false);
   const [showAssignStudentsModal, setShowAssignStudentsModal] = useState(false);
@@ -905,9 +930,11 @@ const OnlineExamsTab = () => {
     <div className="online-examinations-tab-content">
       <div className="tab-header">
         <h2>Online Exams</h2>
-        <button className="btn-primary" onClick={() => { resetCreateForm(); setShowCreateModal(true); }}>
-          + New Exam
-        </button>
+        {canAdd && (
+          <button className="btn-primary" onClick={() => { resetCreateForm(); setShowCreateModal(true); }}>
+            + New Exam
+          </button>
+        )}
       </div>
 
       <div className="filters-section" style={{ marginBottom: 'var(--spacing-lg)' }}>
@@ -1014,15 +1041,17 @@ const OnlineExamsTab = () => {
                   <td>
                     <div className="action-buttons">
                       <ActionIconButton variant="view" onClick={() => handleViewDetails(exam)} tooltip="View exam" />
-                      <ActionIconButton
-                        variant="delete"
-                        onClick={() => {
-                          if (window.confirm('Are you sure you want to delete this exam?')) {
-                            deleteMutation.mutate(exam.id);
-                          }
-                        }}
-                        tooltip="Delete exam"
-                      />
+                      {canDelete && (
+                        <ActionIconButton
+                          variant="delete"
+                          onClick={() => {
+                            if (window.confirm('Are you sure you want to delete this exam?')) {
+                              deleteMutation.mutate(exam.id);
+                            }
+                          }}
+                          tooltip="Delete exam"
+                        />
+                      )}
                     </div>
                   </td>
                 </tr>

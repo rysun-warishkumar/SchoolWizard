@@ -9,11 +9,13 @@ import { useToast } from '../../contexts/ToastContext';
 import Modal from '../../components/common/Modal';
 import ConfirmActionModal from '../../components/common/ConfirmActionModal';
 import ActionIconButton from '../../components/common/ActionIconButton';
+import { useModulePermissions } from '../../hooks/useModulePermissions';
 import './Academics.css';
 
 type TabType = 'classes' | 'sections' | 'subjects' | 'subject-groups' | 'class-teachers' | 'timetable' | 'class-timetable' | 'teachers-timetable';
 
 const Academics = () => {
+  const { canAdd, canEdit, canDelete, isLoading: permissionsLoading } = useModulePermissions('academics');
   const [searchParams, setSearchParams] = useSearchParams();
   const tabFromUrl = searchParams.get('tab') as TabType;
   const validTabs: TabType[] = ['classes', 'sections', 'subjects', 'subject-groups', 'class-teachers', 'timetable', 'class-timetable', 'teachers-timetable'];
@@ -46,6 +48,7 @@ const Academics = () => {
   });
 
   const handleDelete = (type: string, id: number) => {
+    if (!canDelete) return;
     if (type === 'class' || type === 'section' || type === 'subject') {
       setDeleteConfirm({ type, id });
     }
@@ -262,6 +265,7 @@ const Academics = () => {
       </div>
 
       <div className="academics-content">
+        {permissionsLoading && <div className="academics-inline-loader">Loading permissions...</div>}
         {(classesLoading || sectionsLoading || subjectsLoading || subjectGroupsLoading) && (
           <div className="academics-inline-loader">Loading latest academic data...</div>
         )}
@@ -270,18 +274,27 @@ const Academics = () => {
             classes={classesData?.data || []}
             sections={sectionsData?.data || []}
             onDelete={handleDelete}
+            canAdd={canAdd}
+            canEdit={canEdit}
+            canDelete={canDelete}
           />
         )}
         {activeTab === 'sections' && (
           <SectionsTab
             sections={sectionsData?.data || []}
             onDelete={handleDelete}
+            canAdd={canAdd}
+            canEdit={canEdit}
+            canDelete={canDelete}
           />
         )}
         {activeTab === 'subjects' && (
           <SubjectsTab
             subjects={subjectsData?.data || []}
             onDelete={handleDelete}
+            canAdd={canAdd}
+            canEdit={canEdit}
+            canDelete={canDelete}
           />
         )}
         {activeTab === 'subject-groups' && (
@@ -290,6 +303,9 @@ const Academics = () => {
             classes={classesData?.data || []}
             sections={sectionsData?.data || []}
             subjects={subjectsData?.data || []}
+            canAdd={canAdd}
+            canEdit={canEdit}
+            canDelete={canDelete}
           />
         )}
         {activeTab === 'class-teachers' && (
@@ -335,7 +351,14 @@ const Academics = () => {
 };
 
 // Classes Tab Component
-const ClassesTab = ({ classes, sections, onDelete }: { classes: Class[]; sections: Section[]; onDelete: (type: string, id: number) => void }) => {
+const ClassesTab = ({ classes, sections, onDelete, canAdd, canEdit, canDelete }: {
+  classes: Class[];
+  sections: Section[];
+  onDelete: (type: string, id: number) => void;
+  canAdd: boolean;
+  canEdit: boolean;
+  canDelete: boolean;
+}) => {
   const [showModal, setShowModal] = useState(false);
   const [editingClass, setEditingClass] = useState<Class | null>(null);
   const [formData, setFormData] = useState({ name: '', numeric_value: '', section_ids: [] as number[] });
@@ -442,9 +465,11 @@ const ClassesTab = ({ classes, sections, onDelete }: { classes: Class[]; section
     <div className="tab-content">
       <div className="section-header">
         <h3>Classes</h3>
-        <button className="btn-primary" onClick={() => { resetForm(); setShowModal(true); }}>
-          + Add Class
-        </button>
+        {canAdd && (
+          <button className="btn-primary" onClick={() => { resetForm(); setShowModal(true); }}>
+            + Add Class
+          </button>
+        )}
       </div>
 
       <div className="table-container">
@@ -465,8 +490,12 @@ const ClassesTab = ({ classes, sections, onDelete }: { classes: Class[]; section
                 <td>{classItem.sections || '-'}</td>
                 <td>
                   <div className="action-buttons">
-                    <ActionIconButton variant="edit" onClick={() => handleEdit(classItem)} title="Edit class" />
-                    <ActionIconButton variant="delete" onClick={() => onDelete('class', classItem.id)} title="Delete class" />
+                    {canEdit && (
+                      <ActionIconButton variant="edit" onClick={() => handleEdit(classItem)} title="Edit class" />
+                    )}
+                    {canDelete && (
+                      <ActionIconButton variant="delete" onClick={() => onDelete('class', classItem.id)} title="Delete class" />
+                    )}
                   </div>
                 </td>
               </tr>
@@ -564,7 +593,13 @@ const ClassesTab = ({ classes, sections, onDelete }: { classes: Class[]; section
 };
 
 // Sections Tab Component
-const SectionsTab = ({ sections, onDelete }: { sections: Section[]; onDelete: (type: string, id: number) => void }) => {
+const SectionsTab = ({ sections, onDelete, canAdd, canEdit, canDelete }: {
+  sections: Section[];
+  onDelete: (type: string, id: number) => void;
+  canAdd: boolean;
+  canEdit: boolean;
+  canDelete: boolean;
+}) => {
   const [showModal, setShowModal] = useState(false);
   const [editingSection, setEditingSection] = useState<Section | null>(null);
   const [formData, setFormData] = useState({ name: '' });
@@ -614,9 +649,11 @@ const SectionsTab = ({ sections, onDelete }: { sections: Section[]; onDelete: (t
     <div className="tab-content">
       <div className="section-header">
         <h3>Sections</h3>
-        <button className="btn-primary" onClick={() => { resetForm(); setShowModal(true); }}>
-          + Add Section
-        </button>
+        {canAdd && (
+          <button className="btn-primary" onClick={() => { resetForm(); setShowModal(true); }}>
+            + Add Section
+          </button>
+        )}
       </div>
 
       <div className="table-container">
@@ -633,8 +670,12 @@ const SectionsTab = ({ sections, onDelete }: { sections: Section[]; onDelete: (t
                 <td>{section.name}</td>
                 <td>
                   <div className="action-buttons">
-                    <ActionIconButton variant="edit" onClick={() => handleEdit(section)} title="Edit section" />
-                    <ActionIconButton variant="delete" onClick={() => onDelete('section', section.id)} title="Delete section" />
+                    {canEdit && (
+                      <ActionIconButton variant="edit" onClick={() => handleEdit(section)} title="Edit section" />
+                    )}
+                    {canDelete && (
+                      <ActionIconButton variant="delete" onClick={() => onDelete('section', section.id)} title="Delete section" />
+                    )}
                   </div>
                 </td>
               </tr>
@@ -672,7 +713,13 @@ const SectionsTab = ({ sections, onDelete }: { sections: Section[]; onDelete: (t
 };
 
 // Subjects Tab Component
-const SubjectsTab = ({ subjects, onDelete }: { subjects: Subject[]; onDelete: (type: string, id: number) => void }) => {
+const SubjectsTab = ({ subjects, onDelete, canAdd, canEdit, canDelete }: {
+  subjects: Subject[];
+  onDelete: (type: string, id: number) => void;
+  canAdd: boolean;
+  canEdit: boolean;
+  canDelete: boolean;
+}) => {
   const [showModal, setShowModal] = useState(false);
   const [editingSubject, setEditingSubject] = useState<Subject | null>(null);
   const [formData, setFormData] = useState({ name: '', code: '', type: 'theory' as 'theory' | 'practical' });
@@ -722,9 +769,11 @@ const SubjectsTab = ({ subjects, onDelete }: { subjects: Subject[]; onDelete: (t
     <div className="tab-content">
       <div className="section-header">
         <h3>Subjects</h3>
-        <button className="btn-primary" onClick={() => { resetForm(); setShowModal(true); }}>
-          + Add Subject
-        </button>
+        {canAdd && (
+          <button className="btn-primary" onClick={() => { resetForm(); setShowModal(true); }}>
+            + Add Subject
+          </button>
+        )}
       </div>
 
       <div className="table-container">
@@ -745,8 +794,12 @@ const SubjectsTab = ({ subjects, onDelete }: { subjects: Subject[]; onDelete: (t
                 <td><span className="type-badge">{subject.type}</span></td>
                 <td>
                   <div className="action-buttons">
-                    <ActionIconButton variant="edit" onClick={() => handleEdit(subject)} title="Edit subject" />
-                    <ActionIconButton variant="delete" onClick={() => onDelete('subject', subject.id)} title="Delete subject" />
+                    {canEdit && (
+                      <ActionIconButton variant="edit" onClick={() => handleEdit(subject)} title="Edit subject" />
+                    )}
+                    {canDelete && (
+                      <ActionIconButton variant="delete" onClick={() => onDelete('subject', subject.id)} title="Delete subject" />
+                    )}
                   </div>
                 </td>
               </tr>
@@ -806,12 +859,18 @@ const SubjectGroupsTab = ({
   subjectGroups, 
   classes, 
   sections, 
-  subjects 
+  subjects,
+  canAdd,
+  canEdit,
+  canDelete,
 }: { 
   subjectGroups: SubjectGroup[]; 
   classes: Class[]; 
   sections: Section[]; 
-  subjects: Subject[]; 
+  subjects: Subject[];
+  canAdd: boolean;
+  canEdit: boolean;
+  canDelete: boolean;
 }) => {
   const [showModal, setShowModal] = useState(false);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
@@ -922,10 +981,12 @@ const SubjectGroupsTab = ({
     <div className="tab-content">
       <div className="section-header">
         <h3>Subject Groups</h3>
-        <button className="btn-primary" onClick={() => { 
-          resetForm(); 
-          setShowModal(true); 
-        }}>+ Add Subject Group</button>
+        {canAdd && (
+          <button className="btn-primary" onClick={() => { 
+            resetForm(); 
+            setShowModal(true); 
+          }}>+ Add Subject Group</button>
+        )}
       </div>
 
       <div className="table-container">
@@ -955,8 +1016,12 @@ const SubjectGroupsTab = ({
                   <td>{group.subjects || '-'}</td>
                   <td>
                     <div className="action-buttons">
-                      <ActionIconButton variant="edit" onClick={() => handleEdit(group)} title="Edit subject group" />
-                      <ActionIconButton variant="delete" onClick={() => handleDelete(group.id)} title="Delete subject group" />
+                      {canEdit && (
+                        <ActionIconButton variant="edit" onClick={() => handleEdit(group)} title="Edit subject group" />
+                      )}
+                      {canDelete && (
+                        <ActionIconButton variant="delete" onClick={() => handleDelete(group.id)} title="Delete subject group" />
+                      )}
                     </div>
                   </td>
                 </tr>

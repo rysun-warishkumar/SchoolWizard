@@ -361,72 +361,71 @@ export const updateRolePermissions = async (
       throw createError('Role not found', 404);
     }
 
-    // Get a connection from the pool for transaction
-    const connection = await db.getConnection();
+    const roleName = String(roles[0].name || '').toLowerCase();
+    const [dashboardModules] = await db.execute(
+      "SELECT id FROM modules WHERE name = 'dashboard' LIMIT 1"
+    ) as any[];
+    const [viewPermissions] = await db.execute(
+      "SELECT id FROM permissions WHERE name = 'view' LIMIT 1"
+    ) as any[];
 
-    try {
-      // Start transaction
-      await connection.beginTransaction();
+    const dashboardModuleId = dashboardModules[0]?.id;
+    const viewPermissionId = viewPermissions[0]?.id;
+    const grantedPermissions = permissions
+      .filter((p: any) => p.granted === true)
+      .sort((a: any, b: any) => {
+        if (a.module_id !== b.module_id) return a.module_id - b.module_id;
+        return a.permission_id - b.permission_id;
+      });
 
-      // Delete existing permissions for this role (except dashboard view for non-superadmin)
-      const roleName = roles[0].name;
-      if (roleName !== 'superadmin') {
-        // Keep dashboard view permission for non-superadmin roles
-        await connection.execute(
-          `DELETE FROM role_permissions 
-           WHERE role_id = ? 
-           AND NOT (module_id = (SELECT id FROM modules WHERE name = 'dashboard') 
-                    AND permission_id = (SELECT id FROM permissions WHERE name = 'view'))`,
-          [id]
-        );
-      } else {
+    const maxRetries = 3;
+    for (let attempt = 1; attempt <= maxRetries; attempt++) {
+      const connection = await db.getConnection();
+      try {
+        await connection.beginTransaction();
+
+        // Simplify lock footprint: clear role permissions, then re-insert desired set.
         await connection.execute('DELETE FROM role_permissions WHERE role_id = ?', [id]);
-      }
-
-      // Insert new permissions using individual INSERT statements
-      if (permissions.length > 0) {
-        const grantedPermissions = permissions.filter((p: any) => p.granted === true);
 
         for (const perm of grantedPermissions) {
           await connection.execute(
             `INSERT INTO role_permissions (role_id, module_id, permission_id, granted) 
              VALUES (?, ?, ?, ?)
-             ON DUPLICATE KEY UPDATE granted = ?`,
-            [id, perm.module_id, perm.permission_id, true, true]
+             ON DUPLICATE KEY UPDATE granted = VALUES(granted)`,
+            [id, perm.module_id, perm.permission_id, true]
           );
         }
-      }
 
-      // Ensure dashboard view is always granted for non-superadmin roles
-      if (roles[0].name !== 'superadmin') {
-        const [dashboardModules] = await connection.execute(
-          "SELECT id FROM modules WHERE name = 'dashboard'"
-        ) as any[];
-        const [viewPermissions] = await connection.execute(
-          "SELECT id FROM permissions WHERE name = 'view'"
-        ) as any[];
-
-        if (dashboardModules.length > 0 && viewPermissions.length > 0) {
+        // Ensure dashboard view is always granted for non-superadmin roles.
+        if (roleName !== 'superadmin' && dashboardModuleId && viewPermissionId) {
           await connection.execute(
             `INSERT INTO role_permissions (role_id, module_id, permission_id, granted) 
              VALUES (?, ?, ?, ?)
-             ON DUPLICATE KEY UPDATE granted = ?`,
-            [id, dashboardModules[0].id, viewPermissions[0].id, true, true]
+             ON DUPLICATE KEY UPDATE granted = VALUES(granted)`,
+            [id, dashboardModuleId, viewPermissionId, true]
           );
         }
+
+        await connection.commit();
+        connection.release();
+
+        res.json({
+          success: true,
+          message: 'Permissions updated successfully',
+        });
+        return;
+      } catch (error: any) {
+        await connection.rollback();
+        connection.release();
+
+        const isDeadlock = error?.code === 'ER_LOCK_DEADLOCK' || error?.errno === 1213;
+        if (!isDeadlock || attempt === maxRetries) {
+          throw error;
+        }
+
+        // Brief backoff before retrying deadlocked transactions.
+        await new Promise((resolve) => setTimeout(resolve, 80 * attempt));
       }
-
-      await connection.commit();
-      connection.release();
-
-      res.json({
-        success: true,
-        message: 'Permissions updated successfully',
-      });
-    } catch (error) {
-      await connection.rollback();
-      connection.release();
-      throw error;
     }
   } catch (error) {
     next(error);

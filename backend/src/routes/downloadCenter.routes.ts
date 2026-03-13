@@ -9,15 +9,15 @@ import {
   upload,
 } from '../controllers/downloadCenter.controller';
 import { authenticate, requireSchool } from '../middleware/auth';
-import { checkPermission } from '../middleware/permissions';
+import { checkPermission, checkPermissionOrStudentOwnData } from '../middleware/permissions';
 
 const router = express.Router();
 
 router.use(authenticate, requireSchool);
 
 // Download Content Routes
-router.get('/', checkPermission('download-center', 'view'), getDownloadContents);
-router.get('/:id', checkPermission('download-center', 'view'), getDownloadContentById);
+router.get('/', checkPermissionOrStudentOwnData('download-center', 'view'), getDownloadContents);
+router.get('/:id', checkPermissionOrStudentOwnData('download-center', 'view'), getDownloadContentById);
 router.post(
   '/',
   checkPermission('download-center', 'add'),
@@ -31,7 +31,7 @@ router.put(
   updateDownloadContent
 );
 router.delete('/:id', checkPermission('download-center', 'delete'), deleteDownloadContent);
-router.get('/:id/download', checkPermission('download-center', 'view'), downloadFile);
+router.get('/:id/download', checkPermissionOrStudentOwnData('download-center', 'view'), downloadFile);
 
 export default router;
 

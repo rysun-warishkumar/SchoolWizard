@@ -423,6 +423,10 @@ export const getMyStudentProfile = async (
     if (!req.user) {
       throw createError('Not authenticated', 401);
     }
+    const schoolId = getSchoolId(req);
+    if (schoolId == null) {
+      throw createError('School context required', 403);
+    }
 
     const db = getDatabase();
 
@@ -438,8 +442,8 @@ export const getMyStudentProfile = async (
        LEFT JOIN student_categories cat ON s.category_id = cat.id
        LEFT JOIN student_houses h ON s.house_id = h.id
        LEFT JOIN sessions sess ON s.session_id = sess.id
-       WHERE s.user_id = ?`,
-      [req.user.id]
+       WHERE s.user_id = ? AND s.school_id = ?`,
+      [req.user.id, schoolId]
     ) as any[];
 
     if (students.length === 0) {
@@ -471,8 +475,12 @@ export const getMyChildren = async (
   next: NextFunction
 ): Promise<void> => {
   try {
-    if (!req.user || req.user.role !== 'parent') {
+    if (!req.user || String(req.user.role).toLowerCase() !== 'parent') {
       throw createError('Access denied. Only parents can view their children.', 403);
+    }
+    const schoolId = getSchoolId(req);
+    if (schoolId == null) {
+      throw createError('School context required', 403);
     }
 
     const db = getDatabase();
@@ -490,10 +498,10 @@ export const getMyChildren = async (
        LEFT JOIN student_categories cat ON s.category_id = cat.id
        LEFT JOIN student_houses h ON s.house_id = h.id
        LEFT JOIN sessions sess ON s.session_id = sess.id
-       WHERE s.is_active = 1 
+       WHERE s.school_id = ? AND s.is_active = 1 
        AND (s.father_email = ? OR s.mother_email = ? OR s.guardian_email = ?)
        ORDER BY s.admission_no ASC`,
-      [parentEmail, parentEmail, parentEmail]
+      [schoolId, parentEmail, parentEmail, parentEmail]
     ) as any[];
 
     res.json({

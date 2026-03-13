@@ -28,7 +28,7 @@ router.get('/attendance-by-date', checkPermission('attendance', 'view'), getAtte
 // Student Leave Requests
 router.get('/student-leave-requests', checkPermission('attendance', 'view'), getStudentLeaveRequests);
 router.get('/student-leave-requests/:id', checkPermission('attendance', 'view'), getStudentLeaveRequestById);
-router.post('/student-leave-requests', createStudentLeaveRequest); // Students can create their own - no permission check
+router.post('/student-leave-requests', checkPermission('attendance', 'add'), createStudentLeaveRequest);
 router.put('/student-leave-requests/:id', checkPermission('attendance', 'edit'), updateStudentLeaveRequest);
 router.delete('/student-leave-requests/:id', checkPermission('attendance', 'delete'), deleteStudentLeaveRequest);
 

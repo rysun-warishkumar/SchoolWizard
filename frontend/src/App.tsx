@@ -3,6 +3,7 @@ import { ReactNode } from 'react';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
 import { ToastProvider } from './contexts/ToastContext';
 import { QueryClient, QueryClientProvider } from 'react-query';
+import { useQuery } from 'react-query';
 import Layout from './layouts/Layout';
 import Login from './pages/auth/Login';
 import ForgotPassword from './pages/auth/ForgotPassword';
@@ -91,6 +92,7 @@ import StaffAttendance from './pages/staff/StaffAttendance';
 import StaffLeave from './pages/staff/StaffLeave';
 import StaffPayroll from './pages/staff/StaffPayroll';
 import StaffHomework from './pages/staff/StaffHomework';
+import { profileService } from './services/api/profileService';
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -124,6 +126,36 @@ function PlatformAdminOnlyRoute({ children }: { children: ReactNode }) {
   return children;
 }
 
+function ModuleViewRoute({ moduleName, children }: { moduleName: string; children: ReactNode }) {
+  const { user } = useAuth();
+  const isPlatformAdmin =
+    user?.isPlatformAdmin === true ||
+    (user?.role === 'superadmin' && (user?.schoolId == null || user?.schoolId === undefined));
+  const shouldCheck = !!user && !isPlatformAdmin && user?.role !== 'superadmin';
+
+  const { data: permissionsData, isLoading } = useQuery(
+    'user-permissions',
+    () => profileService.getUserPermissions(),
+    { enabled: shouldCheck, refetchOnWindowFocus: false }
+  );
+
+  if (!shouldCheck) {
+    return children;
+  }
+
+  if (isLoading) {
+    return <div className="loading">Loading permissions...</div>;
+  }
+
+  const userPermissions = permissionsData?.data || {};
+  const modulePermissions: string[] = userPermissions[moduleName] || [];
+  if (!modulePermissions.includes('view')) {
+    return <Navigate to="/dashboard" replace />;
+  }
+
+  return children;
+}
+
 function App() {
   return (
     <QueryClientProvider client={queryClient}>
@@ -147,39 +179,39 @@ function App() {
                       <Routes>
                         <Route path="/" element={<DefaultRedirect />} />
                         <Route path="/dashboard" element={<Dashboard />} />
-                        <Route path="/users" element={<Users />} />
-                        <Route path="/roles" element={<Roles />} />
-                        <Route path="/settings" element={<Settings />} />
+                        <Route path="/users" element={<ModuleViewRoute moduleName="users"><Users /></ModuleViewRoute>} />
+                        <Route path="/roles" element={<ModuleViewRoute moduleName="roles"><Roles /></ModuleViewRoute>} />
+                        <Route path="/settings" element={<ModuleViewRoute moduleName="settings"><Settings /></ModuleViewRoute>} />
                         <Route path="/profile" element={<Profile />} />
-                        <Route path="/academics" element={<Academics />} />
-                        <Route path="/students" element={<Students />} />
-                        <Route path="/students/:id" element={<Students />} />
-                        <Route path="/front-office" element={<FrontOffice />} />
-                        <Route path="/hr" element={<HR />} />
-                        <Route path="/fees" element={<Fees />} />
-                        <Route path="/income" element={<Income />} />
-                        <Route path="/expenses" element={<Expenses />} />
-                        <Route path="/attendance" element={<Attendance />} />
-                        <Route path="/examinations" element={<Examinations />} />
-                        <Route path="/online-examinations" element={<OnlineExaminations />} />
-                        <Route path="/homework" element={<Homework />} />
-                        <Route path="/library" element={<Library />} />
-                        <Route path="/download-center" element={<DownloadCenter />} />
-                        <Route path="/communicate" element={<Communicate />} />
-                        <Route path="/inventory" element={<Inventory />} />
-                        <Route path="/transport" element={<Transport />} />
-                        <Route path="/hostel" element={<Hostel />} />
-                        <Route path="/certificate" element={<Certificate />} />
-                        <Route path="/calendar" element={<Calendar />} />
-                        <Route path="/chat" element={<Chat />} />
-                        <Route path="/alumni" element={<Alumni />} />
-                        <Route path="/reports" element={<Reports />} />
-                        <Route path="/lesson-plan" element={<LessonPlan />} />
-                        <Route path="/front-cms-website" element={<FrontCmsWebsite />} />
-                        <Route path="/admission-inquiries" element={<AdmissionInquiries />} />
-                        <Route path="/contact-messages" element={<ContactMessages />} />
-                        <Route path="/platform" element={<PlatformAdmin />} />
-                        <Route path="/platform/schools/:id" element={<PlatformSchoolDetails />} />
+                        <Route path="/academics" element={<ModuleViewRoute moduleName="academics"><Academics /></ModuleViewRoute>} />
+                        <Route path="/students" element={<ModuleViewRoute moduleName="students"><Students /></ModuleViewRoute>} />
+                        <Route path="/students/:id" element={<ModuleViewRoute moduleName="students"><Students /></ModuleViewRoute>} />
+                        <Route path="/front-office" element={<ModuleViewRoute moduleName="front-office"><FrontOffice /></ModuleViewRoute>} />
+                        <Route path="/hr" element={<ModuleViewRoute moduleName="hr"><HR /></ModuleViewRoute>} />
+                        <Route path="/fees" element={<ModuleViewRoute moduleName="fees"><Fees /></ModuleViewRoute>} />
+                        <Route path="/income" element={<ModuleViewRoute moduleName="income"><Income /></ModuleViewRoute>} />
+                        <Route path="/expenses" element={<ModuleViewRoute moduleName="expenses"><Expenses /></ModuleViewRoute>} />
+                        <Route path="/attendance" element={<ModuleViewRoute moduleName="attendance"><Attendance /></ModuleViewRoute>} />
+                        <Route path="/examinations" element={<ModuleViewRoute moduleName="examinations"><Examinations /></ModuleViewRoute>} />
+                        <Route path="/online-examinations" element={<ModuleViewRoute moduleName="online-examinations"><OnlineExaminations /></ModuleViewRoute>} />
+                        <Route path="/homework" element={<ModuleViewRoute moduleName="homework"><Homework /></ModuleViewRoute>} />
+                        <Route path="/library" element={<ModuleViewRoute moduleName="library"><Library /></ModuleViewRoute>} />
+                        <Route path="/download-center" element={<ModuleViewRoute moduleName="download-center"><DownloadCenter /></ModuleViewRoute>} />
+                        <Route path="/communicate" element={<ModuleViewRoute moduleName="communicate"><Communicate /></ModuleViewRoute>} />
+                        <Route path="/inventory" element={<ModuleViewRoute moduleName="inventory"><Inventory /></ModuleViewRoute>} />
+                        <Route path="/transport" element={<ModuleViewRoute moduleName="transport"><Transport /></ModuleViewRoute>} />
+                        <Route path="/hostel" element={<ModuleViewRoute moduleName="hostel"><Hostel /></ModuleViewRoute>} />
+                        <Route path="/certificate" element={<ModuleViewRoute moduleName="certificate"><Certificate /></ModuleViewRoute>} />
+                        <Route path="/calendar" element={<ModuleViewRoute moduleName="calendar"><Calendar /></ModuleViewRoute>} />
+                        <Route path="/chat" element={<ModuleViewRoute moduleName="chat"><Chat /></ModuleViewRoute>} />
+                        <Route path="/alumni" element={<ModuleViewRoute moduleName="alumni"><Alumni /></ModuleViewRoute>} />
+                        <Route path="/reports" element={<ModuleViewRoute moduleName="reports"><Reports /></ModuleViewRoute>} />
+                        <Route path="/lesson-plan" element={<ModuleViewRoute moduleName="lesson-plan"><LessonPlan /></ModuleViewRoute>} />
+                        <Route path="/front-cms-website" element={<ModuleViewRoute moduleName="settings"><FrontCmsWebsite /></ModuleViewRoute>} />
+                        <Route path="/admission-inquiries" element={<ModuleViewRoute moduleName="settings"><AdmissionInquiries /></ModuleViewRoute>} />
+                        <Route path="/contact-messages" element={<ModuleViewRoute moduleName="settings"><ContactMessages /></ModuleViewRoute>} />
+                        <Route path="/platform" element={<PlatformAdminOnlyRoute><PlatformAdmin /></PlatformAdminOnlyRoute>} />
+                        <Route path="/platform/schools/:id" element={<PlatformAdminOnlyRoute><PlatformSchoolDetails /></PlatformAdminOnlyRoute>} />
                         <Route
                           path="/hosting-guide"
                           element={

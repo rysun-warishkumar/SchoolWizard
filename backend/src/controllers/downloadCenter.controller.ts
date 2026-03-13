@@ -37,14 +37,110 @@ export const upload = multer({
   },
 });
 
+type AudienceScope = {
+  class_id: number | null;
+  section_id: number | null;
+};
+
+const getStudentParentAudienceScopes = async (
+  req: AuthRequest,
+  schoolId: number,
+  db: any
+): Promise<AudienceScope[] | null> => {
+  const userRole = String(req.user?.role || '').toLowerCase();
+
+  if (userRole === 'student') {
+    const [students] = await db.execute(
+      'SELECT class_id, section_id FROM students WHERE user_id = ? AND school_id = ? LIMIT 1',
+      [req.user?.id, schoolId]
+    ) as any[];
+
+    if (students.length === 0) {
+      throw createError('Student profile not found', 404);
+    }
+
+    return [
+      {
+        class_id: students[0].class_id != null ? Number(students[0].class_id) : null,
+        section_id: students[0].section_id != null ? Number(students[0].section_id) : null,
+      },
+    ];
+  }
+
+  if (userRole === 'parent') {
+    const parentEmail = req.user?.email;
+    if (!parentEmail) {
+      throw createError('Parent email is required to access downloads', 400);
+    }
+
+    const [children] = await db.execute(
+      `SELECT DISTINCT class_id, section_id
+       FROM students
+       WHERE school_id = ?
+         AND (father_email = ? OR mother_email = ? OR guardian_email = ?)`,
+      [schoolId, parentEmail, parentEmail, parentEmail]
+    ) as any[];
+
+    const unique = new Map<string, AudienceScope>();
+    children.forEach((child: any) => {
+      const classId = child.class_id != null ? Number(child.class_id) : null;
+      const sectionId = child.section_id != null ? Number(child.section_id) : null;
+      const key = `${classId ?? 'null'}_${sectionId ?? 'null'}`;
+      if (!unique.has(key)) {
+        unique.set(key, { class_id: classId, section_id: sectionId });
+      }
+    });
+
+    return Array.from(unique.values());
+  }
+
+  return null;
+};
+
+const appendAudienceScopeFilter = (
+  query: string,
+  params: any[],
+  scopes: AudienceScope[] | null,
+  alias: string
+): string => {
+  if (scopes === null) return query;
+
+  // Student/parent can only view content intended for students/both.
+  query += ` AND (${alias}.available_for = 'students' OR ${alias}.available_for = 'both')`;
+
+  // No linked class/section scope => no accessible content.
+  if (scopes.length === 0) {
+    query += ' AND 1 = 0';
+    return query;
+  }
+
+  query += ` AND (${alias}.class_id IS NULL`;
+  scopes.forEach((scope) => {
+    if (scope.class_id != null) {
+      if (scope.section_id == null) {
+        query += ` OR (${alias}.class_id = ? AND ${alias}.section_id IS NULL)`;
+        params.push(scope.class_id);
+      } else {
+        query += ` OR (${alias}.class_id = ? AND (${alias}.section_id IS NULL OR ${alias}.section_id = ?))`;
+        params.push(scope.class_id, scope.section_id);
+      }
+    }
+  });
+  query += ')';
+
+  return query;
+};
+
 // ========== Download Contents ==========
 
 export const getDownloadContents = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
   try {
-    const schoolId = getSchoolId(req as AuthRequest);
+    const authReq = req as AuthRequest;
+    const schoolId = getSchoolId(authReq);
     if (schoolId == null) throw createError('School context required', 403);
     const db = getDatabase();
     const { content_type, available_for, class_id, section_id, search } = req.query;
+    const audienceScopes = await getStudentParentAudienceScopes(authReq, schoolId, db);
 
     let query = `
       SELECT dc.*,
@@ -59,12 +155,14 @@ export const getDownloadContents = async (req: Request, res: Response, next: Nex
     `;
     const params: any[] = [schoolId, schoolId, schoolId];
 
+    query = appendAudienceScopeFilter(query, params, audienceScopes, 'dc');
+
     if (content_type) {
       query += ' AND dc.content_type = ?';
       params.push(content_type);
     }
 
-    if (available_for) {
+    if (available_for && audienceScopes === null) {
       query += ' AND (dc.available_for = ? OR dc.available_for = "both")';
       params.push(available_for);
     }
@@ -100,23 +198,26 @@ export const getDownloadContents = async (req: Request, res: Response, next: Nex
 
 export const getDownloadContentById = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
   try {
-    const schoolId = getSchoolId(req as AuthRequest);
+    const authReq = req as AuthRequest;
+    const schoolId = getSchoolId(authReq);
     if (schoolId == null) throw createError('School context required', 403);
     const { id } = req.params;
     const db = getDatabase();
+    const audienceScopes = await getStudentParentAudienceScopes(authReq, schoolId, db);
 
-    const [contents] = await db.execute(
-      `SELECT dc.*,
-              c.name as class_name,
-              s.name as section_name,
-              u.name as uploaded_by_name
-       FROM download_contents dc
-       LEFT JOIN classes c ON dc.class_id = c.id AND c.school_id = ?
-       LEFT JOIN sections s ON dc.section_id = s.id AND s.school_id = ?
-       LEFT JOIN users u ON dc.uploaded_by = u.id
-       WHERE dc.id = ? AND dc.school_id = ?`,
-      [schoolId, schoolId, id, schoolId]
-    ) as any[];
+    let query = `SELECT dc.*,
+            c.name as class_name,
+            s.name as section_name,
+            u.name as uploaded_by_name
+     FROM download_contents dc
+     LEFT JOIN classes c ON dc.class_id = c.id AND c.school_id = ?
+     LEFT JOIN sections s ON dc.section_id = s.id AND s.school_id = ?
+     LEFT JOIN users u ON dc.uploaded_by = u.id
+     WHERE dc.id = ? AND dc.school_id = ?`;
+    const params: any[] = [schoolId, schoolId, id, schoolId];
+    query = appendAudienceScopeFilter(query, params, audienceScopes, 'dc');
+
+    const [contents] = await db.execute(query, params) as any[];
 
     if (contents.length === 0) {
       throw createError('Download content not found', 404);
@@ -367,15 +468,18 @@ export const deleteDownloadContent = async (req: Request, res: Response, next: N
 
 export const downloadFile = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
   try {
-    const schoolId = getSchoolId(req as AuthRequest);
+    const authReq = req as AuthRequest;
+    const schoolId = getSchoolId(authReq);
     if (schoolId == null) throw createError('School context required', 403);
     const { id } = req.params;
     const db = getDatabase();
+    const audienceScopes = await getStudentParentAudienceScopes(authReq, schoolId, db);
 
-    const [contents] = await db.execute(
-      'SELECT file_path, file_name FROM download_contents WHERE id = ? AND school_id = ?',
-      [id, schoolId]
-    ) as any[];
+    let query = 'SELECT file_path, file_name, class_id, section_id, available_for FROM download_contents WHERE id = ? AND school_id = ?';
+    const params: any[] = [id, schoolId];
+    query = appendAudienceScopeFilter(query, params, audienceScopes, 'download_contents');
+
+    const [contents] = await db.execute(query, params) as any[];
 
     if (contents.length === 0) {
       throw createError('Download content not found', 404);

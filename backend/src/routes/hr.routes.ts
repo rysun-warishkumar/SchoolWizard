@@ -73,7 +73,7 @@ router.get('/staff-attendance/report', checkPermission('hr', 'view'), getStaffAt
 // Leave Requests
 router.get('/leave-requests', checkPermission('hr', 'view'), getLeaveRequests);
 router.get('/leave-requests/:id', checkPermission('hr', 'view'), getLeaveRequestById);
-router.post('/leave-requests', createLeaveRequest); // Staff can create their own - no permission check
+router.post('/leave-requests', checkPermission('hr', 'add'), createLeaveRequest);
 router.put('/leave-requests/:id', checkPermission('hr', 'edit'), updateLeaveRequest);
 router.delete('/leave-requests/:id', checkPermission('hr', 'delete'), deleteLeaveRequest);
 

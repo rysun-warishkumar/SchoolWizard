@@ -9,11 +9,14 @@ import { academicsService } from '../../services/api/academicsService';
 import { useToast } from '../../contexts/ToastContext';
 import Modal from '../../components/common/Modal';
 import ActionIconButton from '../../components/common/ActionIconButton';
+import { useModulePermissions } from '../../hooks/useModulePermissions';
 import './DownloadCenter.css';
 
 type TabType = 'upload-content' | 'assignments' | 'study-material' | 'syllabus' | 'other-downloads';
 
 const DownloadCenter = () => {
+  const { canAdd, canEdit, canDelete, isLoading: permissionsLoading } =
+    useModulePermissions('download-center');
   const [searchParams, setSearchParams] = useSearchParams();
   const tabFromUrl = searchParams.get('tab') as TabType;
   const validTabs: TabType[] = ['upload-content', 'assignments', 'study-material', 'syllabus', 'other-downloads'];
@@ -190,11 +193,27 @@ const DownloadCenter = () => {
       </div>
 
       <div className="download-center-content">
-        {activeTab === 'upload-content' && <UploadContentTab />}
-        {activeTab === 'assignments' && <ContentListTab content_type="assignments" />}
-        {activeTab === 'study-material' && <ContentListTab content_type="study_material" />}
-        {activeTab === 'syllabus' && <ContentListTab content_type="syllabus" />}
-        {activeTab === 'other-downloads' && <ContentListTab content_type="other_downloads" />}
+        {permissionsLoading ? (
+          <div className="loading">Loading permissions...</div>
+        ) : (
+          <>
+            {activeTab === 'upload-content' && (
+              <UploadContentTab canAdd={canAdd} canEdit={canEdit} canDelete={canDelete} />
+            )}
+            {activeTab === 'assignments' && (
+              <ContentListTab content_type="assignments" canDelete={canDelete} />
+            )}
+            {activeTab === 'study-material' && (
+              <ContentListTab content_type="study_material" canDelete={canDelete} />
+            )}
+            {activeTab === 'syllabus' && (
+              <ContentListTab content_type="syllabus" canDelete={canDelete} />
+            )}
+            {activeTab === 'other-downloads' && (
+              <ContentListTab content_type="other_downloads" canDelete={canDelete} />
+            )}
+          </>
+        )}
       </div>
     </div>
   );
@@ -202,7 +221,15 @@ const DownloadCenter = () => {
 
 // ========== Upload Content Tab ==========
 
-const UploadContentTab = () => {
+const UploadContentTab = ({
+  canAdd,
+  canEdit,
+  canDelete,
+}: {
+  canAdd: boolean;
+  canEdit: boolean;
+  canDelete: boolean;
+}) => {
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
   const [selectedContent, setSelectedContent] = useState<DownloadContent | null>(null);
@@ -442,9 +469,11 @@ const UploadContentTab = () => {
           value={searchTerm}
           onChange={(e) => setSearchTerm(e.target.value)}
         />
-        <button className="btn-primary" onClick={() => { resetForm(); setShowCreateModal(true); }}>
-          + Upload Content
-        </button>
+        {canAdd && (
+          <button className="btn-primary" onClick={() => { resetForm(); setShowCreateModal(true); }}>
+            + Upload Content
+          </button>
+        )}
       </div>
 
       {isLoading ? (
@@ -483,16 +512,20 @@ const UploadContentTab = () => {
                   <td>
                     <div className="action-buttons">
                       <ActionIconButton variant="download" onClick={() => handleDownload(content)} tooltip="Download content" />
-                      <ActionIconButton variant="edit" onClick={() => handleEdit(content)} tooltip="Edit content" />
-                      <ActionIconButton
-                        variant="delete"
-                        onClick={() => {
-                          if (window.confirm('Are you sure you want to delete this content?')) {
-                            deleteMutation.mutate(content.id);
-                          }
-                        }}
-                        tooltip="Delete content"
-                      />
+                      {canEdit && (
+                        <ActionIconButton variant="edit" onClick={() => handleEdit(content)} tooltip="Edit content" />
+                      )}
+                      {canDelete && (
+                        <ActionIconButton
+                          variant="delete"
+                          onClick={() => {
+                            if (window.confirm('Are you sure you want to delete this content?')) {
+                              deleteMutation.mutate(content.id);
+                            }
+                          }}
+                          tooltip="Delete content"
+                        />
+                      )}
                     </div>
                   </td>
                 </tr>
@@ -795,9 +828,10 @@ const UploadContentTab = () => {
 
 interface ContentListTabProps {
   content_type: 'assignments' | 'study_material' | 'syllabus' | 'other_downloads';
+  canDelete: boolean;
 }
 
-const ContentListTab = ({ content_type }: ContentListTabProps) => {
+const ContentListTab = ({ content_type, canDelete }: ContentListTabProps) => {
   const [searchTerm, setSearchTerm] = useState('');
   const [classFilter, setClassFilter] = useState('');
   const [sectionFilter, setSectionFilter] = useState('');
@@ -937,15 +971,17 @@ const ContentListTab = ({ content_type }: ContentListTabProps) => {
                   <td>
                     <div className="action-buttons">
                       <ActionIconButton variant="download" onClick={() => handleDownload(content)} tooltip="Download content" />
-                      <ActionIconButton
-                        variant="delete"
-                        onClick={() => {
-                          if (window.confirm('Are you sure you want to delete this content?')) {
-                            deleteMutation.mutate(content.id);
-                          }
-                        }}
-                        tooltip="Delete content"
-                      />
+                      {canDelete && (
+                        <ActionIconButton
+                          variant="delete"
+                          onClick={() => {
+                            if (window.confirm('Are you sure you want to delete this content?')) {
+                              deleteMutation.mutate(content.id);
+                            }
+                          }}
+                          tooltip="Delete content"
+                        />
+                      )}
                     </div>
                   </td>
                 </tr>

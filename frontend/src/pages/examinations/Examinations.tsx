@@ -17,6 +17,7 @@ import { studentsService } from '../../services/api/studentsService';
 import { useToast } from '../../contexts/ToastContext';
 import Modal from '../../components/common/Modal';
 import ActionIconButton from '../../components/common/ActionIconButton';
+import { useModulePermissions } from '../../hooks/useModulePermissions';
 import AdmitCardTemplateComponent from './templates/AdmitCardTemplate';
 import MarksheetTemplateComponent from './templates/MarksheetTemplate';
 import './Examinations.css';
@@ -461,6 +462,7 @@ const DROPDOWN_QUERY_OPTIONS = {
 };
 
 const Examinations = () => {
+  const { canAdd, canDelete, isLoading: permissionsLoading } = useModulePermissions('examinations');
   const [searchParams, setSearchParams] = useSearchParams();
   const tabFromUrl = searchParams.get('tab') as TabType;
   const validTabs: TabType[] = [
@@ -657,12 +659,18 @@ const Examinations = () => {
       </div>
 
       <div className="examinations-content">
-        {activeTab === 'marks-grade' && <MarksGradeTab />}
-        {activeTab === 'exam-groups' && <ExamGroupsTab />}
-        {activeTab === 'exams' && <ExamsTab />}
-        {activeTab === 'exam-result' && <ExamResultTab />}
-        {activeTab === 'print-admit-card' && <PrintAdmitCardTab />}
-        {activeTab === 'print-marksheet' && <PrintMarksheetTab />}
+        {permissionsLoading ? (
+          <div className="loading">Loading permissions...</div>
+        ) : (
+          <>
+            {activeTab === 'marks-grade' && <MarksGradeTab canAdd={canAdd} />}
+            {activeTab === 'exam-groups' && <ExamGroupsTab canAdd={canAdd} />}
+            {activeTab === 'exams' && <ExamsTab canAdd={canAdd} canDelete={canDelete} />}
+            {activeTab === 'exam-result' && <ExamResultTab />}
+            {activeTab === 'print-admit-card' && <PrintAdmitCardTab />}
+            {activeTab === 'print-marksheet' && <PrintMarksheetTab />}
+          </>
+        )}
       </div>
     </div>
   );
@@ -670,7 +678,7 @@ const Examinations = () => {
 
 // ========== Tab Components ==========
 
-const MarksGradeTab = () => {
+const MarksGradeTab = ({ canAdd }: { canAdd: boolean }) => {
   const [showModal, setShowModal] = useState(false);
   const [examTypeFilter, setExamTypeFilter] = useState('');
   const [formData, setFormData] = useState({
@@ -745,9 +753,11 @@ const MarksGradeTab = () => {
               <option value="gpa">GPA</option>
             </select>
           </div>
-          <button className="btn-primary btn-wm" onClick={() => setShowModal(true)}>
-            + Add Marks Grade
-          </button>
+          {canAdd && (
+            <button className="btn-primary btn-wm" onClick={() => setShowModal(true)}>
+              + Add Marks Grade
+            </button>
+          )}
         </div>
       </div>
 
@@ -902,7 +912,7 @@ const MarksGradeTab = () => {
   );
 };
 
-const ExamGroupsTab = () => {
+const ExamGroupsTab = ({ canAdd }: { canAdd: boolean }) => {
   const [showModal, setShowModal] = useState(false);
   const [formData, setFormData] = useState({
     name: '',
@@ -944,9 +954,11 @@ const ExamGroupsTab = () => {
     <div className="examinations-tab-content">
       <div className="tab-header">
         <h2>Exam Groups</h2>
-        <button className="btn-primary" onClick={() => setShowModal(true)}>
-          + Add Exam Group
-        </button>
+        {canAdd && (
+          <button className="btn-primary" onClick={() => setShowModal(true)}>
+            + Add Exam Group
+          </button>
+        )}
       </div>
 
       {isLoading ? (
@@ -1062,7 +1074,7 @@ const ExamGroupsTab = () => {
   );
 };
 
-const ExamsTab = () => {
+const ExamsTab = ({ canAdd, canDelete }: { canAdd: boolean; canDelete: boolean }) => {
   const [searchParams] = useSearchParams();
   const groupFromUrl = searchParams.get('group');
   const queryClient = useQueryClient();
@@ -1183,6 +1195,10 @@ const ExamsTab = () => {
   };
 
   const handleDeleteExam = async (exam: Exam) => {
+    if (!canDelete) {
+      showToast('You do not have permission to delete exams', 'error');
+      return;
+    }
     if (!window.confirm(`Are you sure you want to delete exam "${exam.name}"? This will also delete all associated subjects, marks, and student assignments.`)) {
       return;
     }
@@ -1199,9 +1215,11 @@ const ExamsTab = () => {
     <div className="examinations-tab-content">
       <div className="tab-header">
         <h2>Exams</h2>
-        <button className="btn-primary" onClick={() => setShowCreateModal(true)}>
-          + New Exam
-        </button>
+        {canAdd && (
+          <button className="btn-primary" onClick={() => setShowCreateModal(true)}>
+            + New Exam
+          </button>
+        )}
       </div>
 
       <div className="filters-section" style={{ marginBottom: 'var(--spacing-lg)' }}>
@@ -1274,7 +1292,9 @@ const ExamsTab = () => {
                   <td>
                     <div className="action-buttons">
                       <ActionIconButton variant="view" onClick={() => handleViewDetails(exam)} tooltip="View exam" />
-                      <ActionIconButton variant="delete" onClick={() => handleDeleteExam(exam)} tooltip="Delete exam" />
+                      {canDelete && (
+                        <ActionIconButton variant="delete" onClick={() => handleDeleteExam(exam)} tooltip="Delete exam" />
+                      )}
                     </div>
                   </td>
                 </tr>

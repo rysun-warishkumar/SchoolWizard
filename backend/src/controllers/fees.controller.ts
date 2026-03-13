@@ -394,8 +394,12 @@ export const getStudentFeesInvoices = async (
     const { student_id, session_id, status } = req.query;
     const db = getDatabase();
 
-    let actualStudentId = student_id;
-    if (req.user?.role === 'student') {
+    const userRole = String(req.user?.role || '').toLowerCase();
+    const requestedStudentId =
+      typeof student_id === 'string' && student_id.trim() !== '' ? Number(student_id) : null;
+    let allowedStudentIds: number[] | null = null;
+
+    if (userRole === 'student') {
       const [students] = await db.execute(
         'SELECT id FROM students WHERE user_id = ? AND school_id = ?',
         [req.user.id, schoolId]
@@ -403,7 +407,25 @@ export const getStudentFeesInvoices = async (
       if (students.length === 0) {
         throw createError('Student profile not found', 404);
       }
-      actualStudentId = students[0].id;
+      allowedStudentIds = [students[0].id];
+    } else if (userRole === 'parent') {
+      const parentEmail = req.user?.email;
+      if (!parentEmail) {
+        throw createError('Parent email is required to access children fees', 400);
+      }
+      const [children] = await db.execute(
+        `SELECT s.id
+         FROM students s
+         WHERE s.school_id = ?
+           AND (s.father_email = ? OR s.mother_email = ? OR s.guardian_email = ?)`,
+        [schoolId, parentEmail, parentEmail, parentEmail]
+      ) as any[];
+
+      allowedStudentIds = children.map((child: any) => Number(child.id)).filter((id: number) => !Number.isNaN(id));
+      if (allowedStudentIds.length === 0) {
+        res.json({ success: true, data: [] });
+        return;
+      }
     }
 
     let query = `
@@ -422,9 +444,21 @@ export const getStudentFeesInvoices = async (
     `;
     const params: any[] = [schoolId, schoolId, schoolId, schoolId];
 
-    if (actualStudentId) {
+    if (allowedStudentIds && allowedStudentIds.length > 0) {
+      if (requestedStudentId != null) {
+        if (!allowedStudentIds.includes(requestedStudentId)) {
+          throw createError('Access denied for selected student', 403);
+        }
+        query += ' AND fi.student_id = ?';
+        params.push(requestedStudentId);
+      } else {
+        const placeholders = allowedStudentIds.map(() => '?').join(', ');
+        query += ` AND fi.student_id IN (${placeholders})`;
+        params.push(...allowedStudentIds);
+      }
+    } else if (requestedStudentId != null && !Number.isNaN(requestedStudentId)) {
       query += ' AND fi.student_id = ?';
-      params.push(actualStudentId);
+      params.push(requestedStudentId);
     }
     if (session_id) {
       query += ' AND fi.session_id = ?';
@@ -457,8 +491,12 @@ export const getFeesPayments = async (
     const { payment_id, student_id, date_from, date_to } = req.query;
     const db = getDatabase();
 
-    let actualStudentId = student_id;
-    if (req.user?.role === 'student') {
+    const userRole = String(req.user?.role || '').toLowerCase();
+    const requestedStudentId =
+      typeof student_id === 'string' && student_id.trim() !== '' ? Number(student_id) : null;
+    let allowedStudentIds: number[] | null = null;
+
+    if (userRole === 'student') {
       const [students] = await db.execute(
         'SELECT id FROM students WHERE user_id = ? AND school_id = ?',
         [req.user.id, schoolId]
@@ -466,7 +504,25 @@ export const getFeesPayments = async (
       if (students.length === 0) {
         throw createError('Student profile not found', 404);
       }
-      actualStudentId = students[0].id;
+      allowedStudentIds = [students[0].id];
+    } else if (userRole === 'parent') {
+      const parentEmail = req.user?.email;
+      if (!parentEmail) {
+        throw createError('Parent email is required to access children fees', 400);
+      }
+      const [children] = await db.execute(
+        `SELECT s.id
+         FROM students s
+         WHERE s.school_id = ?
+           AND (s.father_email = ? OR s.mother_email = ? OR s.guardian_email = ?)`,
+        [schoolId, parentEmail, parentEmail, parentEmail]
+      ) as any[];
+
+      allowedStudentIds = children.map((child: any) => Number(child.id)).filter((id: number) => !Number.isNaN(id));
+      if (allowedStudentIds.length === 0) {
+        res.json({ success: true, data: [] });
+        return;
+      }
     }
 
     let query = `
@@ -490,9 +546,21 @@ export const getFeesPayments = async (
       query += ' AND fp.payment_id = ?';
       params.push(payment_id);
     }
-    if (actualStudentId) {
+    if (allowedStudentIds && allowedStudentIds.length > 0) {
+      if (requestedStudentId != null) {
+        if (!allowedStudentIds.includes(requestedStudentId)) {
+          throw createError('Access denied for selected student', 403);
+        }
+        query += ' AND fp.student_id = ?';
+        params.push(requestedStudentId);
+      } else {
+        const placeholders = allowedStudentIds.map(() => '?').join(', ');
+        query += ` AND fp.student_id IN (${placeholders})`;
+        params.push(...allowedStudentIds);
+      }
+    } else if (requestedStudentId != null && !Number.isNaN(requestedStudentId)) {
       query += ' AND fp.student_id = ?';
-      params.push(actualStudentId);
+      params.push(requestedStudentId);
     }
     if (date_from) {
       query += ' AND fp.payment_date >= ?';

@@ -140,8 +140,15 @@ export const checkPermissionOrStudentOwnData = (moduleName: string, permissionNa
         return next();
       }
 
-      // Allow students to access their own fees data (invoices and payments)
-      if (req.user.role === 'student' && moduleName === 'fees' && permissionName === 'view') {
+      const userRole = String(req.user.role || '').toLowerCase();
+
+      // Allow students/parents to access fees/download-center view APIs
+      // (controllers enforce ownership/content scope).
+      if (
+        (moduleName === 'fees' || moduleName === 'download-center') &&
+        permissionName === 'view' &&
+        (userRole === 'student' || userRole === 'parent')
+      ) {
         return next();
       }
 

@@ -78,6 +78,7 @@ const Roles = () => {
   
   // Store permissions for all roles: { roleId: { moduleId: { permissionId: granted } } }
   const [allRolePermissions, setAllRolePermissions] = useState<Record<number, Record<number, Record<number, boolean>>>>({});
+  const [isSavingPermissions, setIsSavingPermissions] = useState(false);
 
   const queryClient = useQueryClient();
   const { showToast } = useToast();
@@ -221,32 +222,34 @@ const Roles = () => {
   };
 
   const handleSaveAllPermissions = async () => {
-    if (!rolesData?.data || !modulesData?.data || !permissionsData?.data) return;
+    if (!rolesData?.data || !modulesData?.data || !permissionsData?.data || isSavingPermissions) return;
 
     try {
-      // Save permissions for each role (except superadmin)
-      const savePromises = rolesData.data
-        .filter((role) => role.id !== 1) // Skip superadmin
-        .map((role) => {
-          const rolePerms = allRolePermissions[role.id] || {};
-          const permissions = modulesData.data.flatMap((module) => {
-            const modulePerms = rolePerms[module.id] || {};
-            return permissionsData.data.map((perm) => ({
-              module_id: module.id,
-              permission_id: perm.id,
-              granted: modulePerms[perm.id] || false,
-            }));
-          });
+      setIsSavingPermissions(true);
 
-          return rolesService.updateRolePermissions(String(role.id), { permissions });
+      // Save permissions role-by-role to avoid parallel write deadlocks on role_permissions.
+      const updatableRoles = rolesData.data.filter((role) => role.id !== 1); // Skip superadmin
+      for (const role of updatableRoles) {
+        const rolePerms = allRolePermissions[role.id] || {};
+        const permissions = modulesData.data.flatMap((module) => {
+          const modulePerms = rolePerms[module.id] || {};
+          return permissionsData.data.map((perm) => ({
+            module_id: module.id,
+            permission_id: perm.id,
+            granted: modulePerms[perm.id] || false,
+          }));
         });
 
-      await Promise.all(savePromises);
+        await rolesService.updateRolePermissions(String(role.id), { permissions });
+      }
+
       queryClient.invalidateQueries(['role-permissions']);
       showToast('All permissions updated successfully', 'success');
       setIsEditing(false);
     } catch (error: any) {
       showToast(error.response?.data?.message || 'Failed to save permissions', 'error');
+    } finally {
+      setIsSavingPermissions(false);
     }
   };
 
@@ -382,8 +385,9 @@ const Roles = () => {
                     <button
                       className="btn-primary"
                       onClick={handleSaveAllPermissions}
+                      disabled={isSavingPermissions}
                     >
-                      Save
+                      {isSavingPermissions ? 'Saving...' : 'Save'}
                     </button>
                   </>
                 )}
