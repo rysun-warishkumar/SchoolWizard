@@ -170,25 +170,29 @@
   margin-bottom: var(--spacing-md);
 }
 
-.student-admission-form .create-parent-account-group {
-  display: flex;
+.students-page .student-admission-form .create-parent-account-group {
+  display: inline-flex;
   flex-direction: row;
   align-items: center;
   gap: var(--spacing-sm);
   margin-bottom: 0;
+  width: auto;
 }
 
-.student-admission-form .create-parent-account-checkbox {
+.students-page .student-admission-form .create-parent-account-checkbox {
   width: auto;
   margin: 0;
   accent-color: var(--primary-color);
+  flex-shrink: 0;
 }
 
-.student-admission-form .create-parent-account-label {
+.students-page .student-admission-form .create-parent-account-label {
   margin-bottom: 0;
   font-weight: 500;
   color: var(--gray-700);
   cursor: pointer;
+  display: inline-flex;
+  align-items: center;
 }
 
 .student-admission-form .create-parent-hint {

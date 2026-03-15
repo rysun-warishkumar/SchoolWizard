@@ -145,6 +145,10 @@ const HR = () => {
   // Update URL when tab changes
   const handleTabChange = (tab: TabType) => {
     setActiveTab(tab);
+    if (tab === 'staff') {
+      // Prevent stale page state when returning from another tab.
+      setPage(1);
+    }
     setSearchParams({ tab });
     // Scroll to active tab after a short delay to ensure it's rendered
     setTimeout(() => {
@@ -217,14 +221,16 @@ const HR = () => {
     }
   };
 
-  // Initialize tab from URL and check arrows
+  // Keep active tab in sync with URL query changes
   useEffect(() => {
     if (tabFromUrl && validTabs.includes(tabFromUrl)) {
       setActiveTab(tabFromUrl);
+      // Scroll after tab state updates
+      setTimeout(() => {
+        scrollToActiveTab();
+      }, 50);
     }
-    checkArrows();
-    scrollToActiveTab();
-  }, []);
+  }, [tabFromUrl]);
 
   // Check arrows on scroll and window resize
   useEffect(() => {
@@ -1832,10 +1838,13 @@ const AddStaffTab = ({ departments, designations }: any) => {
       errors.date_of_joining = 'Date of joining is required';
     }
 
-    // Email validation
-    if (formData.email && formData.email.trim() !== '') {
+    // Email validation (required)
+    const trimmedEmail = formData.email?.trim() || '';
+    if (!trimmedEmail) {
+      errors.email = 'Email is required';
+    } else {
       const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-      if (!emailRegex.test(formData.email)) {
+      if (!emailRegex.test(trimmedEmail)) {
         errors.email = 'Please enter a valid email address';
       }
     }
@@ -2121,7 +2130,7 @@ const AddStaffTab = ({ departments, designations }: any) => {
           </div>
           <div className="form-row">
             <div className="form-group">
-              <label>Email</label>
+              <label>Email *</label>
               <input
                 type="email"
                 value={formData.email}
@@ -2131,6 +2140,7 @@ const AddStaffTab = ({ departments, designations }: any) => {
                 }}
                 className={fieldErrors.email ? 'error' : ''}
                 placeholder="staff@example.com"
+                required
               />
               {fieldErrors.email && (
                 <span className="field-error">{fieldErrors.email}</span>
@@ -2696,22 +2706,30 @@ const LeaveTypesTab = () => {
 
 // Staff Attendance Tab
 const StaffAttendanceTab = () => {
+  const { user } = useAuth();
   const { showToast } = useToast();
   const queryClient = useQueryClient();
   const [roleId, setRoleId] = useState('');
   const [attendanceDate, setAttendanceDate] = useState(new Date().toISOString().split('T')[0]);
   const [attendanceRecords, setAttendanceRecords] = useState<Record<number, { status: string; check_in_time?: string; check_out_time?: string; note?: string }>>({});
   const [isHoliday, setIsHoliday] = useState(false);
+  const attendanceScopeKey = `${user?.id || 'anonymous'}:${user?.schoolId || 'no-school'}`;
 
   const { data: rolesData } = useQuery('roles', () => rolesService.getRoles());
 
-  const { data: attendanceData, isLoading, refetch } = useQuery(
-    ['staff-attendance', roleId, attendanceDate],
+  const { data: attendanceData, isLoading, isError, error: attendanceError, refetch } = useQuery(
+    ['staff-attendance', attendanceScopeKey, roleId, attendanceDate],
     () => hrService.getStaffAttendance({
       role_id: roleId ? Number(roleId) : undefined,
       attendance_date: attendanceDate,
     }),
-    { enabled: !!attendanceDate }
+    {
+      enabled: !!attendanceDate,
+      onError: () => {
+        // Prevent stale rows from previous successful fetch from being used for submit.
+        setAttendanceRecords({});
+      },
+    }
   );
 
   useEffect(() => {
@@ -2733,7 +2751,7 @@ const StaffAttendanceTab = () => {
 
   const submitMutation = useMutation(hrService.submitStaffAttendance, {
     onSuccess: (response) => {
-      queryClient.invalidateQueries(['staff-attendance', roleId, attendanceDate]);
+      queryClient.invalidateQueries(['staff-attendance', attendanceScopeKey, roleId, attendanceDate]);
       showToast(response.message || 'Attendance submitted successfully', 'success');
       refetch();
     },
@@ -2837,6 +2855,10 @@ const StaffAttendanceTab = () => {
 
         {isLoading ? (
           <div className="loading">Loading staff...</div>
+        ) : isError ? (
+          <div className="error-message">
+            {(attendanceError as any)?.response?.data?.message || 'Failed to load staff attendance. Please try again.'}
+          </div>
         ) : attendanceData?.data && attendanceData.data.length > 0 ? (
           <>
             <div className="attendance-actions" style={{ marginBottom: 'var(--spacing-md)' }}>
@@ -3064,7 +3086,7 @@ const ApplyLeaveTab = () => {
   });
 
   const { data: leaveTypesData } = useQuery('leave-types', () => hrService.getLeaveTypes());
-  const { data: staffData } = useQuery('staff', () => hrService.getStaff({ limit: 1000 }));
+  const { data: staffData } = useQuery('staff', () => hrService.getStaff({ limit: 100 }));
 
   // Try to find staff by user_id if user is logged in
   useEffect(() => {
@@ -3281,14 +3303,23 @@ const ApproveLeaveTab = () => {
   const { showToast } = useToast();
   const { user } = useAuth();
   const queryClient = useQueryClient();
-  const [statusFilter, setStatusFilter] = useState<'pending' | 'approved' | 'disapproved' | ''>('pending');
+  const [statusFilter, setStatusFilter] = useState<'pending' | 'approved' | 'rejected' | 'disapproved' | ''>('pending');
   const [page, setPage] = useState(1);
   const [viewRequestId, setViewRequestId] = useState<number | null>(null);
+  const [rejectModal, setRejectModal] = useState<{
+    isOpen: boolean;
+    requestId: number | null;
+    reason: string;
+  }>({
+    isOpen: false,
+    requestId: null,
+    reason: '',
+  });
 
   const { data: leaveRequestsData, isLoading } = useQuery(
     ['leave-requests', statusFilter, page],
     () => hrService.getLeaveRequests({
-      status: statusFilter || undefined,
+      status: (statusFilter === 'rejected' ? 'disapproved' : statusFilter) || undefined,
       page,
       limit: 20,
     })
@@ -3325,15 +3356,45 @@ const ApproveLeaveTab = () => {
     });
   };
 
-  const handleDisapprove = (id: number, note?: string) => {
+  const handleReject = (id: number, note?: string) => {
     updateMutation.mutate({
       id: String(id),
       data: {
+        // Send legacy value for backward compatibility with non-rebuilt backend.
         status: 'disapproved',
         note: note || '',
         approved_by: user?.id,
       },
     });
+  };
+
+  const openRejectModal = (requestId: number) => {
+    setRejectModal({
+      isOpen: true,
+      requestId,
+      reason: '',
+    });
+  };
+
+  const closeRejectModal = () => {
+    setRejectModal({
+      isOpen: false,
+      requestId: null,
+      reason: '',
+    });
+  };
+
+  const submitRejectReason = () => {
+    if (!rejectModal.requestId) {
+      return;
+    }
+    const trimmedReason = rejectModal.reason.trim();
+    if (!trimmedReason) {
+      showToast('Reject reason is required', 'error');
+      return;
+    }
+    handleReject(rejectModal.requestId, trimmedReason);
+    closeRejectModal();
   };
 
   return (
@@ -3350,7 +3411,7 @@ const ApproveLeaveTab = () => {
           <option value="">All Status</option>
           <option value="pending">Pending</option>
           <option value="approved">Approved</option>
-          <option value="disapproved">Disapproved</option>
+          <option value="rejected">Rejected</option>
         </select>
       </div>
 
@@ -3390,8 +3451,10 @@ const ApproveLeaveTab = () => {
                     <td>{new Date(request.apply_date).toLocaleDateString()}</td>
                     <td>{request.reason || '-'}</td>
                     <td>
-                      <span className={`status-badge status-${request.status}`}>
-                        {request.status.charAt(0).toUpperCase() + request.status.slice(1)}
+                      <span className={`status-badge status-${request.status === 'disapproved' ? 'rejected' : request.status}`}>
+                        {request.status === 'disapproved'
+                          ? 'Rejected'
+                          : request.status.charAt(0).toUpperCase() + request.status.slice(1)}
                       </span>
                     </td>
                     <td>
@@ -3412,14 +3475,9 @@ const ApproveLeaveTab = () => {
                             </button>
                             <button
                               className="btn-danger btn-sm"
-                              onClick={() => {
-                                const note = window.prompt('Enter disapproval reason (optional):');
-                                if (note !== null) {
-                                  handleDisapprove(request.id, note);
-                                }
-                              }}
+                              onClick={() => openRejectModal(request.id)}
                             >
-                              Disapprove
+                              Reject
                             </button>
                           </>
                         )}
@@ -3485,8 +3543,10 @@ const ApproveLeaveTab = () => {
               </div>
               <div className="detail-row">
                 <span><strong>Status:</strong></span>
-                <span className={`status-badge status-${leaveRequestDetail.data.status}`}>
-                  {leaveRequestDetail.data.status.charAt(0).toUpperCase() + leaveRequestDetail.data.status.slice(1)}
+                <span className={`status-badge status-${leaveRequestDetail.data.status === 'disapproved' ? 'rejected' : leaveRequestDetail.data.status}`}>
+                  {leaveRequestDetail.data.status === 'disapproved'
+                    ? 'Rejected'
+                    : leaveRequestDetail.data.status.charAt(0).toUpperCase() + leaveRequestDetail.data.status.slice(1)}
                 </span>
               </div>
               {leaveRequestDetail.data.reason && (
@@ -3528,20 +3588,44 @@ const ApproveLeaveTab = () => {
                 </button>
                 <button
                   className="btn-danger"
-                  onClick={() => {
-                    const note = window.prompt('Enter disapproval reason (optional):');
-                    if (note !== null) {
-                      handleDisapprove(leaveRequestDetail.data.id, note);
-                    }
-                  }}
+                  onClick={() => openRejectModal(leaveRequestDetail.data.id)}
                 >
-                  Disapprove
+                  Reject
                 </button>
                 <button className="btn-secondary" onClick={() => setViewRequestId(null)}>
                   Close
                 </button>
               </div>
             )}
+          </div>
+        </Modal>
+      )}
+
+      {rejectModal.isOpen && (
+        <Modal
+          isOpen={rejectModal.isOpen}
+          onClose={closeRejectModal}
+          title="Reject Leave Request"
+          size="medium"
+        >
+          <div className="form-group">
+            <label htmlFor="reject-reason">Reject Reason *</label>
+            <textarea
+              id="reject-reason"
+              value={rejectModal.reason}
+              onChange={(e) => setRejectModal((prev) => ({ ...prev, reason: e.target.value }))}
+              rows={4}
+              placeholder="Enter reason for rejection"
+              required
+            />
+          </div>
+          <div className="form-actions" style={{ marginTop: 'var(--spacing-lg)' }}>
+            <button type="button" className="btn-secondary" onClick={closeRejectModal}>
+              Cancel
+            </button>
+            <button type="button" className="btn-danger" onClick={submitRejectReason}>
+              Reject Leave
+            </button>
           </div>
         </Modal>
       )}
@@ -4618,7 +4702,7 @@ const TeachersRatingTab = () => {
 
   const { data: teachersData } = useQuery(
     'teachers-for-ratings',
-    () => hrService.getStaff({ role_id: 3, is_active: true, limit: 1000 }),
+    () => hrService.getStaff({ role_id: 3, is_active: true, limit: 100 }),
     { refetchOnWindowFocus: false }
   );
 

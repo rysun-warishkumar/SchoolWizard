@@ -827,61 +827,64 @@ const Settings = () => {
       )}
 
       {showSessionModal && (
-        <div className="modal-overlay" onClick={() => { setShowSessionModal(false); resetSessionForm(); }}>
-          <div className="modal-content" onClick={(e) => e.stopPropagation()}>
-            <h2>{editingSession ? 'Edit Session' : 'Add Session'}</h2>
-            <form onSubmit={handleSessionSubmit}>
+        <Modal
+          isOpen={showSessionModal}
+          onClose={() => { setShowSessionModal(false); resetSessionForm(); }}
+          title={editingSession ? 'Edit Session' : 'Add Session'}
+          size="medium"
+        >
+          <form onSubmit={handleSessionSubmit} className="settings-session-modal-form">
+            <div className="form-group">
+              <label>Session Name</label>
+              <input
+                type="text"
+                value={sessionForm.name}
+                onChange={(e) => setSessionForm({ ...sessionForm, name: e.target.value })}
+                placeholder="e.g., 2024-25"
+                required
+              />
+            </div>
+            <div className="settings-session-modal-dates">
               <div className="form-group">
-                <label>Session Name</label>
+                <label>Start Date</label>
                 <input
-                  type="text"
-                  value={sessionForm.name}
-                  onChange={(e) => setSessionForm({ ...sessionForm, name: e.target.value })}
-                  placeholder="e.g., 2024-25"
+                  type="date"
+                  value={sessionForm.start_date}
+                  onChange={(e) => setSessionForm({ ...sessionForm, start_date: e.target.value })}
                   required
                 />
               </div>
-              <div className="form-row">
-                <div className="form-group">
-                  <label>Start Date</label>
-                  <input
-                    type="date"
-                    value={sessionForm.start_date}
-                    onChange={(e) => setSessionForm({ ...sessionForm, start_date: e.target.value })}
-                    required
-                  />
-                </div>
-                <div className="form-group">
-                  <label>End Date</label>
-                  <input
-                    type="date"
-                    value={sessionForm.end_date}
-                    onChange={(e) => setSessionForm({ ...sessionForm, end_date: e.target.value })}
-                    required
-                  />
-                </div>
-              </div>
               <div className="form-group">
-                <label>
-                  <input
-                    type="checkbox"
-                    checked={sessionForm.is_current}
-                    onChange={(e) => setSessionForm({ ...sessionForm, is_current: e.target.checked })}
-                  />
-                  Set as Current Session
-                </label>
+                <label>End Date</label>
+                <input
+                  type="date"
+                  value={sessionForm.end_date}
+                  onChange={(e) => setSessionForm({ ...sessionForm, end_date: e.target.value })}
+                  required
+                />
               </div>
-              <div className="modal-actions">
-                <button type="button" onClick={() => { setShowSessionModal(false); resetSessionForm(); }}>
-                  Cancel
-                </button>
-                <button type="submit" className="btn-primary">
-                  {editingSession ? 'Update' : 'Create'}
-                </button>
+            </div>
+            <div className="form-group settings-session-modal-checkbox">
+              <div className="settings-session-current-row">
+                <input
+                  id="settings-session-current"
+                  type="checkbox"
+                  checked={sessionForm.is_current}
+                  onChange={(e) => setSessionForm({ ...sessionForm, is_current: e.target.checked })}
+                />
+                <label htmlFor="settings-session-current">Set as Current Session</label>
               </div>
-            </form>
-          </div>
-        </div>
+            </div>
+            <div className="modal-actions settings-session-modal-actions">
+              <button type="button" onClick={() => { setShowSessionModal(false); resetSessionForm(); }}>
+                Cancel
+              </button>
+              <button type="submit" className="btn-primary">
+                {editingSession ? 'Update' : 'Create'}
+              </button>
+            </div>
+          </form>
+        </Modal>
       )}
 
       {activeTab === 'email' && (

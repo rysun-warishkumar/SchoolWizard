@@ -194,3 +194,69 @@ export const checkPermissionOrStudentOwnData = (moduleName: string, permissionNa
   };
 };
 
+/**
+ * Permission middleware for staff self-service flows.
+ * Allows teacher/staff roles to access select HR self-service endpoints
+ * while controllers enforce own-record scoping.
+ */
+export const checkPermissionOrStaffSelfService = (moduleName: string, permissionName: string) => {
+  return async (req: AuthRequest, res: Response, next: NextFunction): Promise<void> => {
+    try {
+      if (!req.user) {
+        throw createError('Not authenticated', 401);
+      }
+
+      // Superadmin always has access.
+      if (req.user.role === 'superadmin') {
+        return next();
+      }
+
+      const userRole = String(req.user.role || '').toLowerCase();
+
+      // Allow staff/teacher to use HR self-service view/add flows.
+      if (
+        moduleName === 'hr' &&
+        (permissionName === 'view' || permissionName === 'add') &&
+        (userRole === 'staff' || userRole === 'teacher')
+      ) {
+        return next();
+      }
+
+      // Fallback to standard permission lookup.
+      const db = getDatabase();
+      const [users] = await db.execute(
+        'SELECT role_id FROM users WHERE id = ?',
+        [req.user.id]
+      ) as any[];
+
+      if (users.length === 0) {
+        throw createError('User not found', 404);
+      }
+
+      const roleId = users[0].role_id;
+      const [permissions] = await db.execute(
+        `SELECT rp.granted
+         FROM role_permissions rp
+         JOIN modules m ON rp.module_id = m.id
+         JOIN permissions p ON rp.permission_id = p.id
+         WHERE rp.role_id = ? 
+         AND m.name = ? 
+         AND p.name = ?
+         AND m.is_active = TRUE`,
+        [roleId, moduleName, permissionName]
+      ) as any[];
+
+      if (permissions.length === 0 || !permissions[0].granted) {
+        throw createError(
+          `Access denied. You do not have ${permissionName} permission for ${moduleName} module.`,
+          403
+        );
+      }
+
+      next();
+    } catch (error) {
+      next(error);
+    }
+  };
+};
+

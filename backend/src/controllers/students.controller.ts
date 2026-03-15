@@ -198,15 +198,27 @@ export const createDisableReason = async (
     }
 
     const db = getDatabase();
+    const normalizedName = String(name).trim();
+    const [existingReason] = await db.execute(
+      `SELECT id
+       FROM disable_reasons
+       WHERE school_id = ?
+         AND LOWER(TRIM(name)) = LOWER(TRIM(?))
+       LIMIT 1`,
+      [schoolId, normalizedName]
+    ) as any[];
+    if (existingReason.length > 0) {
+      throw createError('Disable reason with this name already exists', 400);
+    }
     const [result] = await db.execute(
       'INSERT INTO disable_reasons (school_id, name, created_at) VALUES (?, ?, NOW())',
-      [schoolId, name]
+      [schoolId, normalizedName]
     ) as any;
 
     res.status(201).json({
       success: true,
       message: 'Disable reason created successfully',
-      data: { id: result.insertId, name },
+      data: { id: result.insertId, name: normalizedName },
     });
   } catch (error) {
     next(error);
@@ -513,6 +525,148 @@ export const getMyChildren = async (
   }
 };
 
+// Get teachers for student/parent portals (school-scoped and class-scoped)
+export const getPortalTeachers = async (
+  req: AuthRequest,
+  res: Response,
+  next: NextFunction
+): Promise<void> => {
+  try {
+    if (!req.user) {
+      throw createError('Not authenticated', 401);
+    }
+    const schoolId = getSchoolId(req);
+    if (schoolId == null) {
+      throw createError('School context required', 403);
+    }
+
+    const userRole = String(req.user.role || '').toLowerCase();
+    if (userRole !== 'student' && userRole !== 'parent') {
+      throw createError('Access denied. Only students and parents can view teachers.', 403);
+    }
+
+    const db = getDatabase();
+    const classSectionPairs: Array<{ class_id: number; section_id: number | null }> = [];
+
+    if (userRole === 'student') {
+      const [students] = await db.execute(
+        `SELECT class_id, section_id
+         FROM students
+         WHERE user_id = ? AND school_id = ? AND is_active = 1
+         LIMIT 1`,
+        [req.user.id, schoolId]
+      ) as any[];
+
+      if (students.length === 0) {
+        throw createError('Student profile not found', 404);
+      }
+
+      classSectionPairs.push({
+        class_id: Number(students[0].class_id),
+        section_id: students[0].section_id != null ? Number(students[0].section_id) : null,
+      });
+    } else {
+      const parentEmail = String(req.user.email || '').trim();
+      const requestedStudentId = req.query.student_id ? Number(req.query.student_id) : null;
+
+      let childrenQuery = `
+        SELECT id, class_id, section_id
+        FROM students
+        WHERE school_id = ? AND is_active = 1
+          AND (father_email = ? OR mother_email = ? OR guardian_email = ?)
+      `;
+      const childrenParams: any[] = [schoolId, parentEmail, parentEmail, parentEmail];
+
+      if (requestedStudentId && Number.isInteger(requestedStudentId) && requestedStudentId > 0) {
+        childrenQuery += ' AND id = ?';
+        childrenParams.push(requestedStudentId);
+      }
+
+      const [children] = await db.execute(childrenQuery, childrenParams) as any[];
+
+      if (children.length === 0) {
+        res.json({ success: true, data: [] });
+        return;
+      }
+
+      for (const child of children) {
+        const classId = Number(child.class_id);
+        if (!Number.isInteger(classId) || classId <= 0) continue;
+        classSectionPairs.push({
+          class_id: classId,
+          section_id: child.section_id != null ? Number(child.section_id) : null,
+        });
+      }
+    }
+
+    if (classSectionPairs.length === 0) {
+      res.json({ success: true, data: [] });
+      return;
+    }
+
+    const uniquePairs = Array.from(
+      new Map(
+        classSectionPairs.map((pair) => [`${pair.class_id}:${pair.section_id ?? 'null'}`, pair])
+      ).values()
+    );
+
+    const pairClauses: string[] = [];
+    const pairParams: any[] = [];
+    for (const pair of uniquePairs) {
+      if (pair.section_id == null) {
+        // Backward-compatible fallback for legacy students without section mapping:
+        // show class teacher assignments at class level (any section) for same class.
+        pairClauses.push('(ct.class_id = ?)');
+        pairParams.push(pair.class_id);
+      } else {
+        pairClauses.push('(ct.class_id = ? AND ct.section_id = ?)');
+        pairParams.push(pair.class_id, pair.section_id);
+      }
+    }
+
+    const [teachers] = await db.execute(
+      `SELECT DISTINCT
+         st.id,
+         st.first_name,
+         st.last_name,
+         st.photo,
+         st.email,
+         st.phone,
+         d.name AS designation_name,
+         dep.name AS department_name
+       FROM class_teachers ct
+       INNER JOIN users u
+         ON ct.teacher_id = u.id
+        AND u.school_id = ?
+        AND u.is_active = 1
+       INNER JOIN roles r
+         ON u.role_id = r.id
+       INNER JOIN staff st
+         ON st.user_id = u.id
+        AND st.school_id = ?
+        AND st.is_active = 1
+       LEFT JOIN designations d
+         ON st.designation_id = d.id
+        AND d.school_id = ?
+       LEFT JOIN departments dep
+         ON st.department_id = dep.id
+        AND dep.school_id = ?
+       WHERE ct.school_id = ?
+         AND LOWER(TRIM(r.name)) = 'teacher'
+         AND (${pairClauses.join(' OR ')})
+       ORDER BY st.first_name ASC, st.last_name ASC`,
+      [schoolId, schoolId, schoolId, schoolId, schoolId, ...pairParams]
+    ) as any[];
+
+    res.json({
+      success: true,
+      data: teachers || [],
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
 export const createStudent = async (
   req: AuthRequest,
   res: Response,
@@ -559,6 +713,7 @@ export const createStudent = async (
       guardian_email,
       current_address,
       permanent_address,
+      transport_route_id,
       is_rte,
       rte_details,
       create_parent_account,
@@ -711,6 +866,21 @@ export const createStudent = async (
       }
     }
 
+    // Validate transport route if provided
+    if (transport_route_id != null && String(transport_route_id).trim() !== '') {
+      const routeId = Number(transport_route_id);
+      if (!Number.isInteger(routeId) || routeId <= 0) {
+        throw createError('Selected transport route is invalid', 400);
+      }
+      const [routeExists] = await db.execute(
+        'SELECT id FROM routes WHERE id = ? AND school_id = ?',
+        [routeId, schoolId]
+      ) as any[];
+      if (routeExists.length === 0) {
+        throw createError('Selected transport route does not exist', 400);
+      }
+    }
+
     // Create user account for student if email is provided
     let userId = null;
     let plainPassword = '';
@@ -825,7 +995,7 @@ export const createStudent = async (
         guardian_photo: null, // not in form yet
         current_address: current_address ? current_address.trim() : null,
         permanent_address: permanent_address ? permanent_address.trim() : null,
-        transport_route_id: null, // not in form yet
+        transport_route_id: transport_route_id ? Number(transport_route_id) : null,
         hostel_id: null, // not in form yet
         hostel_room_id: null, // not in form yet
         is_rte: is_rte ? 1 : 0,
@@ -1011,6 +1181,20 @@ export const updateStudent = async (
     const updates: any = req.body || {};
     const db = getDatabase();
 
+    if (updates.transport_route_id !== undefined && updates.transport_route_id !== null && String(updates.transport_route_id).trim() !== '') {
+      const routeId = Number(updates.transport_route_id);
+      if (!Number.isInteger(routeId) || routeId <= 0) {
+        throw createError('Selected transport route is invalid', 400);
+      }
+      const [routeRows] = await db.execute(
+        'SELECT id FROM routes WHERE id = ? AND school_id = ? LIMIT 1',
+        [routeId, schoolId]
+      ) as any[];
+      if (routeRows.length === 0) {
+        throw createError('Selected transport route does not exist', 400);
+      }
+    }
+
     if (req.file) {
       const [existingStudent] = await db.execute(
         'SELECT first_name, photo FROM students WHERE id = ? AND school_id = ?',
@@ -1051,7 +1235,7 @@ export const updateStudent = async (
       'father_name', 'father_occupation', 'father_phone', 'father_email',
       'mother_name', 'mother_occupation', 'mother_phone', 'mother_email',
       'guardian_name', 'guardian_relation', 'guardian_occupation', 'guardian_phone', 'guardian_email',
-      'current_address', 'permanent_address', 'is_rte', 'rte_details',
+      'current_address', 'permanent_address', 'transport_route_id', 'is_rte', 'rte_details',
     ];
 
     const updateFields: string[] = [];
@@ -1062,7 +1246,7 @@ export const updateStudent = async (
         updateFields.push(`${field} = ?`);
         
         // Simple type conversion
-        if (['class_id', 'section_id', 'session_id', 'category_id', 'house_id'].includes(field)) {
+        if (['class_id', 'section_id', 'session_id', 'category_id', 'house_id', 'transport_route_id'].includes(field)) {
           params.push(updates[field] ? Number(updates[field]) : null);
         } else if (field === 'is_rte') {
           params.push(updates[field] === '1' || updates[field] === 1 || updates[field] === true ? 1 : 0);

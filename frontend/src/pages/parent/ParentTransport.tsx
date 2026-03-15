@@ -28,12 +28,6 @@ const ParentTransport = () => {
     { refetchOnWindowFocus: false }
   );
 
-  const { data: vehicles = [] } = useQuery(
-    'parent-transport-vehicles',
-    () => transportService.getVehicles(),
-    { refetchOnWindowFocus: false }
-  );
-
   const { data: assignments = [] } = useQuery(
     'parent-transport-assignments',
     () => transportService.getVehicleAssignments(),
@@ -45,13 +39,9 @@ const ParentTransport = () => {
     ? routes.find((r) => r.id === (selectedChild as any).transport_route_id)
     : null;
 
-  const studentVehicle = studentRoute
-    ? assignments.find((a) => a.route_id === (studentRoute as any).id)
-    : null;
-
-  const vehicleDetails = studentVehicle
-    ? vehicles.find((v) => v.id === studentVehicle.vehicle_id)
-    : null;
+  const assignedVehicles = studentRoute
+    ? assignments.filter((a) => a.route_id === (studentRoute as any).id)
+    : [];
 
   if (children.length === 0) {
     return <div className="empty-state">No children found</div>;
@@ -91,31 +81,37 @@ const ParentTransport = () => {
                       <span>{studentRoute.description}</span>
                     </div>
                   )}
-                  {vehicleDetails && (
-                    <>
+                  {assignedVehicles.length > 0 && assignedVehicles.map((vehicle, index) => (
+                    <React.Fragment key={vehicle.id}>
                       <div className="detail-item">
-                        <label>Vehicle Number:</label>
-                        <span>{vehicleDetails.vehicle_no}</span>
+                        <label>Vehicle {index + 1} Number:</label>
+                        <span>{vehicle.vehicle_no || '-'}</span>
                       </div>
-                      {vehicleDetails.vehicle_model && (
+                      {vehicle.vehicle_model && (
                         <div className="detail-item">
-                          <label>Vehicle Model:</label>
-                          <span>{vehicleDetails.vehicle_model}</span>
+                          <label>Vehicle {index + 1} Model:</label>
+                          <span>{vehicle.vehicle_model}</span>
                         </div>
                       )}
-                      {vehicleDetails.driver_name && (
+                      {vehicle.driver_name && (
                         <div className="detail-item">
-                          <label>Driver Name:</label>
-                          <span>{vehicleDetails.driver_name}</span>
+                          <label>Driver {index + 1} Name:</label>
+                          <span>{vehicle.driver_name}</span>
                         </div>
                       )}
-                      {vehicleDetails.driver_contact && (
+                      {vehicle.driver_contact && (
                         <div className="detail-item">
-                          <label>Driver Contact:</label>
-                          <span>{vehicleDetails.driver_contact}</span>
+                          <label>Driver {index + 1} Contact:</label>
+                          <span>{vehicle.driver_contact}</span>
                         </div>
                       )}
-                    </>
+                    </React.Fragment>
+                  ))}
+                  {assignedVehicles.length === 0 && (
+                    <div className="detail-item full-width">
+                      <label>Vehicle Assignment:</label>
+                      <span>No vehicle is currently assigned for this route.</span>
+                    </div>
                   )}
                 </div>
               </div>

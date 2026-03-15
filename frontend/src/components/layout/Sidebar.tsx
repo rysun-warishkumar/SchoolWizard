@@ -42,6 +42,8 @@ const Sidebar = ({ isCollapsed, onToggle, isMobileOpen = false, onMobileClose }:
   );
 
   const userPermissions = permissionsData?.data || {};
+  const userRole = String(user?.role || '').toLowerCase();
+  const isStaffSelfServiceRole = ['staff', 'teacher', 'accountant', 'librarian', 'receptionist'].includes(userRole);
 
   // Map route paths to module names
   const routeToModuleMap: Record<string, string> = {
@@ -93,7 +95,7 @@ const Sidebar = ({ isCollapsed, onToggle, isMobileOpen = false, onMobileClose }:
     { path: '/hostel', label: 'Hostel', icon: '🏠', module: 'hostel' },
     { path: '/certificate', label: 'Certificate', icon: '🎓', module: 'certificate' },
     { path: '/calendar', label: 'Calendar & ToDo', icon: '📅', module: 'calendar' },
-    { path: '/chat', label: 'Chat', icon: '/chat-icon.png', module: 'chat' },
+    { path: '/chat', label: 'Chat', icon: '/chat-icon.svg', module: 'chat' },
     { path: '/front-cms-website', label: 'Front CMS Website', icon: '🌐', module: 'settings' },
     { path: '/alumni', label: 'Alumni', icon: '🎓', module: 'alumni' },
     { path: '/reports', label: 'Reports', icon: '📊', module: 'reports' },
@@ -107,10 +109,14 @@ const Sidebar = ({ isCollapsed, onToggle, isMobileOpen = false, onMobileClose }:
     { path: '/roles', label: 'Roles & Permissions', icon: '🔐', module: 'roles' },
     { path: '/settings', label: 'Settings', icon: '⚙️', module: 'settings' },
     { path: '/hosting-guide', label: 'Hosting Guide', icon: '☁️', module: 'settings' },
+    { path: '/staff/leave', label: 'Apply Leave', icon: '🏖️', module: 'hr', selfServiceOnly: true },
   ];
 
   // Filter menu items based on user permissions
   const menuItems = allMenuItems.filter((item) => {
+    if (item.path === '/staff/leave') {
+      return isStaffSelfServiceRole;
+    }
     if (item.path === '/hosting-guide') {
       return (
         user?.isPlatformAdmin === true ||

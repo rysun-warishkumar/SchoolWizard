@@ -53,7 +53,10 @@ const Header: React.FC<HeaderProps> = ({ onMenuClick, isMobileMenuOpen = false }
   );
 
   const unreadCount = conversations.reduce((total, conv) => total + (conv.unread_count || 0), 0);
-  const schoolName = generalSettings?.data?.schoolName || 'SchoolWizard';
+  const schoolName =
+    generalSettings?.data?.schoolName?.trim() ||
+    user?.schoolName?.trim() ||
+    'SchoolWizard';
   const logoPath = generalSettings?.data?.adminLogo;
   const faviconPath = generalSettings?.data?.favicon;
   const apiBaseUrl = (import.meta as any).env?.VITE_API_BASE_URL || 'http://localhost:5000';
@@ -136,21 +139,29 @@ const Header: React.FC<HeaderProps> = ({ onMenuClick, isMobileMenuOpen = false }
             </span>
           </button>
           {/* Logo and School Name - Centered on mobile */}
-          {logoUrl ? (
-            <div className="header-logo-container">
-              <img 
-                src={logoUrl} 
-                alt={schoolName} 
-                className="header-logo"
-                onError={(e) => {
-                  (e.target as HTMLImageElement).style.display = 'none';
-                }}
-              />
+          <button
+            type="button"
+            className="header-brand-button"
+            onClick={() => navigate('/dashboard')}
+            aria-label="Go to dashboard"
+            title="Go to dashboard"
+          >
+            {logoUrl ? (
+              <div className="header-logo-container">
+                <img 
+                  src={logoUrl} 
+                  alt={schoolName} 
+                  className="header-logo"
+                  onError={(e) => {
+                    (e.target as HTMLImageElement).style.display = 'none';
+                  }}
+                />
+                <h2 className="header-school-name">{schoolName}</h2>
+              </div>
+            ) : (
               <h2 className="header-school-name">{schoolName}</h2>
-            </div>
-          ) : (
-            <h2 className="header-school-name">{schoolName}</h2>
-          )}
+            )}
+          </button>
         </div>
         <div className="header-right">
           {/* Desktop: Show chat, user info, and logout */}
@@ -161,7 +172,7 @@ const Header: React.FC<HeaderProps> = ({ onMenuClick, isMobileMenuOpen = false }
               title="Chat"
             >
               <img 
-                src="/chat-icon.png" 
+                src="/chat-icon.svg" 
                 alt="Chat" 
                 className="chat-icon"
               />
@@ -235,7 +246,7 @@ const Header: React.FC<HeaderProps> = ({ onMenuClick, isMobileMenuOpen = false }
                 >
                   <div className="user-menu-item-icon-wrapper">
                     <img 
-                      src="/chat-icon.png" 
+                      src="/chat-icon.svg" 
                       alt="Chat" 
                       className="user-menu-chat-icon"
                     />

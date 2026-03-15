@@ -192,6 +192,7 @@ const RoutesTab = () => {
             <tr>
               <th>Route Title</th>
               <th>Fare</th>
+              <th>Assigned Students</th>
               <th>Description</th>
               <th>Actions</th>
             </tr>
@@ -201,6 +202,7 @@ const RoutesTab = () => {
               <tr key={route.id}>
                 <td>{route.title}</td>
                 <td>${Number(route.fare).toFixed(2)}</td>
+                <td>{Number(route.student_count || 0)}</td>
                 <td>{route.description || '-'}</td>
                 <td>
                   <div className="action-buttons">

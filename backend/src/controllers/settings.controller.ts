@@ -670,7 +670,7 @@ export const updateEmailSettings = async (
             user: smtp_username,
             pass: smtp_password,
           },
-        });
+        }, schoolId);
       } catch (emailError: any) {
         console.error('Error initializing email service:', emailError);
         // Don't fail the update, just log the error
@@ -754,7 +754,7 @@ export const testEmailSettings = async (
           user: setting.smtp_username,
           pass: setting.smtp_password,
         },
-      });
+      }, schoolId);
     } catch (initError: any) {
       // Provide specific error messages for common issues
       let errorMessage = 'Failed to connect to SMTP server. ';
@@ -784,6 +784,7 @@ export const testEmailSettings = async (
       await sendEmail({
         to: test_email,
         subject: 'Test Email from SchoolWizard',
+        schoolId,
         html: `
           <!DOCTYPE html>
           <html>

@@ -7,6 +7,7 @@ export interface Student {
   class_id: number;
   section_id: number;
   session_id: number;
+  transport_route_id?: number | null;
   first_name: string;
   last_name?: string;
   gender: 'male' | 'female' | 'other';
@@ -49,6 +50,17 @@ export interface StudentHouse {
   name: string;
 }
 
+export interface PortalTeacher {
+  id: number;
+  first_name: string;
+  last_name?: string;
+  photo?: string;
+  email?: string;
+  phone?: string;
+  designation_name?: string;
+  department_name?: string;
+}
+
 export interface DisableReason {
   id: number;
   name: string;
@@ -79,6 +91,12 @@ export const studentsService = {
   // Get all children for a parent (for parent panel)
   async getMyChildren(): Promise<{ success: boolean; data: Student[] }> {
     const response = await apiClient.get<{ success: boolean; data: Student[] }>('/students/my-children');
+    return response.data;
+  },
+
+  // Get teachers visible to student/parent (class-scoped and school-scoped)
+  async getPortalTeachers(params?: { student_id?: number }): Promise<{ success: boolean; data: PortalTeacher[] }> {
+    const response = await apiClient.get<{ success: boolean; data: PortalTeacher[] }>('/students/teachers', { params });
     return response.data;
   },
 

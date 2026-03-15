@@ -693,28 +693,77 @@ export const removeQuestionFromExam = async (req: Request, res: Response, next: 
 
 // ========== Online Exam Students ==========
 
-export const assignStudentsToExam = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+export const assignStudentsToExam = async (req: AuthRequest, res: Response, next: NextFunction): Promise<void> => {
   try {
-    const { online_exam_id, student_ids } = req.body;
+    const schoolId = getSchoolId(req);
+    if (schoolId == null) throw createError('School context required', 403);
+    const examIdRaw = req.params.online_exam_id || req.body?.online_exam_id;
+    const { student_ids } = req.body;
+    const onlineExamId = Number(examIdRaw);
 
-    if (!online_exam_id || !Array.isArray(student_ids) || student_ids.length === 0) {
+    if (!onlineExamId || Number.isNaN(onlineExamId) || !Array.isArray(student_ids) || student_ids.length === 0) {
       throw createError('Exam ID and student IDs array are required', 400);
     }
 
     const db = getDatabase();
+    const connection = await db.getConnection();
 
-    // Remove existing assignments
-    await db.execute('DELETE FROM online_exam_students WHERE online_exam_id = ?', [online_exam_id]);
+    try {
+      await connection.beginTransaction();
 
-    // Insert new assignments
-    const values = student_ids.map((student_id: number) => [online_exam_id, student_id]);
-    if (values.length > 0) {
-      const placeholders = values.map(() => '(?, ?)').join(', ');
-      const flatValues = values.flat();
-      await db.execute(
-        `INSERT INTO online_exam_students (online_exam_id, student_id) VALUES ${placeholders}`,
+      const [exams] = await connection.execute(
+        'SELECT id FROM online_exams WHERE id = ? AND school_id = ? LIMIT 1',
+        [onlineExamId, schoolId]
+      ) as any[];
+      if (exams.length === 0) {
+        throw createError('Online exam not found for this school', 404);
+      }
+
+      const normalizedStudentIds = Array.from(
+        new Set(
+          student_ids
+            .map((id: any) => Number(id))
+            .filter((id: number) => Number.isInteger(id) && id > 0)
+        )
+      );
+
+      if (normalizedStudentIds.length === 0) {
+        throw createError('Please select at least one valid student', 400);
+      }
+
+      const placeholders = normalizedStudentIds.map(() => '?').join(', ');
+      const [students] = await connection.execute(
+        `SELECT id
+         FROM students
+         WHERE school_id = ? AND is_active = 1 AND id IN (${placeholders})`,
+        [schoolId, ...normalizedStudentIds]
+      ) as any[];
+
+      if (students.length !== normalizedStudentIds.length) {
+        throw createError('Invalid reference. One or more selected values do not exist in the system.', 400);
+      }
+
+      // Remove existing assignments for this exam within the same school.
+      await connection.execute(
+        'DELETE FROM online_exam_students WHERE online_exam_id = ? AND school_id = ?',
+        [onlineExamId, schoolId]
+      );
+
+      // Insert new school-scoped assignments.
+      const assignmentValues = normalizedStudentIds.map((studentId: number) => [schoolId, onlineExamId, studentId]);
+      const assignmentPlaceholders = assignmentValues.map(() => '(?, ?, ?)').join(', ');
+      const flatValues = assignmentValues.flat();
+      await connection.execute(
+        `INSERT INTO online_exam_students (school_id, online_exam_id, student_id) VALUES ${assignmentPlaceholders}`,
         flatValues
       );
+
+      await connection.commit();
+    } catch (error) {
+      await connection.rollback();
+      throw error;
+    } finally {
+      connection.release();
     }
 
     res.json({
@@ -726,14 +775,17 @@ export const assignStudentsToExam = async (req: Request, res: Response, next: Ne
   }
 };
 
-export const removeStudentFromExam = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+export const removeStudentFromExam = async (req: AuthRequest, res: Response, next: NextFunction): Promise<void> => {
   try {
+    const schoolId = getSchoolId(req);
+    if (schoolId == null) throw createError('School context required', 403);
     const { online_exam_id, student_id } = req.params;
     const db = getDatabase();
 
-    await db.execute('DELETE FROM online_exam_students WHERE online_exam_id = ? AND student_id = ?', [
+    await db.execute('DELETE FROM online_exam_students WHERE online_exam_id = ? AND student_id = ? AND school_id = ?', [
       online_exam_id,
       student_id,
+      schoolId,
     ]);
 
     res.json({

@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from 'react-query';
-import { hrService } from '../../services/api/hrService';
 import { studentsService } from '../../services/api/studentsService';
+import { hrService } from '../../services/api/hrService';
 import { useToast } from '../../contexts/ToastContext';
 import './StudentTeachersReview.css';
 
@@ -19,11 +19,7 @@ const StudentTeachersReview = () => {
 
   const { data: teachersData, isLoading } = useQuery(
     'teachers-for-review',
-    () =>
-      hrService.getStaff({
-        role_id: 3, // Teacher role
-        is_active: true,
-      }),
+    () => studentsService.getPortalTeachers(),
     { refetchOnWindowFocus: false }
   );
 

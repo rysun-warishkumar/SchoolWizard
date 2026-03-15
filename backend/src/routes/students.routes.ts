@@ -4,6 +4,7 @@ import {
   getStudentById,
   getMyStudentProfile,
   getMyChildren,
+  getPortalTeachers,
   createStudent,
   updateStudent,
   deleteStudent,
@@ -45,6 +46,7 @@ router.post('/disable-reasons', checkPermission('students', 'add'), createDisabl
 router.get('/', checkPermission('students', 'view'), getStudents);
 router.get('/my-profile', getMyStudentProfile); // Student/Parent access - no permission check
 router.get('/my-children', getMyChildren); // Parent access - no permission check
+router.get('/teachers', getPortalTeachers); // Student/Parent access - no permission check
 
 // Online Admissions
 router.get('/online-admissions', checkPermission('students', 'view'), getOnlineAdmissions);
@@ -58,12 +60,13 @@ router.post('/promote', checkPermission('students', 'edit'), promoteStudents);
 // Bulk Import Students - MUST be before /:id route
 router.post('/bulk-import', checkPermission('students', 'add'), bulkImportStudents);
 
-// Parameterized routes - MUST be last to avoid matching specific routes
-router.get('/:id', checkPermission('students', 'view'), getStudentById);
+// Parameterized routes - MUST be last to avoid matching specific routes.
+// Restrict to numeric IDs so static routes like /teachers are never misrouted.
+router.get('/:id(\\d+)', checkPermission('students', 'view'), getStudentById);
 router.post('/', checkPermission('students', 'add'), uploadStudentPhoto.single('photo'), createStudent);
-router.put('/:id', checkPermission('students', 'edit'), uploadStudentPhoto.single('photo'), updateStudent);
-router.delete('/:id', checkPermission('students', 'delete'), deleteStudent);
-router.patch('/:id/disable', checkPermission('students', 'edit'), disableStudent);
+router.put('/:id(\\d+)', checkPermission('students', 'edit'), uploadStudentPhoto.single('photo'), updateStudent);
+router.delete('/:id(\\d+)', checkPermission('students', 'delete'), deleteStudent);
+router.patch('/:id(\\d+)/disable', checkPermission('students', 'edit'), disableStudent);
 
 export default router;
 

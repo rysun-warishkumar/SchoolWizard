@@ -117,13 +117,13 @@ const StudentLeave = () => {
                   </div>
                   {request.approved_by_name && (
                     <div className="detail-item">
-                      <label>Approved By:</label>
+                      <label>{request.status === 'rejected' ? 'Rejected By:' : 'Approved By:'}</label>
                       <span>{request.approved_by_name}</span>
                     </div>
                   )}
                   {request.approved_at && (
                     <div className="detail-item">
-                      <label>Approved At:</label>
+                      <label>{request.status === 'rejected' ? 'Rejected Date:' : 'Approved Date:'}</label>
                       <span>{new Date(request.approved_at).toLocaleDateString()}</span>
                     </div>
                   )}

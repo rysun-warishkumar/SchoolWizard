@@ -1,6 +1,8 @@
 import React, { ReactNode, useState } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
+import { useQuery } from 'react-query';
+import { chatService } from '../services/api/chatService';
 import './StudentLayout.css';
 
 interface StudentLayoutProps {
@@ -12,6 +14,23 @@ const StudentLayout: React.FC<StudentLayoutProps> = ({ children }) => {
   const navigate = useNavigate();
   const { user, logout } = useAuth();
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const displaySchoolName = user?.schoolName?.trim() || 'SchoolWizard';
+  const isChatPage = location.pathname === '/student/chat';
+
+  const { data: conversations = [] } = useQuery(
+    ['chat-conversations'],
+    () => chatService.getConversations(),
+    {
+      enabled: !isChatPage,
+      refetchInterval: false,
+      refetchOnWindowFocus: false,
+      refetchOnMount: true,
+      staleTime: 2 * 60 * 1000,
+      cacheTime: 10 * 60 * 1000,
+    }
+  );
+
+  const unreadCount = conversations.reduce((total, conv) => total + (conv.unread_count || 0), 0);
 
   const handleLogout = () => {
     logout();
@@ -55,12 +74,30 @@ const StudentLayout: React.FC<StudentLayoutProps> = ({ children }) => {
             <button className="mobile-menu-toggle" onClick={toggleSidebar} aria-label="Toggle menu">
               <span className="hamburger-icon">☰</span>
             </button>
-            <div className="student-logo">
-              <h1>Make My School</h1>
-              <span className="student-badge">Student Panel</span>
-            </div>
+            <Link to="/student/dashboard" className="student-logo-link">
+              <div className="student-logo">
+                <h1>{displaySchoolName}</h1>
+                <span className="student-badge">Student Panel</span>
+              </div>
+            </Link>
           </div>
           <div className="student-header-right">
+            <button
+              type="button"
+              className="student-chat-icon-container"
+              onClick={() => navigate('/student/chat')}
+              title="Chat"
+              aria-label="Open chat"
+            >
+              <img
+                src="/chat-icon.svg"
+                alt="Chat"
+                className="student-chat-icon"
+              />
+              {unreadCount > 0 && (
+                <span className="student-chat-badge">{unreadCount > 99 ? '99+' : unreadCount}</span>
+              )}
+            </button>
             <div className="student-user-info">
               <span className="student-name">{user?.name || 'Student'}</span>
               <span className="student-email">{user?.email}</span>

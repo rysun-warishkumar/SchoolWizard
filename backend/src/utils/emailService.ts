@@ -20,11 +20,17 @@ interface EmailOptions {
 
 let transporter: nodemailer.Transporter | null = null;
 let emailConfig: EmailConfig | null = null;
+const transporterByScope = new Map<string, nodemailer.Transporter>();
+const emailConfigByScope = new Map<string, EmailConfig>();
+
+const getEmailScopeKey = (schoolId?: number): string => {
+  return schoolId != null ? `school:${schoolId}` : 'global';
+};
 
 /**
  * Initialize email transporter with SMTP configuration
  */
-export const initializeEmailService = async (config: EmailConfig): Promise<void> => {
+export const initializeEmailService = async (config: EmailConfig, schoolId?: number): Promise<void> => {
   try {
     // Validate configuration
     if (!config.host || !config.host.trim()) {
@@ -40,8 +46,8 @@ export const initializeEmailService = async (config: EmailConfig): Promise<void>
       throw new Error('SMTP password is required');
     }
 
-    emailConfig = config;
-    transporter = nodemailer.createTransport({
+    const scopeKey = getEmailScopeKey(schoolId);
+    const scopedTransporter = nodemailer.createTransport({
       host: config.host.trim(),
       port: config.port,
       secure: config.secure, // true for 465, false for other ports
@@ -59,7 +65,12 @@ export const initializeEmailService = async (config: EmailConfig): Promise<void>
     });
 
     // Verify connection
-    await transporter.verify();
+    await scopedTransporter.verify();
+    emailConfigByScope.set(scopeKey, config);
+    transporterByScope.set(scopeKey, scopedTransporter);
+    // Backward-compatible global references (legacy imports may still rely on these).
+    emailConfig = config;
+    transporter = scopedTransporter;
     console.log('Email service initialized successfully');
   } catch (error: any) {
     console.error('Error initializing email service:', error);
@@ -110,18 +121,31 @@ export const getEmailConfig = async (schoolId?: number): Promise<EmailConfig | n
     query += ' LIMIT 1';
     const [settings] = await db.execute(query, params) as any[];
 
-    if (settings.length === 0) {
+    let selectedSetting = settings.length > 0 ? settings[0] : null;
+
+    // Backward compatibility: if no explicit global SMTP row exists, use latest enabled SMTP row.
+    if (!selectedSetting && hasSchoolIdColumn && schoolId == null) {
+      const [fallbackSettings] = await db.execute(
+        `SELECT smtp_host, smtp_port, smtp_secure, smtp_username, smtp_password
+         FROM email_settings
+         WHERE is_enabled = 1
+         ORDER BY id DESC
+         LIMIT 1`
+      ) as any[];
+      selectedSetting = fallbackSettings.length > 0 ? fallbackSettings[0] : null;
+    }
+
+    if (!selectedSetting) {
       return null;
     }
 
-    const setting = settings[0];
     return {
-      host: setting.smtp_host,
-      port: setting.smtp_port || 587,
-      secure: setting.smtp_secure === 1 || setting.smtp_port === 465,
+      host: selectedSetting.smtp_host,
+      port: selectedSetting.smtp_port || 587,
+      secure: selectedSetting.smtp_secure === 1 || selectedSetting.smtp_port === 465,
       auth: {
-        user: setting.smtp_username,
-        pass: setting.smtp_password,
+        user: selectedSetting.smtp_username,
+        pass: selectedSetting.smtp_password,
       },
     };
   } catch (error) {
@@ -154,21 +178,27 @@ export const sendEmail = async (options: EmailOptions): Promise<void> => {
       throw new Error('Email content is required');
     }
 
-    // Get email config if not initialized
-    if (!transporter || !emailConfig) {
+    const scopeKey = getEmailScopeKey(options.schoolId);
+    let scopedTransporter = transporterByScope.get(scopeKey) || null;
+    let scopedEmailConfig = emailConfigByScope.get(scopeKey) || null;
+
+    // Get email config if not initialized for this school scope
+    if (!scopedTransporter || !scopedEmailConfig) {
       const config = await getEmailConfig(options.schoolId);
       if (!config) {
         throw new Error('Email service is not configured. Please configure SMTP settings in System Settings.');
       }
-      await initializeEmailService(config);
+      await initializeEmailService(config, options.schoolId);
+      scopedTransporter = transporterByScope.get(scopeKey) || null;
+      scopedEmailConfig = emailConfigByScope.get(scopeKey) || null;
     }
 
-    if (!transporter || !emailConfig) {
+    if (!scopedTransporter || !scopedEmailConfig) {
       throw new Error('Email transporter is not initialized');
     }
 
     // Get from_email and from_name from database if available
-    let fromEmail = emailConfig.auth.user;
+    let fromEmail = scopedEmailConfig.auth.user;
     let fromName = 'Make My School';
 
     try {
@@ -216,7 +246,7 @@ export const sendEmail = async (options: EmailOptions): Promise<void> => {
       text: options.text || options.html.replace(/<[^>]*>/g, ''), // Strip HTML for text version
     };
 
-    const info = await transporter.sendMail(mailOptions);
+    const info = await scopedTransporter.sendMail(mailOptions);
     console.log('Email sent successfully:', {
       messageId: info.messageId,
       to: options.to,
@@ -377,6 +407,91 @@ export const sendStudentAdmissionEmail = async (
 };
 
 /**
+ * Send staff welcome email with credentials
+ */
+export const sendStaffWelcomeEmail = async (data: {
+  to: string;
+  staffName: string;
+  staffId: string;
+  loginId: string;
+  password: string;
+  schoolName?: string;
+  loginUrl?: string;
+  schoolId?: number;
+}): Promise<void> => {
+  const safeSchoolName = data.schoolName?.trim() || 'SchoolWizard';
+  const loginUrl = data.loginUrl || 'http://localhost:5173/login';
+  const emailHtml = `
+    <!DOCTYPE html>
+    <html>
+    <head>
+      <meta charset="utf-8">
+      <style>
+        body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
+        .container { max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #ddd; border-radius: 5px; }
+        .header { background-color: #2563eb; color: white; padding: 20px; text-align: center; border-radius: 5px 5px 0 0; }
+        .content { padding: 20px; background-color: #f9fafb; }
+        .credentials { background-color: white; padding: 15px; border-radius: 5px; margin: 20px 0; border-left: 4px solid #2563eb; }
+        .credentials-item { margin: 10px 0; }
+        .credentials-label { font-weight: bold; color: #666; }
+        .credentials-value { color: #333; font-size: 16px; word-break: break-word; }
+        .button { display: inline-block; padding: 12px 24px; background-color: #2563eb; color: white; text-decoration: none; border-radius: 5px; margin: 20px 0; }
+        .warning { background-color: #fef3c7; border-left: 4px solid #f59e0b; padding: 15px; margin: 20px 0; border-radius: 5px; }
+        .footer { text-align: center; padding: 20px; color: #666; font-size: 12px; }
+      </style>
+    </head>
+    <body>
+      <div class="container">
+        <div class="header">
+          <h1>Welcome to ${safeSchoolName}</h1>
+        </div>
+        <div class="content">
+          <p>Dear ${data.staffName},</p>
+          <p>Your staff account has been created successfully.</p>
+
+          <div class="credentials">
+            <h3>Your Login Credentials</h3>
+            <div class="credentials-item">
+              <span class="credentials-label">Staff ID:</span>
+              <div class="credentials-value">${data.staffId}</div>
+            </div>
+            <div class="credentials-item">
+              <span class="credentials-label">User ID:</span>
+              <div class="credentials-value">${data.loginId}</div>
+            </div>
+            <div class="credentials-item">
+              <span class="credentials-label">Password:</span>
+              <div class="credentials-value">${data.password}</div>
+            </div>
+          </div>
+
+          <div style="text-align: center;">
+            <a href="${loginUrl}" class="button">Login to Staff Portal</a>
+          </div>
+
+          <div class="warning">
+            <strong>Important:</strong> Please change your password after first login for account security.
+          </div>
+
+          <p>Best regards,<br>${safeSchoolName} Administration</p>
+        </div>
+        <div class="footer">
+          <p>This is an automated email. Please do not reply to this email.</p>
+        </div>
+      </div>
+    </body>
+    </html>
+  `;
+
+  await sendEmail({
+    to: data.to,
+    subject: `Welcome to ${safeSchoolName} - Staff Account Created`,
+    html: emailHtml,
+    schoolId: data.schoolId,
+  });
+};
+
+/**
  * Send parent account email with login credentials
  */
 
@@ -525,7 +640,8 @@ export const sendSchoolOnboardingEmail = async (data: {
 export const sendPasswordResetEmail = async (
   to: string,
   userName: string,
-  resetUrl: string
+  resetUrl: string,
+  schoolId?: number
 ): Promise<void> => {
   const emailHtml = `
     <!DOCTYPE html>
@@ -566,6 +682,7 @@ export const sendPasswordResetEmail = async (
   await sendEmail({
     to,
     subject: 'SchoolWizard Password Reset',
+    schoolId,
     html: emailHtml,
   });
 };

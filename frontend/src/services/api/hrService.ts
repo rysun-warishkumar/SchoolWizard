@@ -217,7 +217,7 @@ export const hrService = {
   // Leave Requests
   async getLeaveRequests(params?: {
     staff_id?: number;
-    status?: 'pending' | 'approved' | 'disapproved';
+    status?: 'pending' | 'approved' | 'rejected' | 'disapproved';
     page?: number;
     limit?: number;
   }): Promise<{ success: boolean; data: any[]; pagination: any }> {
@@ -244,7 +244,7 @@ export const hrService = {
   },
 
   async updateLeaveRequest(id: string, data: {
-    status: 'pending' | 'approved' | 'disapproved';
+    status: 'pending' | 'approved' | 'rejected' | 'disapproved';
     note?: string;
     approved_by?: number;
   }): Promise<{ success: boolean; message: string; data: any }> {

@@ -5,15 +5,24 @@ import { useAuth } from '../../contexts/AuthContext';
 import { useToast } from '../../contexts/ToastContext';
 import './StaffLeave.css';
 
+const formatDate = (date: Date): string => date.toISOString().split('T')[0];
+
 const StaffLeave = () => {
   const [showModal, setShowModal] = useState(false);
   const { user } = useAuth();
   const { showToast } = useToast();
   const queryClient = useQueryClient();
+  const today = new Date();
+  const leaveMinDate = new Date(today);
+  leaveMinDate.setDate(leaveMinDate.getDate() - 30);
+  const leaveMaxDate = new Date(today);
+  leaveMaxDate.setDate(leaveMaxDate.getDate() + 60);
+  const minLeaveDateStr = formatDate(leaveMinDate);
+  const maxLeaveDateStr = formatDate(leaveMaxDate);
+  const applyDateToday = formatDate(today);
 
   const [formData, setFormData] = useState({
     leave_type_id: '',
-    apply_date: new Date().toISOString().split('T')[0],
     leave_date: '',
     reason: '',
     note: '',
@@ -48,7 +57,6 @@ const StaffLeave = () => {
         setShowModal(false);
         setFormData({
           leave_type_id: '',
-          apply_date: new Date().toISOString().split('T')[0],
           leave_date: '',
           reason: '',
           note: '',
@@ -67,11 +75,19 @@ const StaffLeave = () => {
       showToast('Staff profile not found', 'error');
       return;
     }
+    if (!formData.leave_date) {
+      showToast('Leave date is required', 'error');
+      return;
+    }
+    if (formData.leave_date < minLeaveDateStr || formData.leave_date > maxLeaveDateStr) {
+      showToast('Leave date must be within 30 days before and 60 days after today', 'error');
+      return;
+    }
 
     createLeaveMutation.mutate({
       staff_id: staffProfile.data.id,
       leave_type_id: Number(formData.leave_type_id),
-      apply_date: formData.apply_date,
+      apply_date: applyDateToday,
       leave_date: formData.leave_date,
       reason: formData.reason,
       note: formData.note || null,
@@ -82,6 +98,7 @@ const StaffLeave = () => {
     switch (status) {
       case 'approved':
         return <span className="status-badge approved">Approved</span>;
+      case 'disapproved':
       case 'rejected':
         return <span className="status-badge rejected">Rejected</span>;
       case 'pending':
@@ -173,21 +190,10 @@ const StaffLeave = () => {
                   <option value="">Select Leave Type</option>
                   {leaveTypes.map((type: any) => (
                     <option key={type.id} value={type.id}>
-                      {type.name} {type.max_days ? `(Max: ${type.max_days} days)` : ''}
+                      {type.name}
                     </option>
                   ))}
                 </select>
-              </div>
-
-              <div className="form-group">
-                <label>Apply Date *</label>
-                <input
-                  type="date"
-                  value={formData.apply_date}
-                  onChange={(e) => setFormData({ ...formData, apply_date: e.target.value })}
-                  required
-                  max={new Date().toISOString().split('T')[0]}
-                />
               </div>
 
               <div className="form-group">
@@ -197,7 +203,8 @@ const StaffLeave = () => {
                   value={formData.leave_date}
                   onChange={(e) => setFormData({ ...formData, leave_date: e.target.value })}
                   required
-                  min={formData.apply_date}
+                  min={minLeaveDateStr}
+                  max={maxLeaveDateStr}
                 />
               </div>
 

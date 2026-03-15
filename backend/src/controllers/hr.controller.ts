@@ -35,9 +35,21 @@ export const createDepartment = async (
     }
 
     const db = getDatabase();
+    const normalizedName = name.trim();
+    const [existingDepartment] = await db.execute(
+      `SELECT id
+       FROM departments
+       WHERE school_id = ?
+         AND LOWER(TRIM(name)) = LOWER(TRIM(?))
+       LIMIT 1`,
+      [schoolId, normalizedName]
+    ) as any[];
+    if (existingDepartment.length > 0) {
+      throw createError('Department with this name already exists', 400);
+    }
     const [result] = await db.execute(
       'INSERT INTO departments (school_id, name, description) VALUES (?, ?, ?)',
-      [schoolId, name.trim(), description || null]
+      [schoolId, normalizedName, description || null]
     ) as any;
 
     const [newDepartments] = await db.execute(
@@ -89,9 +101,21 @@ export const createDesignation = async (
     }
 
     const db = getDatabase();
+    const normalizedName = name.trim();
+    const [existingDesignation] = await db.execute(
+      `SELECT id
+       FROM designations
+       WHERE school_id = ?
+         AND LOWER(TRIM(name)) = LOWER(TRIM(?))
+       LIMIT 1`,
+      [schoolId, normalizedName]
+    ) as any[];
+    if (existingDesignation.length > 0) {
+      throw createError('Designation with this name already exists', 400);
+    }
     const [result] = await db.execute(
       'INSERT INTO designations (school_id, name, description) VALUES (?, ?, ?)',
-      [schoolId, name.trim(), description || null]
+      [schoolId, normalizedName, description || null]
     ) as any;
 
     const [newDesignations] = await db.execute(
@@ -143,9 +167,21 @@ export const createLeaveType = async (
     }
 
     const db = getDatabase();
+    const normalizedName = name.trim();
+    const [existingLeaveType] = await db.execute(
+      `SELECT id
+       FROM leave_types
+       WHERE school_id = ?
+         AND LOWER(TRIM(name)) = LOWER(TRIM(?))
+       LIMIT 1`,
+      [schoolId, normalizedName]
+    ) as any[];
+    if (existingLeaveType.length > 0) {
+      throw createError('Leave type with this name already exists', 400);
+    }
     const [result] = await db.execute(
       'INSERT INTO leave_types (school_id, name, description, max_days, is_paid) VALUES (?, ?, ?, ?, ?)',
-      [schoolId, name.trim(), description || null, max_days || null, is_paid !== undefined ? (is_paid ? 1 : 0) : 1]
+      [schoolId, normalizedName, description || null, max_days || null, is_paid !== undefined ? (is_paid ? 1 : 0) : 1]
     ) as any;
 
     const [newLeaveTypes] = await db.execute(
@@ -197,11 +233,8 @@ export const getStaff = async (
       if (isNaN(parsedLimit) || parsedLimit < 1 || !Number.isInteger(parsedLimit)) {
         throw createError('Invalid limit value. Limit must be a positive integer.', 400);
       }
-      // Set maximum limit to prevent performance issues
-      if (parsedLimit > 100) {
-        throw createError('Limit cannot exceed 100 records per page. Please use a smaller limit.', 400);
-      }
-      limitNumber = parsedLimit;
+      // Clamp to safe maximum to keep backward compatibility for old callers.
+      limitNumber = Math.min(parsedLimit, 100);
     }
 
     // Validate role_id if provided
@@ -271,19 +304,22 @@ export const getStaff = async (
     }
 
     query += ' ORDER BY s.first_name ASC';
+    const baseQuery = query;
+    const baseParams = [...params];
 
-    // Calculate pagination offset
-    const offset = (pageNumber - 1) * limitNumber;
-    
-    // Validate offset is not negative
-    if (offset < 0) {
-      throw createError('Invalid pagination offset. Please check page and limit values.', 400);
-    }
+    const fetchStaffPage = async (targetPage: number): Promise<any[]> => {
+      const targetOffset = (targetPage - 1) * limitNumber;
+      if (targetOffset < 0) {
+        throw createError('Invalid pagination offset. Please check page and limit values.', 400);
+      }
+      const [rows] = await db.execute(
+        `${baseQuery} LIMIT ? OFFSET ?`,
+        [...baseParams, limitNumber, targetOffset]
+      ) as any[];
+      return rows || [];
+    };
 
-    query += ' LIMIT ? OFFSET ?';
-    params.push(limitNumber, offset);
-
-    const [staff] = await db.execute(query, params) as any[];
+    let staff = await fetchStaffPage(pageNumber);
 
     // Get total count with same filters
     let countQuery = 'SELECT COUNT(*) as total FROM staff WHERE school_id = ?';
@@ -317,12 +353,17 @@ export const getStaff = async (
     // Calculate total pages
     const pages = total > 0 ? Math.ceil(total / limitNumber) : 0;
 
-    // Validate that requested page exists - auto-correct instead of throwing error
+    // Validate that requested page exists - auto-correct instead of throwing error.
     if (pageNumber > pages && pages > 0) {
       pageNumber = pages;
     } else if (total === 0 && pageNumber > 1) {
       // If no results, reset to page 1
       pageNumber = 1;
+    }
+
+    // If requested page was out of range, re-fetch the corrected page data.
+    if (total > 0 && staff.length === 0 && pageNumber >= 1) {
+      staff = await fetchStaffPage(pageNumber);
     }
 
     res.json({
@@ -671,6 +712,13 @@ export const createStaff = async (
     if (!date_of_joining) {
       throw createError('Date of joining is required', 400);
     }
+    if (!email || String(email).trim() === '') {
+      throw createError('Email is required', 400);
+    }
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(String(email).trim())) {
+      throw createError('Please provide a valid email address', 400);
+    }
 
     const schoolId = getSchoolId(req as AuthRequest);
     if (schoolId == null) throw createError('School context required', 403);
@@ -688,10 +736,13 @@ export const createStaff = async (
 
     // Create user account if email is provided (with school_id)
     let userId = null;
+    let generatedPassword: string | null = null;
+    let loginId: string | null = null;
     if (email && email.trim() !== '') {
       try {
-        const defaultPassword = 'staff123';
-        const hashedPassword = await bcrypt.hash(defaultPassword, 10);
+        generatedPassword = 'staff123';
+        loginId = email.trim();
+        const hashedPassword = await bcrypt.hash(generatedPassword, 10);
 
         const [userResult] = await db.execute(
           'INSERT INTO users (email, password, name, role_id, school_id, is_active, created_at) VALUES (?, ?, ?, ?, ?, 1, NOW())',
@@ -811,6 +862,31 @@ export const createStaff = async (
       'SELECT * FROM staff WHERE id = ? AND school_id = ?',
       [result.insertId, schoolId]
     ) as any[];
+
+    // Send welcome email asynchronously (do not block staff creation response).
+    if (email && email.trim() !== '' && generatedPassword && loginId) {
+      Promise.resolve()
+        .then(async () => {
+          const [schoolRows] = await db.execute(
+            'SELECT name FROM schools WHERE id = ? LIMIT 1',
+            [schoolId]
+          ) as any[];
+          const schoolName = schoolRows?.[0]?.name || 'SchoolWizard';
+          const { sendStaffWelcomeEmail } = await import('../utils/emailService.js');
+          await sendStaffWelcomeEmail({
+            to: email.trim(),
+            staffName: `${first_name} ${last_name || ''}`.trim(),
+            staffId: staff_id.trim(),
+            loginId,
+            password: generatedPassword,
+            schoolName,
+            schoolId,
+          });
+        })
+        .catch((mailError) => {
+          console.error('Failed to send staff welcome email:', mailError);
+        });
+    }
 
     const staffName = `${first_name} ${last_name || ''}`.trim();
     res.status(201).json({
@@ -991,11 +1067,13 @@ export const enableStaff = async (
 
 // ========== Staff Attendance ==========
 export const getStaffAttendance = async (
-  req: Request,
+  req: AuthRequest,
   res: Response,
   next: NextFunction
 ): Promise<void> => {
   try {
+    const schoolId = getSchoolId(req);
+    if (schoolId == null) throw createError('School context required', 403);
     const { role_id, attendance_date } = req.query;
     const db = getDatabase();
 
@@ -1017,12 +1095,14 @@ export const getStaffAttendance = async (
         sa.check_out_time,
         sa.note
       FROM staff s
+      LEFT JOIN users su ON s.user_id = su.id
       LEFT JOIN roles r ON s.role_id = r.id
-      LEFT JOIN departments d ON s.department_id = d.id
-      LEFT JOIN staff_attendance sa ON s.id = sa.staff_id AND sa.attendance_date = ?
-      WHERE s.is_active = 1
+      LEFT JOIN departments d ON s.department_id = d.id AND d.school_id = ?
+      LEFT JOIN staff_attendance sa ON s.id = sa.staff_id AND sa.school_id = ? AND sa.attendance_date = ?
+      WHERE s.school_id = ? AND s.is_active = 1
+      AND (s.user_id IS NULL OR su.school_id = ?)
     `;
-    const params: any[] = [attendance_date];
+    const params: any[] = [schoolId, schoolId, attendance_date, schoolId, schoolId];
 
     if (role_id) {
       query += ' AND s.role_id = ?';
@@ -1040,11 +1120,13 @@ export const getStaffAttendance = async (
 };
 
 export const submitStaffAttendance = async (
-  req: Request,
+  req: AuthRequest,
   res: Response,
   next: NextFunction
 ): Promise<void> => {
   try {
+    const schoolId = getSchoolId(req);
+    if (schoolId == null) throw createError('School context required', 403);
     const { attendance_date, is_holiday, attendance_records } = req.body;
 
     if (!attendance_date) {
@@ -1055,15 +1137,16 @@ export const submitStaffAttendance = async (
       // Mark all active staff as holiday
       const db = getDatabase();
       const [staff] = await db.execute(
-        'SELECT id FROM staff WHERE is_active = 1'
+        'SELECT id FROM staff WHERE school_id = ? AND is_active = 1',
+        [schoolId]
       ) as any[];
 
       for (const member of staff) {
         await db.execute(
-          `INSERT INTO staff_attendance (staff_id, attendance_date, status, note)
-           VALUES (?, ?, 'holiday', 'Holiday')
+          `INSERT INTO staff_attendance (school_id, staff_id, attendance_date, status, note)
+           VALUES (?, ?, ?, 'holiday', 'Holiday')
            ON DUPLICATE KEY UPDATE status = 'holiday', note = 'Holiday', updated_at = NOW()`,
-          [member.id, attendance_date]
+          [schoolId, member.id, attendance_date]
         );
       }
 
@@ -1079,6 +1162,26 @@ export const submitStaffAttendance = async (
     }
 
     const db = getDatabase();
+    const requestedStaffIds = Array.from(
+      new Set(
+        attendance_records
+          .map((record: any) => Number(record?.staff_id))
+          .filter((id: number) => Number.isInteger(id) && id > 0)
+      )
+    );
+    if (requestedStaffIds.length === 0) {
+      throw createError('No valid staff records found for attendance submission', 400);
+    }
+    const staffPlaceholders = requestedStaffIds.map(() => '?').join(', ');
+    const [staffRows] = await db.execute(
+      `SELECT id
+       FROM staff
+       WHERE school_id = ? AND is_active = 1 AND id IN (${staffPlaceholders})`,
+      [schoolId, ...requestedStaffIds]
+    ) as any[];
+    if (staffRows.length !== requestedStaffIds.length) {
+      throw createError('Invalid reference. One or more selected values do not exist in the system.', 400);
+    }
 
     for (const record of attendance_records) {
       const { staff_id, status, check_in_time, check_out_time, note } = record;
@@ -1088,15 +1191,15 @@ export const submitStaffAttendance = async (
       }
 
       await db.execute(
-        `INSERT INTO staff_attendance (staff_id, attendance_date, status, check_in_time, check_out_time, note)
-         VALUES (?, ?, ?, ?, ?, ?)
+        `INSERT INTO staff_attendance (school_id, staff_id, attendance_date, status, check_in_time, check_out_time, note)
+         VALUES (?, ?, ?, ?, ?, ?, ?)
          ON DUPLICATE KEY UPDATE 
            status = VALUES(status),
            check_in_time = VALUES(check_in_time),
            check_out_time = VALUES(check_out_time),
            note = VALUES(note),
            updated_at = NOW()`,
-        [staff_id, attendance_date, status, check_in_time || null, check_out_time || null, note || null]
+        [schoolId, staff_id, attendance_date, status, check_in_time || null, check_out_time || null, note || null]
       );
     }
 
@@ -1174,16 +1277,31 @@ export const getStaffAttendanceReport = async (
 
 // ========== Leave Requests ==========
 export const getLeaveRequests = async (
-  req: Request,
+  req: AuthRequest,
   res: Response,
   next: NextFunction
 ): Promise<void> => {
   try {
-    const schoolId = getSchoolId(req as AuthRequest);
+    const schoolId = getSchoolId(req);
     if (schoolId == null) throw createError('School context required', 403);
     const { staff_id, status, page = 1, limit = 20 } = req.query;
     const db = getDatabase();
     const offset = (Number(page) - 1) * Number(limit);
+    const userRole = String(req.user?.role || '').toLowerCase();
+
+    let effectiveStaffId: number | null = null;
+    if (userRole === 'staff' || userRole === 'teacher') {
+      const [staffRows] = await db.execute(
+        'SELECT id FROM staff WHERE user_id = ? AND school_id = ? AND is_active = 1 LIMIT 1',
+        [req.user?.id, schoolId]
+      ) as any[];
+      if (!staffRows.length) {
+        throw createError('Staff profile not found or inactive', 404);
+      }
+      effectiveStaffId = Number(staffRows[0].id);
+    } else if (staff_id) {
+      effectiveStaffId = Number(staff_id);
+    }
 
     let query = `
       SELECT 
@@ -1213,14 +1331,16 @@ export const getLeaveRequests = async (
     `;
     const params: any[] = [schoolId, schoolId, schoolId];
 
-    if (staff_id) {
+    if (effectiveStaffId != null) {
       query += ' AND lr.staff_id = ?';
-      params.push(staff_id);
+      params.push(effectiveStaffId);
     }
 
-    if (status) {
+    const statusFilter = String(status || '').toLowerCase();
+    const normalizedStatusFilter = statusFilter === 'rejected' ? 'disapproved' : statusFilter;
+    if (normalizedStatusFilter) {
       query += ' AND lr.status = ?';
-      params.push(status);
+      params.push(normalizedStatusFilter);
     }
 
     query += ' ORDER BY lr.leave_date DESC, lr.created_at DESC LIMIT ? OFFSET ?';
@@ -1235,22 +1355,26 @@ export const getLeaveRequests = async (
     `;
     const countParams: any[] = [schoolId];
 
-    if (staff_id) {
+    if (effectiveStaffId != null) {
       countQuery += ' AND lr.staff_id = ?';
-      countParams.push(staff_id);
+      countParams.push(effectiveStaffId);
     }
 
-    if (status) {
+    if (normalizedStatusFilter) {
       countQuery += ' AND lr.status = ?';
-      countParams.push(status);
+      countParams.push(normalizedStatusFilter);
     }
 
     const [countResult] = await db.execute(countQuery, countParams) as any[];
     const total = countResult[0].total;
+    const normalizedLeaveRequests = leaveRequests.map((leaveRequest: any) => ({
+      ...leaveRequest,
+      status: leaveRequest.status === 'disapproved' ? 'rejected' : leaveRequest.status,
+    }));
 
     res.json({
       success: true,
-      data: leaveRequests,
+      data: normalizedLeaveRequests,
       pagination: {
         page: Number(page),
         limit: Number(limit),
@@ -1264,18 +1388,30 @@ export const getLeaveRequests = async (
 };
 
 export const getLeaveRequestById = async (
-  req: Request,
+  req: AuthRequest,
   res: Response,
   next: NextFunction
 ): Promise<void> => {
   try {
-    const schoolId = getSchoolId(req as AuthRequest);
+    const schoolId = getSchoolId(req);
     if (schoolId == null) throw createError('School context required', 403);
     const { id } = req.params;
     const db = getDatabase();
+    const userRole = String(req.user?.role || '').toLowerCase();
 
-    const [leaveRequests] = await db.execute(
-      `SELECT 
+    let ownStaffId: number | null = null;
+    if (userRole === 'staff' || userRole === 'teacher') {
+      const [staffRows] = await db.execute(
+        'SELECT id FROM staff WHERE user_id = ? AND school_id = ? AND is_active = 1 LIMIT 1',
+        [req.user?.id, schoolId]
+      ) as any[];
+      if (!staffRows.length) {
+        throw createError('Staff profile not found or inactive', 404);
+      }
+      ownStaffId = Number(staffRows[0].id);
+    }
+
+    let query = `SELECT 
         lr.*,
         s.staff_id as staff_staff_id,
         s.first_name,
@@ -1287,27 +1423,39 @@ export const getLeaveRequestById = async (
       INNER JOIN staff s ON lr.staff_id = s.id
       INNER JOIN leave_types lt ON lr.leave_type_id = lt.id
       LEFT JOIN users u ON lr.approved_by = u.id
-      WHERE lr.id = ? AND lr.school_id = ?`,
-      [id, schoolId]
-    ) as any[];
+      WHERE lr.id = ? AND lr.school_id = ?`;
+    const params: any[] = [id, schoolId];
+    if (ownStaffId != null) {
+      query += ' AND lr.staff_id = ?';
+      params.push(ownStaffId);
+    }
+
+    const [leaveRequests] = await db.execute(query, params) as any[];
 
     if (leaveRequests.length === 0) {
       throw createError('Leave request not found', 404);
     }
 
-    res.json({ success: true, data: leaveRequests[0] });
+    const leaveRequest = leaveRequests[0];
+    res.json({
+      success: true,
+      data: {
+        ...leaveRequest,
+        status: leaveRequest.status === 'disapproved' ? 'rejected' : leaveRequest.status,
+      },
+    });
   } catch (error) {
     next(error);
   }
 };
 
 export const createLeaveRequest = async (
-  req: Request,
+  req: AuthRequest,
   res: Response,
   next: NextFunction
 ): Promise<void> => {
   try {
-    const schoolId = getSchoolId(req as AuthRequest);
+    const schoolId = getSchoolId(req);
     if (schoolId == null) throw createError('School context required', 403);
     const { staff_id, leave_type_id, apply_date, leave_date, reason, note, document_path } = req.body;
 
@@ -1325,8 +1473,26 @@ export const createLeaveRequest = async (
     }
 
     const db = getDatabase();
+    const userRole = String(req.user?.role || '').toLowerCase();
+    let targetStaffId = Number(staff_id);
 
-    const [staff] = await db.execute('SELECT id FROM staff WHERE id = ? AND school_id = ? AND is_active = 1', [staff_id, schoolId]) as any[];
+    // Staff/teacher can only create leave for their own staff profile.
+    if (userRole === 'staff' || userRole === 'teacher') {
+      const [staffRows] = await db.execute(
+        'SELECT id FROM staff WHERE user_id = ? AND school_id = ? AND is_active = 1 LIMIT 1',
+        [req.user?.id, schoolId]
+      ) as any[];
+      if (!staffRows.length) {
+        throw createError('Staff profile not found or inactive', 404);
+      }
+      const ownStaffId = Number(staffRows[0].id);
+      if (targetStaffId !== ownStaffId) {
+        throw createError('You can only create leave requests for your own profile', 403);
+      }
+      targetStaffId = ownStaffId;
+    }
+
+    const [staff] = await db.execute('SELECT id FROM staff WHERE id = ? AND school_id = ? AND is_active = 1', [targetStaffId, schoolId]) as any[];
     if (staff.length === 0) {
       throw createError('Staff member not found or inactive', 404);
     }
@@ -1339,7 +1505,7 @@ export const createLeaveRequest = async (
     const [result] = await db.execute(
       `INSERT INTO leave_requests (school_id, staff_id, leave_type_id, apply_date, leave_date, reason, note, document_path, status)
        VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'pending')`,
-      [schoolId, staff_id, leave_type_id, apply_date, leave_date, reason || null, note || null, document_path || null]
+      [schoolId, targetStaffId, leave_type_id, apply_date, leave_date, reason || null, note || null, document_path || null]
     ) as any;
 
     const [newRequest] = await db.execute(
@@ -1379,9 +1545,10 @@ export const updateLeaveRequest = async (
       throw createError('Status is required', 400);
     }
 
-    if (!['pending', 'approved', 'disapproved'].includes(status)) {
-      throw createError('Invalid status. Must be pending, approved, or disapproved', 400);
+    if (!['pending', 'approved', 'rejected', 'disapproved'].includes(status)) {
+      throw createError('Invalid status. Must be pending, approved, or rejected', 400);
     }
+    const normalizedStatus = status === 'rejected' ? 'disapproved' : status;
 
     const schoolId = getSchoolId(req);
     if (schoolId == null) throw createError('School context required', 403);
@@ -1393,11 +1560,11 @@ export const updateLeaveRequest = async (
     }
 
     const updateData: any = {
-      status,
+      status: normalizedStatus,
       note: note || null,
     };
 
-    if (status === 'approved' || status === 'disapproved') {
+    if (normalizedStatus === 'approved' || normalizedStatus === 'disapproved') {
       updateData.approved_by = approved_by || req.user?.id;
       updateData.approved_at = new Date();
     } else {
@@ -1430,8 +1597,11 @@ export const updateLeaveRequest = async (
 
     res.json({
       success: true,
-      message: `Leave request ${status} successfully`,
-      data: updatedRequest[0],
+      message: `Leave request ${status === 'disapproved' ? 'rejected' : status} successfully`,
+      data: {
+        ...updatedRequest[0],
+        status: updatedRequest[0].status === 'disapproved' ? 'rejected' : updatedRequest[0].status,
+      },
     });
   } catch (error) {
     next(error);

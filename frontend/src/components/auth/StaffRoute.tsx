@@ -27,7 +27,7 @@ const StaffRoute: React.FC<StaffRouteProps> = ({ children }) => {
   }
 
   // Allow staff, teacher, and other staff roles
-  const allowedRoles = ['staff', 'teacher', 'admin', 'superadmin'];
+  const allowedRoles = ['staff', 'teacher', 'accountant', 'librarian', 'receptionist', 'admin', 'superadmin'];
   if (!user?.role || !allowedRoles.includes(user.role)) {
     return <Navigate to="/dashboard" replace />;
   }

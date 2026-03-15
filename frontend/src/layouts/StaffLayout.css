@@ -48,6 +48,13 @@
   gap: var(--spacing-md);
 }
 
+.staff-logo-link {
+  text-decoration: none;
+  color: inherit;
+  display: inline-flex;
+  align-items: center;
+}
+
 .staff-logo h1 {
   margin: 0;
   font-size: var(--font-size-xl);

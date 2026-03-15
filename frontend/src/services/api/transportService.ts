@@ -5,6 +5,7 @@ export interface Route {
   title: string;
   fare: number;
   description?: string;
+  student_count?: number;
   created_at: string;
   updated_at: string;
 }
@@ -31,6 +32,7 @@ export interface VehicleAssignment {
   vehicle_no?: string;
   vehicle_model?: string;
   driver_name?: string;
+  driver_contact?: string;
   created_at: string;
   updated_at: string;
 }

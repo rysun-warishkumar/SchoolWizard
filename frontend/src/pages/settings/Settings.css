@@ -414,3 +414,57 @@
   border-radius: var(--radius-md);
 }
 
+/* Session modal styles scoped to Settings page only */
+.settings-session-modal-form {
+  width: 100%;
+}
+
+.settings-session-modal-dates {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--spacing-md);
+}
+
+.settings-session-modal-checkbox label {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--spacing-sm);
+}
+
+.settings-session-current-row {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--spacing-sm);
+}
+
+.settings-session-current-row input[type="checkbox"] {
+  width: 18px;
+  height: 18px;
+  margin: 0;
+  flex-shrink: 0;
+}
+
+.settings-session-current-row label {
+  margin: 0;
+  display: inline-block;
+  color: var(--gray-700);
+}
+
+.settings-session-modal-actions {
+  margin-top: var(--spacing-md);
+  display: flex;
+  justify-content: flex-end;
+  gap: var(--spacing-sm);
+}
+
+@media (max-width: 768px) {
+  .settings-session-modal-dates {
+    grid-template-columns: 1fr;
+  }
+
+  .settings-session-modal-actions {
+    flex-direction: column;
+    align-items: stretch;
+  }
+}
+

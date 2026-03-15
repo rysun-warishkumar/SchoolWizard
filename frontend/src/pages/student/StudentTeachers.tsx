@@ -1,15 +1,11 @@
 import { useQuery } from 'react-query';
-import { hrService } from '../../services/api/hrService';
+import { studentsService } from '../../services/api/studentsService';
 import './StudentTeachers.css';
 
 const StudentTeachers = () => {
   const { data: teachersData, isLoading } = useQuery(
     'teachers-list',
-    () =>
-      hrService.getStaff({
-        role_id: 3, // Assuming role_id 3 is for teachers
-        is_active: true,
-      }),
+    () => studentsService.getPortalTeachers(),
     { refetchOnWindowFocus: false }
   );
 

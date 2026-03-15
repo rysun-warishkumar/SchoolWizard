@@ -11,7 +11,17 @@ export const getRoutes = async (req: Request, res: Response, next: NextFunction)
     if (schoolId == null) throw createError('School context required', 403);
     const db = getDatabase();
     const [routes] = await db.execute(
-      'SELECT * FROM routes WHERE school_id = ? ORDER BY title ASC',
+      `SELECT
+         r.*,
+         COUNT(s.id) AS student_count
+       FROM routes r
+       LEFT JOIN students s
+         ON s.transport_route_id = r.id
+        AND s.school_id = r.school_id
+        AND s.is_active = 1
+       WHERE r.school_id = ?
+       GROUP BY r.id
+       ORDER BY r.title ASC`,
       [schoolId]
     ) as any[];
 
@@ -242,7 +252,8 @@ export const getVehicleAssignments = async (req: Request, res: Response, next: N
              r.fare as route_fare,
              v.vehicle_no,
              v.vehicle_model,
-             v.driver_name
+             v.driver_name,
+             v.driver_contact
       FROM vehicle_assignments va
       LEFT JOIN routes r ON va.route_id = r.id AND r.school_id = ?
       LEFT JOIN vehicles v ON va.vehicle_id = v.id AND v.school_id = ?

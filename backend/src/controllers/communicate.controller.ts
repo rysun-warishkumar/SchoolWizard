@@ -272,6 +272,7 @@ export const sendEmailToRecipients = async (req: Request, res: Response, next: N
         await sendEmail({
           to: email,
           subject: subject,
+          schoolId,
           html: message,
         });
         successCount++;

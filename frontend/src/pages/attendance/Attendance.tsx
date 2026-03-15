@@ -272,8 +272,14 @@ const StudentAttendanceTab = () => {
         mark_holiday: true,
       });
     } else {
+      const onLeaveStudentIds = new Set(
+        (attendanceData || [])
+          .filter((student) => student.is_on_leave)
+          .map((student) => student.student_id)
+      );
+
       const records = Object.entries(attendanceRecords)
-        .filter(([_, value]) => value.status)
+        .filter(([studentId, value]) => value.status && !onLeaveStudentIds.has(Number(studentId)))
         .map(([studentId, value]) => ({
           student_id: Number(studentId),
           status: value.status as any,
@@ -387,19 +393,21 @@ const StudentAttendanceTab = () => {
               <tbody>
                 {students.map((student) => {
                   const record = attendanceRecords[student.student_id] || { status: '', note: '' };
+                  const isOnLeave = student.is_on_leave === true;
+                  const leaveLabel = student.leave_type
+                    ? `On leave (${String(student.leave_type).replace('_', ' ')})`
+                    : 'On leave';
                   return (
                     <tr key={student.student_id}>
                       <td>{student.admission_no}</td>
-                      <td>
-                        {student.first_name} {student.last_name}
-                      </td>
+                      <td>{student.first_name} {student.last_name}</td>
                       <td>
                         <input
                           type="radio"
                           name={`attendance-${student.student_id}`}
                           checked={record.status === 'present'}
                           onChange={() => handleStatusChange(student.student_id, 'present')}
-                          disabled={markHoliday}
+                          disabled={markHoliday || isOnLeave}
                         />
                       </td>
                       <td>
@@ -408,7 +416,7 @@ const StudentAttendanceTab = () => {
                           name={`attendance-${student.student_id}`}
                           checked={record.status === 'late'}
                           onChange={() => handleStatusChange(student.student_id, 'late')}
-                          disabled={markHoliday}
+                          disabled={markHoliday || isOnLeave}
                         />
                       </td>
                       <td>
@@ -417,7 +425,7 @@ const StudentAttendanceTab = () => {
                           name={`attendance-${student.student_id}`}
                           checked={record.status === 'absent'}
                           onChange={() => handleStatusChange(student.student_id, 'absent')}
-                          disabled={markHoliday}
+                          disabled={markHoliday || isOnLeave}
                         />
                       </td>
                       <td>
@@ -426,17 +434,21 @@ const StudentAttendanceTab = () => {
                           name={`attendance-${student.student_id}`}
                           checked={record.status === 'half_day'}
                           onChange={() => handleStatusChange(student.student_id, 'half_day')}
-                          disabled={markHoliday}
+                          disabled={markHoliday || isOnLeave}
                         />
                       </td>
                       <td>
-                        <input
-                          type="text"
-                          placeholder="Note (optional)"
-                          value={record.note}
-                          onChange={(e) => handleNoteChange(student.student_id, e.target.value)}
-                          disabled={markHoliday}
-                        />
+                        {isOnLeave ? (
+                          <span className="badge badge-info">{leaveLabel}</span>
+                        ) : (
+                          <input
+                            type="text"
+                            placeholder="Note (optional)"
+                            value={record.note}
+                            onChange={(e) => handleNoteChange(student.student_id, e.target.value)}
+                            disabled={markHoliday}
+                          />
+                        )}
                       </td>
                     </tr>
                   );

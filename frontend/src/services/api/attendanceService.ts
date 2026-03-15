@@ -9,6 +9,9 @@ export interface StudentAttendanceRecord {
   status: 'present' | 'late' | 'absent' | 'half_day' | 'holiday' | null;
   note?: string;
   attendance_id?: number;
+  is_on_leave?: boolean;
+  leave_type?: 'sick' | 'casual' | 'emergency' | 'other' | null;
+  leave_reason?: string | null;
 }
 
 export interface AttendanceByDate {

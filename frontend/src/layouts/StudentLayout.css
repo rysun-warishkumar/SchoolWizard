@@ -15,8 +15,7 @@
 }
 
 .student-header-content {
-  max-width: 1400px;
-  margin: 0 auto;
+  width: 100%;
   padding: var(--spacing-md) var(--spacing-lg);
   display: flex;
   justify-content: space-between;
@@ -48,12 +47,23 @@
   display: flex;
   align-items: center;
   gap: var(--spacing-md);
+  min-width: 0;
+}
+
+.student-logo-link {
+  text-decoration: none;
+  color: inherit;
+  display: inline-flex;
+  align-items: center;
 }
 
 .student-logo h1 {
   margin: 0;
   font-size: var(--font-size-xl);
   color: var(--primary-color);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .student-badge {
@@ -69,6 +79,55 @@
   display: flex;
   align-items: center;
   gap: var(--spacing-lg);
+}
+
+.student-chat-icon-container {
+  position: relative;
+  cursor: pointer;
+  padding: var(--spacing-sm);
+  border-radius: var(--radius-md);
+  transition: all var(--transition-base);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: none;
+  background: transparent;
+}
+
+.student-chat-icon-container:hover {
+  background-color: var(--gray-100);
+  transform: translateY(-1px);
+}
+
+.student-chat-icon {
+  width: 24px;
+  height: 24px;
+  object-fit: contain;
+  display: block;
+  transition: transform var(--transition-base);
+}
+
+.student-chat-icon-container:hover .student-chat-icon {
+  transform: scale(1.1);
+}
+
+.student-chat-badge {
+  position: absolute;
+  top: 0;
+  right: 0;
+  background-color: var(--error-color);
+  color: var(--white);
+  border-radius: 50%;
+  width: 20px;
+  height: 20px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-semibold);
+  border: 2px solid var(--white);
+  min-width: 20px;
+  padding: 0 4px;
 }
 
 .student-user-info {

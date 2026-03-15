@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from 'react-query';
 import { studentsService, Student } from '../../../services/api/studentsService';
 import { settingsService } from '../../../services/api/settingsService';
+import { transportService } from '../../../services/api/transportService';
 import { useToast } from '../../../contexts/ToastContext';
 import Modal from '../../../components/common/Modal';
 
@@ -24,6 +25,10 @@ const EditStudentModal: React.FC<EditStudentModalProps> = ({ studentId, classes,
 
   const { data: sessionsResponse } = useQuery('sessions', () => settingsService.getSessions());
   const sessionsData = sessionsResponse?.data || [];
+  const { data: routes = [] } = useQuery('transport-routes-for-student-edit', () => transportService.getRoutes(), {
+    staleTime: 0,
+    refetchOnMount: 'always',
+  });
 
   const [formData, setFormData] = useState<any>({});
   const [error, setError] = useState<string | null>(null);
@@ -67,6 +72,7 @@ const EditStudentModal: React.FC<EditStudentModalProps> = ({ studentId, classes,
         class_id: String(student.class_id || ''),
         section_id: String(student.section_id || ''),
         session_id: String(student.session_id || ''),
+        transport_route_id: student.transport_route_id ? String(student.transport_route_id) : '',
         first_name: student.first_name || '',
         last_name: student.last_name || '',
         gender: student.gender || 'male',
@@ -121,6 +127,7 @@ const EditStudentModal: React.FC<EditStudentModalProps> = ({ studentId, classes,
       class_id: Number(formData.class_id),
       section_id: Number(formData.section_id),
       session_id: Number(formData.session_id),
+      transport_route_id: formData.transport_route_id ? Number(formData.transport_route_id) : null,
       gender: formData.gender as 'male' | 'female' | 'other',
     });
   };
@@ -226,6 +233,22 @@ const EditStudentModal: React.FC<EditStudentModalProps> = ({ studentId, classes,
                 onChange={(e) => setFormData({ ...formData, admission_date: e.target.value })}
                 required
               />
+            </div>
+          </div>
+          <div className="form-row">
+            <div className="form-group">
+              <label>Transport Route</label>
+              <select
+                value={formData.transport_route_id || ''}
+                onChange={(e) => setFormData({ ...formData, transport_route_id: e.target.value })}
+              >
+                <option value="">Not Assigned</option>
+                {routes.map((route: any) => (
+                  <option key={route.id} value={route.id}>
+                    {route.title}
+                  </option>
+                ))}
+              </select>
             </div>
           </div>
           <div className="form-row">

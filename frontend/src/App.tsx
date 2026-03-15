@@ -244,7 +244,9 @@ function App() {
                       <Route path="notices" element={<StudentNotices />} />
                       <Route path="teachers" element={<StudentTeachersReview />} />
                       <Route path="subjects" element={<StudentSubjects />} />
+                      <Route path="teacher-list" element={<Navigate to="/student/teachers-list" replace />} />
                       <Route path="teachers-list" element={<StudentTeachers />} />
+                      <Route path="chat" element={<ModuleViewRoute moduleName="chat"><Chat /></ModuleViewRoute>} />
                       <Route path="library" element={<StudentLibrary />} />
                       <Route path="library-issued" element={<StudentLibraryIssued />} />
                       <Route path="transport" element={<StudentTransport />} />
@@ -273,6 +275,7 @@ function App() {
                         <Route path="notices" element={<ParentNotices />} />
                         <Route path="teachers" element={<ParentTeachersReview />} />
                         <Route path="subjects" element={<ParentSubjects />} />
+                        <Route path="teacher-list" element={<Navigate to="/parent/teachers-list" replace />} />
                         <Route path="teachers-list" element={<ParentTeachers />} />
                         <Route path="library" element={<ParentLibrary />} />
                         <Route path="library-issued" element={<ParentLibraryIssued />} />

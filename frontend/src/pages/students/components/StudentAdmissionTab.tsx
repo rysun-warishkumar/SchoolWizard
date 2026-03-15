@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { useQuery, useMutation, useQueryClient } from 'react-query';
 import { studentsService } from '../../../services/api/studentsService';
 import { settingsService } from '../../../services/api/settingsService';
+import { transportService } from '../../../services/api/transportService';
 import { useToast } from '../../../contexts/ToastContext';
 
 interface StudentAdmissionTabProps {
@@ -23,6 +24,7 @@ const StudentAdmissionTab: React.FC<StudentAdmissionTabProps> = ({
     class_id: '',
     section_id: '',
     session_id: '',
+    transport_route_id: '',
     first_name: '',
     last_name: '',
     gender: 'male',
@@ -60,6 +62,11 @@ const StudentAdmissionTab: React.FC<StudentAdmissionTabProps> = ({
     { staleTime: 0, refetchOnMount: 'always' }
   );
   const sessionsData = sessionsResponse?.data || [];
+  const { data: routes = [] } = useQuery(
+    'transport-routes-for-student-admission',
+    () => transportService.getRoutes(),
+    { staleTime: 0, refetchOnMount: 'always' }
+  );
 
   useEffect(() => {
     if (sessionsData && sessionsData.length > 0 && !formData.session_id) {
@@ -203,6 +210,7 @@ const StudentAdmissionTab: React.FC<StudentAdmissionTabProps> = ({
         class_id: '',
         section_id: '',
         session_id: currentSessionId ? String(currentSessionId) : '',
+        transport_route_id: '',
         first_name: '',
         last_name: '',
         gender: 'male',
@@ -267,6 +275,7 @@ const StudentAdmissionTab: React.FC<StudentAdmissionTabProps> = ({
       class_id: Number(formData.class_id),
       section_id: Number(formData.section_id),
       session_id: Number(formData.session_id),
+      transport_route_id: formData.transport_route_id ? Number(formData.transport_route_id) : null,
       gender: formData.gender as 'male' | 'female' | 'other',
       create_parent_account: formData.create_parent_account,
     };
@@ -443,6 +452,22 @@ const StudentAdmissionTab: React.FC<StudentAdmissionTabProps> = ({
           </div>
           <div className="form-row">
             <div className="form-group">
+              <label>Transport Route</label>
+              <select
+                value={formData.transport_route_id}
+                onChange={(e) => setFormData({ ...formData, transport_route_id: e.target.value })}
+              >
+                <option value="">Not Assigned</option>
+                {routes.map((route: any) => (
+                  <option key={route.id} value={route.id}>
+                    {route.title}
+                  </option>
+                ))}
+              </select>
+            </div>
+          </div>
+          <div className="form-row">
+            <div className="form-group">
               <label>First Name *</label>
               <input
                 type="text"
@@ -608,7 +633,7 @@ const StudentAdmissionTab: React.FC<StudentAdmissionTabProps> = ({
 
         <div className="form-section">
           <h4>Parent/Guardian Information</h4>
-          <div className="form-row create-parent-account-row">
+          <div className="create-parent-account-row">
             <div className="form-group create-parent-account-group">
               <input
                 type="checkbox"

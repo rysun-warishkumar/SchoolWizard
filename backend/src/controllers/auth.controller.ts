@@ -334,7 +334,7 @@ export const forgotPassword = async (
 
     // find user by email
     const [users] = await db.execute(
-      'SELECT id, name FROM users WHERE email = ? AND is_active = 1 LIMIT 1',
+      'SELECT id, name, school_id FROM users WHERE email = ? AND is_active = 1 LIMIT 1',
       [email]
     ) as any[];
 
@@ -359,7 +359,7 @@ export const forgotPassword = async (
     const frontendBase = process.env.FRONTEND_URL || '';
     const resetUrl = `${frontendBase.replace(/\/$/, '')}/reset-password?token=${rawToken}`;
     await import('../utils/emailService').then(({ sendPasswordResetEmail }) =>
-      sendPasswordResetEmail(email, user.name || '', resetUrl)
+      sendPasswordResetEmail(email, user.name || '', resetUrl, user.school_id ?? undefined)
     );
 
     res.json({ success: true, message: 'If an account with that email exists, a reset link has been sent.' });

@@ -12,6 +12,7 @@ const ParentLayout: React.FC<ParentLayoutProps> = ({ children }) => {
   const navigate = useNavigate();
   const { user, logout } = useAuth();
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const displaySchoolName = user?.schoolName?.trim() || 'SchoolWizard';
 
   const handleLogout = () => {
     logout();
@@ -55,10 +56,12 @@ const ParentLayout: React.FC<ParentLayoutProps> = ({ children }) => {
             <button className="mobile-menu-toggle" onClick={toggleSidebar} aria-label="Toggle menu">
               <span className="hamburger-icon">☰</span>
             </button>
-            <div className="parent-logo">
-              <h1>SchoolWizard</h1>
-              <span className="parent-badge">Parent Panel</span>
-            </div>
+            <Link to="/dashboard" className="parent-logo-link">
+              <div className="parent-logo">
+                <h1>{displaySchoolName}</h1>
+                <span className="parent-badge">Parent Panel</span>
+              </div>
+            </Link>
           </div>
           <div className="parent-header-right">
             <div className="parent-user-info">

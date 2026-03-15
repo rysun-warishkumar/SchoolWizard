@@ -36,10 +36,33 @@ export const getStudentAttendance = async (
       [schoolId, schoolId, class_id, section_id, attendance_date, session_id]
     ) as any[];
 
+    const studentIds = students.map((student: any) => Number(student.id)).filter((id: number) => !Number.isNaN(id));
+    let approvedLeaves: any[] = [];
+    if (studentIds.length > 0) {
+      const placeholders = studentIds.map(() => '?').join(', ');
+      const [approvedLeavesRows] = await db.execute(
+        `SELECT slr.student_id, slr.leave_type, slr.reason
+         FROM student_leave_requests slr
+         WHERE slr.school_id = ?
+           AND DATE(slr.leave_date) = DATE(?)
+           AND LOWER(TRIM(slr.status)) = 'approved'
+           AND slr.student_id IN (${placeholders})`,
+        [schoolId, attendance_date, ...studentIds]
+      ) as any[];
+      approvedLeaves = approvedLeavesRows;
+    }
+
     // Create a map of existing attendance
     const attendanceMap = new Map();
     attendance.forEach((att: any) => {
       attendanceMap.set(att.student_id, att);
+    });
+    const leaveMap = new Map<number, { leave_type?: string; reason?: string }>();
+    approvedLeaves.forEach((leave: any) => {
+      leaveMap.set(Number(leave.student_id), {
+        leave_type: leave.leave_type || undefined,
+        reason: leave.reason || undefined,
+      });
     });
 
     // Merge students with attendance data
@@ -54,6 +77,9 @@ export const getStudentAttendance = async (
         status: existingAttendance?.status || null,
         note: existingAttendance?.note || null,
         attendance_id: existingAttendance?.id || null,
+        is_on_leave: leaveMap.has(Number(student.id)),
+        leave_type: leaveMap.get(Number(student.id))?.leave_type || null,
+        leave_reason: leaveMap.get(Number(student.id))?.reason || null,
       };
     });
 
@@ -156,11 +182,40 @@ export const submitStudentAttendance = async (
           throw createError('Attendance records are required', 400);
         }
 
+        const requestedStudentIds = Array.from(
+          new Set(
+            attendance_records
+              .map((record: any) => Number(record?.student_id))
+              .filter((id: number) => Number.isInteger(id) && id > 0)
+          )
+        );
+        const onLeaveStudentIds = new Set<number>();
+        if (requestedStudentIds.length > 0) {
+          const placeholders = requestedStudentIds.map(() => '?').join(', ');
+          const [approvedLeaveStudents] = await connection.execute(
+            `SELECT DISTINCT slr.student_id
+             FROM student_leave_requests slr
+             WHERE slr.school_id = ?
+               AND DATE(slr.leave_date) = DATE(?)
+               AND LOWER(TRIM(slr.status)) = 'approved'
+               AND slr.student_id IN (${placeholders})`,
+            [schoolId, attendance_date, ...requestedStudentIds]
+          ) as any[];
+          approvedLeaveStudents.forEach((row: any) => onLeaveStudentIds.add(Number(row.student_id)));
+        }
+
         for (const record of attendance_records) {
           const { student_id, status, note } = record;
 
           if (!student_id || !status) {
             continue;
+          }
+
+          if (onLeaveStudentIds.has(Number(student_id))) {
+            throw createError(
+              'Attendance cannot be marked for students with approved leave on this date.',
+              400
+            );
           }
 
           await connection.execute(

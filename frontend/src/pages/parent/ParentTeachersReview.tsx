@@ -1,6 +1,5 @@
 import React, { useState } from 'react';
 import { useQuery } from 'react-query';
-import { hrService } from '../../services/api/hrService';
 import { studentsService } from '../../services/api/studentsService';
 import ChildSelector from '../../components/parent/ChildSelector';
 import './ParentTeachersReview.css';
@@ -21,13 +20,12 @@ const ParentTeachersReview = () => {
   }, [children, selectedChildId]);
 
   const { data: teachersData, isLoading } = useQuery(
-    'parent-teachers-for-review',
-    () =>
-      hrService.getStaff({
-        role_id: 3, // Teacher role
-        is_active: true,
-      }),
-    { refetchOnWindowFocus: false }
+    ['parent-teachers-for-review', selectedChildId],
+    () => studentsService.getPortalTeachers({ student_id: selectedChildId || undefined }),
+    {
+      refetchOnWindowFocus: false,
+      enabled: !!selectedChildId,
+    }
   );
 
   const teachers = teachersData?.data || [];

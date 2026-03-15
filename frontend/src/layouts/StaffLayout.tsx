@@ -12,6 +12,7 @@ const StaffLayout: React.FC<StaffLayoutProps> = ({ children }) => {
   const navigate = useNavigate();
   const { user, logout } = useAuth();
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const displaySchoolName = user?.schoolName?.trim() || 'SchoolWizard';
 
   const handleLogout = () => {
     logout();
@@ -31,7 +32,7 @@ const StaffLayout: React.FC<StaffLayoutProps> = ({ children }) => {
     { path: '/staff/payroll', label: 'Payroll', icon: '💰' },
     { path: '/staff/downloads', label: 'Download Center', icon: '📥' },
     { path: '/staff/notices', label: 'Notice Board', icon: '📢' },
-    { path: '/staff/chat', label: 'Chat', icon: '/chat-icon.png' },
+    { path: '/staff/chat', label: 'Chat', icon: '/chat-icon.svg' },
   ];
 
   const toggleSidebar = () => {
@@ -50,10 +51,12 @@ const StaffLayout: React.FC<StaffLayoutProps> = ({ children }) => {
             <button className="mobile-menu-toggle" onClick={toggleSidebar} aria-label="Toggle menu">
               <span className="hamburger-icon">☰</span>
             </button>
-            <div className="staff-logo">
-              <h1>Make My School</h1>
-              <span className="staff-badge">Staff Panel</span>
-            </div>
+            <Link to="/dashboard" className="staff-logo-link">
+              <div className="staff-logo">
+                <h1>{displaySchoolName}</h1>
+                <span className="staff-badge">Staff Panel</span>
+              </div>
+            </Link>
           </div>
           <div className="staff-header-right">
             <div className="staff-user-info">
