@@ -4,6 +4,9 @@ export interface WebsiteSettings {
   id?: number;
   website_logo?: string | null;
   school_name: string;
+  subdomain?: string | null;
+  website_url?: string | null;
+  is_website_ready?: boolean;
   tag_line?: string | null;
   tag_line_visible: boolean;
   contact_email?: string | null;

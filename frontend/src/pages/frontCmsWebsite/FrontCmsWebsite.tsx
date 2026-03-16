@@ -6,14 +6,12 @@ import { admissionManagementService, ImportantDate, ContactDetails } from '../..
 import { galleryManagementService, GalleryCategory, GalleryImage } from '../../services/api/galleryManagementService';
 import { newsEventsManagementService, NewsArticle, Event } from '../../services/api/newsEventsManagementService';
 import { useToast } from '../../contexts/ToastContext';
-import { useAuth } from '../../contexts/AuthContext';
 import Modal from '../../components/common/Modal';
 import ActionIconButton from '../../components/common/ActionIconButton';
 import './FrontCmsWebsite.css';
 import '../aboutUsPage/AboutUsPage.css';
 
 const FrontCmsWebsite: React.FC = () => {
-  const { user } = useAuth();
   const { showToast } = useToast();
   const queryClient = useQueryClient();
   const [activeTab, setActiveTab] = useState<'header' | 'banners' | 'about-us' | 'admission' | 'gallery' | 'news' | 'events'>('header');
@@ -54,10 +52,11 @@ const FrontCmsWebsite: React.FC = () => {
     ({ data, logoFile }: { data: Partial<WebsiteSettings>; logoFile?: File | null }) =>
       frontCmsWebsiteService.updateWebsiteSettings(data, logoFile || undefined),
     {
-      onSuccess: () => {
+      onSuccess: (updated) => {
         queryClient.invalidateQueries('front-cms-website-settings');
         showToast('Website settings updated successfully', 'success');
         setLogoFile(null);
+        setSettingsForm((prev) => ({ ...prev, ...updated }));
       },
       onError: (error: any) => {
         showToast(error.response?.data?.message || 'Failed to update settings', 'error');
@@ -162,6 +161,15 @@ const FrontCmsWebsite: React.FC = () => {
 
   const handleSettingsSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+    const schoolName = String(settingsForm.school_name || '').trim().replace(/\s+/g, ' ');
+    if (schoolName.length < 3 || schoolName.length > 60) {
+      showToast('School name must be between 3 and 60 characters', 'error');
+      return;
+    }
+    if (!/^[A-Za-z0-9 ]+$/.test(schoolName)) {
+      showToast('School name can contain only letters, numbers and spaces', 'error');
+      return;
+    }
     updateSettingsMutation.mutate({ data: settingsForm, logoFile });
   };
 
@@ -982,21 +990,11 @@ const FrontCmsWebsite: React.FC = () => {
     return <div className="loading">Loading...</div>;
   }
 
-  // Public school website URL (School Portal) with current school_id – opens in new tab. Do not use API URL (backend).
-  const publicWebsiteBaseUrl = (() => {
-    const envUrl = import.meta.env.VITE_PUBLIC_WEBSITE_URL;
-    if (envUrl) return envUrl;
-    const origin = window.location.origin;
-    // In local dev, admin often runs on 5173 and School Portal on 5174 – default to 5174 when on localhost
-    if (origin.startsWith('http://localhost:') || origin.startsWith('http://127.0.0.1:')) {
-      return 'http://localhost:5174';
-    }
-    return origin;
-  })();
-  const schoolWebsiteUrl =
-    user?.schoolId != null
-      ? `${publicWebsiteBaseUrl}${publicWebsiteBaseUrl.includes('?') ? '&' : '?'}school_id=${user.schoolId}`
-      : null;
+  const schoolWebsiteUrl = String(settings?.website_url || settingsForm.website_url || '').trim();
+  const canViewSchoolWebsite = Boolean(schoolWebsiteUrl);
+  const schoolNamePreview = String(settingsForm.school_name || '').trim().replace(/\s+/g, ' ');
+  const subdomainPreview = schoolNamePreview.toLowerCase().replace(/[^a-z0-9 ]/g, '').replace(/\s+/g, '');
+  const baseDomain = 'makemyschool.com';
 
   return (
     <div className="front-cms-website">
@@ -1005,15 +1003,36 @@ const FrontCmsWebsite: React.FC = () => {
           <h1>Front CMS Website Management</h1>
           <p>Configure your school website header, homepage banners, and about us page</p>
         </div>
-        {schoolWebsiteUrl && (
+        <button
+          type="button"
+          className="btn-view-school-website"
+          disabled={!canViewSchoolWebsite}
+          onClick={() => {
+            if (!canViewSchoolWebsite) return;
+            window.open(schoolWebsiteUrl, '_blank', 'noopener,noreferrer');
+          }}
+          title={
+            canViewSchoolWebsite
+              ? 'Open school website in new tab'
+              : 'Save a valid school name first to generate school website URL'
+          }
+        >
+          <i className="fas fa-external-link-alt" aria-hidden />
+          View School Website
+        </button>
+        {!canViewSchoolWebsite && (
+          <div className="school-website-hint">
+            Save a valid school name to enable website preview.
+          </div>
+        )}
+        {canViewSchoolWebsite && (
           <a
             href={schoolWebsiteUrl}
             target="_blank"
             rel="noopener noreferrer"
-            className="btn-view-school-website"
+            className="school-website-url"
           >
-            <i className="fas fa-external-link-alt" aria-hidden />
-            View School Website
+            {schoolWebsiteUrl}
           </a>
         )}
       </div>
@@ -1110,8 +1129,16 @@ const FrontCmsWebsite: React.FC = () => {
                     setSettingsForm({ ...settingsForm, school_name: e.target.value })
                   }
                   required
+                  maxLength={60}
+                  pattern="[A-Za-z0-9 ]+"
                   placeholder="Enter school name"
                 />
+                <p className="help-text">Only letters, numbers and spaces allowed. Max 60 characters.</p>
+                {subdomainPreview.length >= 3 && (
+                  <p className="help-text">
+                    Subdomain preview: <strong>{`${subdomainPreview}.${baseDomain}`}</strong>
+                  </p>
+                )}
               </div>
 
               {/* Tag Line */}

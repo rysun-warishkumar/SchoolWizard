@@ -77,6 +77,7 @@ export const getWebsiteSettings = async (req: Request, res: Response, next: Next
     const schoolId = getSchoolId(req as AuthRequest);
     if (schoolId == null) throw createError('School context required', 403);
     const db = getDatabase();
+    const websiteMeta = await getWebsiteAccessMeta(db, schoolId);
     const [settings] = await db.execute(
       'SELECT * FROM front_cms_website_settings WHERE school_id = ? LIMIT 1',
       [schoolId]
@@ -105,12 +106,23 @@ export const getWebsiteSettings = async (req: Request, res: Response, next: Next
           linkedin_enabled: false,
           whatsapp_url: null,
           whatsapp_enabled: false,
+          subdomain: websiteMeta.subdomain,
+          website_url: websiteMeta.website_url,
+          is_website_ready: websiteMeta.is_website_ready,
         },
       });
     }
 
     const setting = Array.isArray(settings) ? settings[0] : settings;
-    res.json({ success: true, data: setting });
+    res.json({
+      success: true,
+      data: {
+        ...setting,
+        subdomain: websiteMeta.subdomain,
+        website_url: websiteMeta.website_url,
+        is_website_ready: websiteMeta.is_website_ready,
+      },
+    });
   } catch (error: any) {
     next(createError(error.message, 500));
   }
@@ -125,15 +137,83 @@ const parseBoolean = (value: any): boolean => {
   return false;
 };
 
+const normalizeSchoolName = (value: string): string => value.trim().replace(/\s+/g, ' ');
+
+const getSchoolNameKey = (value: string): string => normalizeSchoolName(value).toLowerCase().replace(/\s+/g, '');
+
+const buildSubdomainLabel = (schoolName: string): string =>
+  normalizeSchoolName(schoolName)
+    .toLowerCase()
+    .replace(/[^a-z0-9 ]/g, '')
+    .replace(/\s+/g, '');
+
+const getBaseWebsiteDomain = (): string =>
+  String(process.env.PUBLIC_PORTAL_BASE_DOMAIN || process.env.FRONTCMS_BASE_DOMAIN || 'makemyschool.com')
+    .trim()
+    .toLowerCase()
+    .replace(/^\.+|\.+$/g, '');
+
+const buildWebsiteUrl = (subdomain: string): string => `https://${subdomain}.${getBaseWebsiteDomain()}`;
+
+const getWebsiteAccessMeta = async (
+  db: any,
+  schoolId: number
+): Promise<{ subdomain: string | null; website_url: string | null; is_website_ready: boolean }> => {
+  let domainRows: any[] = [];
+  try {
+    const [rows] = await db.execute(
+      `SELECT td.domain
+       FROM tenant_domains td
+       INNER JOIN tenants t ON t.id = td.tenant_id
+       WHERE t.school_id = ?
+         AND td.is_active = 1
+         AND td.is_primary = 1
+         AND td.verification_status = 'verified'
+       ORDER BY td.id DESC
+       LIMIT 1`,
+      [schoolId]
+    ) as any[];
+    domainRows = rows || [];
+  } catch (error: any) {
+    if (error?.code === 'ER_NO_SUCH_TABLE') {
+      return {
+        subdomain: null,
+        website_url: null,
+        is_website_ready: false,
+      };
+    }
+    throw error;
+  }
+
+  if (!Array.isArray(domainRows) || domainRows.length === 0) {
+    return {
+      subdomain: null,
+      website_url: null,
+      is_website_ready: false,
+    };
+  }
+
+  const domain = String(domainRows[0]?.domain || '').trim().toLowerCase();
+  const baseDomain = getBaseWebsiteDomain();
+  const subdomain = domain.endsWith(`.${baseDomain}`) ? domain.slice(0, -(baseDomain.length + 1)) : null;
+
+  return {
+    subdomain,
+    website_url: `https://${domain}`,
+    is_website_ready: Boolean(subdomain),
+  };
+};
+
 // Update Website Settings
 export const updateWebsiteSettings = async (req: Request, res: Response, next: NextFunction) => {
   try {
     const schoolId = getSchoolId(req as AuthRequest);
     if (schoolId == null) throw createError('School context required', 403);
     const db = getDatabase();
+    const connection = await db.getConnection();
     
     // Parse FormData values - booleans come as strings from FormData
-    const school_name = req.body.school_name;
+    const rawSchoolName = req.body.school_name;
     const tag_line = req.body.tag_line !== undefined && req.body.tag_line !== '' ? req.body.tag_line : null;
     const tag_line_visible = req.body.tag_line_visible !== undefined ? parseBoolean(req.body.tag_line_visible) : undefined;
     const contact_email = req.body.contact_email !== undefined && req.body.contact_email !== '' ? req.body.contact_email : null;
@@ -161,138 +241,255 @@ export const updateWebsiteSettings = async (req: Request, res: Response, next: N
       website_logo = req.body.website_logo;
     }
 
-    const [existing] = await db.execute('SELECT id FROM front_cms_website_settings WHERE school_id = ? LIMIT 1', [schoolId]) as any[];
-    const exists = Array.isArray(existing) && existing.length > 0;
-    const existingId = exists ? (existing[0] as any)?.id : null;
-
-    if (exists && existingId) {
-      // Update existing settings - build dynamic update query
-      const updateFields: string[] = [];
-      const values: any[] = [];
-
-      if (school_name !== undefined) {
-        updateFields.push('school_name = ?');
-        values.push(school_name);
-      }
-      if (tag_line !== undefined) {
-        updateFields.push('tag_line = ?');
-        values.push(tag_line);
-      }
-      if (tag_line_visible !== undefined) {
-        updateFields.push('tag_line_visible = ?');
-        values.push(tag_line_visible);
-      }
-      if (contact_email !== undefined) {
-        updateFields.push('contact_email = ?');
-        values.push(contact_email);
-      }
-      if (contact_phone !== undefined) {
-        updateFields.push('contact_phone = ?');
-        values.push(contact_phone);
-      }
-      if (website_logo !== undefined && website_logo !== null) {
-        updateFields.push('website_logo = ?');
-        values.push(website_logo);
-      }
-      if (facebook_url !== undefined) {
-        updateFields.push('facebook_url = ?');
-        values.push(facebook_url);
-      }
-      if (facebook_enabled !== undefined) {
-        updateFields.push('facebook_enabled = ?');
-        values.push(facebook_enabled);
-      }
-      if (twitter_url !== undefined) {
-        updateFields.push('twitter_url = ?');
-        values.push(twitter_url);
-      }
-      if (twitter_enabled !== undefined) {
-        updateFields.push('twitter_enabled = ?');
-        values.push(twitter_enabled);
-      }
-      if (youtube_url !== undefined) {
-        updateFields.push('youtube_url = ?');
-        values.push(youtube_url);
-      }
-      if (youtube_enabled !== undefined) {
-        updateFields.push('youtube_enabled = ?');
-        values.push(youtube_enabled);
-      }
-      if (instagram_url !== undefined) {
-        updateFields.push('instagram_url = ?');
-        values.push(instagram_url);
-      }
-      if (instagram_enabled !== undefined) {
-        updateFields.push('instagram_enabled = ?');
-        values.push(instagram_enabled);
-      }
-      if (linkedin_url !== undefined) {
-        updateFields.push('linkedin_url = ?');
-        values.push(linkedin_url);
-      }
-      if (linkedin_enabled !== undefined) {
-        updateFields.push('linkedin_enabled = ?');
-        values.push(linkedin_enabled);
-      }
-      if (whatsapp_url !== undefined) {
-        updateFields.push('whatsapp_url = ?');
-        values.push(whatsapp_url);
-      }
-      if (whatsapp_enabled !== undefined) {
-        updateFields.push('whatsapp_enabled = ?');
-        values.push(whatsapp_enabled);
-      }
-
-      if (updateFields.length > 0) {
-        values.push(String(existingId), schoolId);
-        await db.execute(
-          `UPDATE front_cms_website_settings SET ${updateFields.join(', ')}, updated_at = CURRENT_TIMESTAMP WHERE id = ? AND school_id = ?`,
-          values
-        );
-      }
-    } else {
-      await db.execute(
-        `INSERT INTO front_cms_website_settings (
-          school_id, school_name, tag_line, tag_line_visible, contact_email, contact_phone,
-          website_logo, facebook_url, facebook_enabled, twitter_url, twitter_enabled,
-          youtube_url, youtube_enabled, instagram_url, instagram_enabled,
-          linkedin_url, linkedin_enabled, whatsapp_url, whatsapp_enabled
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-        [
-          schoolId,
-          school_name || 'School Name',
-          tag_line || null,
-          tag_line_visible !== undefined ? tag_line_visible : true,
-          contact_email || null,
-          contact_phone || null,
-          website_logo || null,
-          facebook_url || null,
-          facebook_enabled !== undefined ? facebook_enabled : false,
-          twitter_url || null,
-          twitter_enabled !== undefined ? twitter_enabled : false,
-          youtube_url || null,
-          youtube_enabled !== undefined ? youtube_enabled : false,
-          instagram_url || null,
-          instagram_enabled !== undefined ? instagram_enabled : false,
-          linkedin_url || null,
-          linkedin_enabled !== undefined ? linkedin_enabled : false,
-          whatsapp_url || null,
-          whatsapp_enabled !== undefined ? whatsapp_enabled : false,
-        ]
-      );
+    if (!rawSchoolName || typeof rawSchoolName !== 'string') {
+      throw createError('School name is required', 400);
+    }
+    const school_name = normalizeSchoolName(rawSchoolName);
+    if (school_name.length < 3 || school_name.length > 60) {
+      throw createError('School name must be between 3 and 60 characters', 400);
+    }
+    if (!/^[A-Za-z0-9 ]+$/.test(school_name)) {
+      throw createError('School name can contain only letters, numbers and spaces', 400);
     }
 
-    const [updated] = await db.execute('SELECT * FROM front_cms_website_settings WHERE school_id = ? LIMIT 1', [schoolId]);
+    const subdomain = buildSubdomainLabel(school_name);
+    if (subdomain.length < 3 || subdomain.length > 40) {
+      throw createError('Generated subdomain must be between 3 and 40 characters', 400);
+    }
+    const fullDomain = `${subdomain}.${getBaseWebsiteDomain()}`;
+    const schoolNameKey = getSchoolNameKey(school_name);
+
+    try {
+      await connection.beginTransaction();
+
+      const [duplicateSchoolRows] = await connection.execute(
+        `SELECT id
+         FROM schools
+         WHERE id <> ?
+           AND LOWER(REPLACE(TRIM(name), ' ', '')) = ?
+         LIMIT 1`,
+        [schoolId, schoolNameKey]
+      ) as any[];
+      if (Array.isArray(duplicateSchoolRows) && duplicateSchoolRows.length > 0) {
+        throw createError('School name already exists. Please choose a unique school name.', 409);
+      }
+
+      const [duplicateDomainRows] = await connection.execute(
+        `SELECT td.id
+         FROM tenant_domains td
+         INNER JOIN tenants t ON t.id = td.tenant_id
+         WHERE td.domain = ?
+           AND t.school_id <> ?
+         LIMIT 1`,
+        [fullDomain, schoolId]
+      ) as any[];
+      if (Array.isArray(duplicateDomainRows) && duplicateDomainRows.length > 0) {
+        throw createError('Subdomain already in use. Please choose a different school name.', 409);
+      }
+
+      const [existing] = await connection.execute(
+        'SELECT id FROM front_cms_website_settings WHERE school_id = ? LIMIT 1',
+        [schoolId]
+      ) as any[];
+      const exists = Array.isArray(existing) && existing.length > 0;
+      const existingId = exists ? (existing[0] as any)?.id : null;
+
+      if (exists && existingId) {
+        const updateFields: string[] = [];
+        const values: any[] = [];
+
+        if (school_name !== undefined) {
+          updateFields.push('school_name = ?');
+          values.push(school_name);
+        }
+        if (tag_line !== undefined) {
+          updateFields.push('tag_line = ?');
+          values.push(tag_line);
+        }
+        if (tag_line_visible !== undefined) {
+          updateFields.push('tag_line_visible = ?');
+          values.push(tag_line_visible);
+        }
+        if (contact_email !== undefined) {
+          updateFields.push('contact_email = ?');
+          values.push(contact_email);
+        }
+        if (contact_phone !== undefined) {
+          updateFields.push('contact_phone = ?');
+          values.push(contact_phone);
+        }
+        if (website_logo !== undefined && website_logo !== null) {
+          updateFields.push('website_logo = ?');
+          values.push(website_logo);
+        }
+        if (facebook_url !== undefined) {
+          updateFields.push('facebook_url = ?');
+          values.push(facebook_url);
+        }
+        if (facebook_enabled !== undefined) {
+          updateFields.push('facebook_enabled = ?');
+          values.push(facebook_enabled);
+        }
+        if (twitter_url !== undefined) {
+          updateFields.push('twitter_url = ?');
+          values.push(twitter_url);
+        }
+        if (twitter_enabled !== undefined) {
+          updateFields.push('twitter_enabled = ?');
+          values.push(twitter_enabled);
+        }
+        if (youtube_url !== undefined) {
+          updateFields.push('youtube_url = ?');
+          values.push(youtube_url);
+        }
+        if (youtube_enabled !== undefined) {
+          updateFields.push('youtube_enabled = ?');
+          values.push(youtube_enabled);
+        }
+        if (instagram_url !== undefined) {
+          updateFields.push('instagram_url = ?');
+          values.push(instagram_url);
+        }
+        if (instagram_enabled !== undefined) {
+          updateFields.push('instagram_enabled = ?');
+          values.push(instagram_enabled);
+        }
+        if (linkedin_url !== undefined) {
+          updateFields.push('linkedin_url = ?');
+          values.push(linkedin_url);
+        }
+        if (linkedin_enabled !== undefined) {
+          updateFields.push('linkedin_enabled = ?');
+          values.push(linkedin_enabled);
+        }
+        if (whatsapp_url !== undefined) {
+          updateFields.push('whatsapp_url = ?');
+          values.push(whatsapp_url);
+        }
+        if (whatsapp_enabled !== undefined) {
+          updateFields.push('whatsapp_enabled = ?');
+          values.push(whatsapp_enabled);
+        }
+
+        if (updateFields.length > 0) {
+          values.push(String(existingId), schoolId);
+          await connection.execute(
+            `UPDATE front_cms_website_settings SET ${updateFields.join(', ')}, updated_at = CURRENT_TIMESTAMP WHERE id = ? AND school_id = ?`,
+            values
+          );
+        }
+      } else {
+        await connection.execute(
+          `INSERT INTO front_cms_website_settings (
+            school_id, school_name, tag_line, tag_line_visible, contact_email, contact_phone,
+            website_logo, facebook_url, facebook_enabled, twitter_url, twitter_enabled,
+            youtube_url, youtube_enabled, instagram_url, instagram_enabled,
+            linkedin_url, linkedin_enabled, whatsapp_url, whatsapp_enabled
+          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+          [
+            schoolId,
+            school_name || 'School Name',
+            tag_line || null,
+            tag_line_visible !== undefined ? tag_line_visible : true,
+            contact_email || null,
+            contact_phone || null,
+            website_logo || null,
+            facebook_url || null,
+            facebook_enabled !== undefined ? facebook_enabled : false,
+            twitter_url || null,
+            twitter_enabled !== undefined ? twitter_enabled : false,
+            youtube_url || null,
+            youtube_enabled !== undefined ? youtube_enabled : false,
+            instagram_url || null,
+            instagram_enabled !== undefined ? instagram_enabled : false,
+            linkedin_url || null,
+            linkedin_enabled !== undefined ? linkedin_enabled : false,
+            whatsapp_url || null,
+            whatsapp_enabled !== undefined ? whatsapp_enabled : false,
+          ]
+        );
+      }
+
+      await connection.execute(
+        'UPDATE schools SET name = ?, slug = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?',
+        [school_name, subdomain, schoolId]
+      );
+
+      let tenantId: number | null = null;
+      const [tenantRows] = await connection.execute(
+        'SELECT id FROM tenants WHERE school_id = ? LIMIT 1',
+        [schoolId]
+      ) as any[];
+      if (Array.isArray(tenantRows) && tenantRows.length > 0) {
+        tenantId = Number(tenantRows[0].id || 0) || null;
+      }
+
+      if (!tenantId) {
+        const [tenantInsert] = await connection.execute(
+          `INSERT INTO tenants (tenant_key, school_id, lifecycle_status, runtime_mode, is_readonly_freeze, created_at, updated_at)
+           VALUES (?, ?, 'active_shared', 'shared', 0, NOW(), NOW())`,
+          [`tenant_${schoolId}`, schoolId]
+        ) as any;
+        tenantId = Number(tenantInsert?.insertId || 0) || null;
+      }
+
+      if (!tenantId) {
+        throw createError('Unable to map school tenant for website domain', 500);
+      }
+
+      await connection.execute(
+        `UPDATE tenant_domains
+         SET is_primary = 0, is_active = 0, updated_at = NOW()
+         WHERE tenant_id = ? AND domain_type = 'subdomain'`,
+        [tenantId]
+      );
+
+      await connection.execute(
+        `INSERT INTO tenant_domains (
+           tenant_id, domain, domain_type, verification_status, dns_target, ssl_status,
+           is_primary, is_active, verified_at, created_at, updated_at
+         ) VALUES (?, ?, 'subdomain', 'verified', NULL, 'pending', 1, 1, NOW(), NOW(), NOW())
+         ON DUPLICATE KEY UPDATE
+           tenant_id = VALUES(tenant_id),
+           domain_type = 'subdomain',
+           verification_status = 'verified',
+           ssl_status = 'pending',
+           is_primary = 1,
+           is_active = 1,
+           verified_at = NOW(),
+           updated_at = NOW()`,
+        [tenantId, fullDomain]
+      );
+
+      await connection.commit();
+    } catch (error) {
+      await connection.rollback();
+      throw error;
+    } finally {
+      connection.release();
+    }
+
+    const [updated] = await db.execute('SELECT * FROM front_cms_website_settings WHERE school_id = ? LIMIT 1', [schoolId]) as any[];
     const setting = Array.isArray(updated) ? updated[0] : updated;
+    const websiteMeta = await getWebsiteAccessMeta(db, schoolId);
 
     res.json({
       success: true,
-      message: 'Website settings updated successfully',
-      data: setting,
+      message: 'Website settings and subdomain updated successfully',
+      data: {
+        ...setting,
+        subdomain: websiteMeta.subdomain,
+        website_url: websiteMeta.website_url || buildWebsiteUrl(subdomain),
+        is_website_ready: websiteMeta.is_website_ready,
+      },
     });
   } catch (error: any) {
     console.error('Error updating website settings:', error);
-    next(createError(error.message, 500));
+    if (error?.code === 'ER_NO_SUCH_TABLE') {
+      next(createError('Control-plane tables are not ready. Please run migrations for tenants and tenant_domains.', 503));
+      return;
+    }
+    next(error);
   }
 };
 
