@@ -1,6 +1,7 @@
 import React, { ReactNode, useState } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
+import SchoolAssistantWidget from '../components/common/SchoolAssistantWidget';
 import './ParentLayout.css';
 
 interface ParentLayoutProps {
@@ -95,6 +96,7 @@ const ParentLayout: React.FC<ParentLayoutProps> = ({ children }) => {
 
         <main className="parent-content">{children}</main>
       </div>
+      <SchoolAssistantWidget />
     </div>
   );
 };

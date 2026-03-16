@@ -50,6 +50,14 @@ const envSchema = Joi.object({
   SAAS_CONTROL_PLANE_ENABLED: Joi.boolean().truthy('true').falsy('false').default(false),
   SAAS_DOMAIN_ROUTING_ENABLED: Joi.boolean().truthy('true').falsy('false').default(false),
   SAAS_DEDICATED_WORKFLOW_ENABLED: Joi.boolean().truthy('true').falsy('false').default(false),
+
+  // Assistant LLM configuration (optional)
+  ASSISTANT_LLM_ENABLED: Joi.boolean().truthy('true').falsy('false').default(false),
+  ASSISTANT_LLM_PROVIDER: Joi.string().valid('gemini', 'openai').default('gemini'),
+  ASSISTANT_LLM_MODEL: Joi.string().allow('').optional(),
+  ASSISTANT_GEMINI_API_KEY: Joi.string().allow('').optional(),
+  ASSISTANT_OPENAI_API_KEY: Joi.string().allow('').optional(),
+  ASSISTANT_LLM_TIMEOUT_MS: Joi.number().integer().min(2000).max(60000).default(15000),
 }).unknown(); // Allow unknown keys for flexibility
 
 // Validate environment variables
@@ -123,6 +131,16 @@ export const env = {
     controlPlaneEnabled: Boolean(envVars.SAAS_CONTROL_PLANE_ENABLED),
     domainRoutingEnabled: Boolean(envVars.SAAS_DOMAIN_ROUTING_ENABLED),
     dedicatedWorkflowEnabled: Boolean(envVars.SAAS_DEDICATED_WORKFLOW_ENABLED),
+  },
+
+  // Assistant LLM (optional)
+  assistant: {
+    enabled: Boolean(envVars.ASSISTANT_LLM_ENABLED),
+    provider: envVars.ASSISTANT_LLM_PROVIDER,
+    model: envVars.ASSISTANT_LLM_MODEL || '',
+    geminiApiKey: envVars.ASSISTANT_GEMINI_API_KEY || '',
+    openaiApiKey: envVars.ASSISTANT_OPENAI_API_KEY || '',
+    timeoutMs: Number(envVars.ASSISTANT_LLM_TIMEOUT_MS || 15000),
   },
 };
 

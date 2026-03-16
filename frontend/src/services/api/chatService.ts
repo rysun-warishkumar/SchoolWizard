@@ -34,6 +34,27 @@ export interface ChatUser {
   role_name: string;
 }
 
+export interface AssistantQueryResponse {
+  intent: string;
+  answer: string;
+  suggestions: string[];
+  meta?: Record<string, any>;
+}
+
+export interface AssistantMenuOption {
+  id: string;
+  label: string;
+  description?: string;
+}
+
+export interface AssistantMenuResponse {
+  mode: 'menu' | 'answer';
+  message?: string;
+  answer?: string;
+  options: AssistantMenuOption[];
+  meta?: Record<string, any>;
+}
+
 export const chatService = {
   // Get all conversations for the current user
   async getConversations(): Promise<ChatConversation[]> {
@@ -65,6 +86,21 @@ export const chatService = {
   }): Promise<ChatUser[]> {
     const response = await apiClient.get('/chat/users', { params });
     return response.data.data || [];
+  },
+
+  async queryAssistant(message: string): Promise<AssistantQueryResponse> {
+    const response = await apiClient.post('/chat/assistant/query', { message });
+    return response.data.data;
+  },
+
+  async getAssistantMenu(): Promise<AssistantMenuResponse> {
+    const response = await apiClient.get('/chat/assistant/menu');
+    return response.data.data;
+  },
+
+  async selectAssistantMenuOption(optionId: string): Promise<AssistantMenuResponse> {
+    const response = await apiClient.post('/chat/assistant/menu/select', { optionId });
+    return response.data.data;
   },
 };
 

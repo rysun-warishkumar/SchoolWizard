@@ -90,6 +90,42 @@ export interface ListSchoolsResponse {
   pagination: { page: number; limit: number; total: number };
 }
 
+export interface RegistrationPaymentConfig {
+  gateway_name: 'phonepe';
+  is_enabled: boolean;
+  test_mode: boolean;
+  merchant_id: string;
+  salt_index: number;
+  registration_amount: number;
+  currency: string;
+  api_base_url: string;
+  redirect_url?: string;
+  callback_url?: string;
+  has_salt_key: boolean;
+}
+
+export interface RegistrationPaymentStatusItem {
+  id: number;
+  school_id: number;
+  school_name: string;
+  gateway_name: string;
+  merchant_transaction_id: string;
+  amount: number;
+  currency: string;
+  status: 'initiated' | 'success' | 'failed' | 'pending';
+  created_at: string;
+  updated_at: string;
+}
+
+export interface AssistantLlmConfig {
+  is_enabled: boolean;
+  provider: 'gemini' | 'openai';
+  model: string;
+  timeout_ms: number;
+  has_gemini_api_key: boolean;
+  has_openai_api_key: boolean;
+}
+
 export const platformService = {
   async getSchools(params: ListSchoolsParams = {}): Promise<ListSchoolsResponse> {
     const searchParams = new URLSearchParams();
@@ -211,6 +247,69 @@ export const platformService = {
     const response = await apiClient.patch<{ success: boolean }>(
       `/platform/schools/${id}/read-only-freeze`,
       { enabled }
+    );
+    return response.data;
+  },
+
+  async getRegistrationPaymentConfig(): Promise<{ success: boolean; data: RegistrationPaymentConfig }> {
+    const response = await apiClient.get<{ success: boolean; data: RegistrationPaymentConfig }>(
+      '/platform/payment/registration'
+    );
+    return response.data;
+  },
+
+  async updateRegistrationPaymentConfig(
+    data: Partial<RegistrationPaymentConfig> & { salt_key?: string }
+  ): Promise<{ success: boolean; message: string; data: RegistrationPaymentConfig }> {
+    const response = await apiClient.put<{ success: boolean; message: string; data: RegistrationPaymentConfig }>(
+      '/platform/payment/registration',
+      data
+    );
+    return response.data;
+  },
+
+  async getRegistrationPayments(params?: {
+    status?: 'initiated' | 'success' | 'failed' | 'pending' | '';
+    search?: string;
+    page?: number;
+    limit?: number;
+  }): Promise<{
+    success: boolean;
+    data: RegistrationPaymentStatusItem[];
+    pagination: { page: number; limit: number; total: number; pages: number };
+  }> {
+    const searchParams = new URLSearchParams();
+    if (params?.status) searchParams.set('status', params.status);
+    if (params?.search) searchParams.set('search', params.search);
+    if (params?.page != null) searchParams.set('page', String(params.page));
+    if (params?.limit != null) searchParams.set('limit', String(params.limit));
+    const qs = searchParams.toString();
+    const response = await apiClient.get<{
+      success: boolean;
+      data: RegistrationPaymentStatusItem[];
+      pagination: { page: number; limit: number; total: number; pages: number };
+    }>(qs ? `/platform/payment/registration/status?${qs}` : '/platform/payment/registration/status');
+    return response.data;
+  },
+
+  async getAssistantLlmConfig(): Promise<{ success: boolean; data: AssistantLlmConfig }> {
+    const response = await apiClient.get<{ success: boolean; data: AssistantLlmConfig }>(
+      '/platform/assistant/llm'
+    );
+    return response.data;
+  },
+
+  async updateAssistantLlmConfig(data: {
+    is_enabled: boolean;
+    provider: 'gemini' | 'openai';
+    model?: string;
+    timeout_ms?: number;
+    gemini_api_key?: string;
+    openai_api_key?: string;
+  }): Promise<{ success: boolean; message: string; data: AssistantLlmConfig }> {
+    const response = await apiClient.put<{ success: boolean; message: string; data: AssistantLlmConfig }>(
+      '/platform/assistant/llm',
+      data
     );
     return response.data;
   },

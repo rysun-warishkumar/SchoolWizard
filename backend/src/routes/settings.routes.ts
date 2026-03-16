@@ -16,6 +16,7 @@ import {
   updateSMSSettings,
   deleteSMSSettings,
   getPaymentGateways,
+  getRegistrationBillingSettings,
   createPaymentGateway,
   updatePaymentGateway,
   deletePaymentGateway,
@@ -90,6 +91,7 @@ router.delete('/sms/:id', checkPermission('settings', 'delete'), deleteSMSSettin
 
 // Payment Gateway Settings
 router.get('/payment-gateways', checkPermission('settings', 'view'), getPaymentGateways);
+router.get('/billing/registration', checkPermission('settings', 'view'), getRegistrationBillingSettings);
 router.post('/payment-gateways', checkPermission('settings', 'add'), createPaymentGateway);
 router.put('/payment-gateways/:id', checkPermission('settings', 'edit'), updatePaymentGateway);
 router.delete('/payment-gateways/:id', checkPermission('settings', 'delete'), deletePaymentGateway);

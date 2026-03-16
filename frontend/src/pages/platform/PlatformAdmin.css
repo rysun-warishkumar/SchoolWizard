@@ -215,19 +215,23 @@
   inset: 0;
   background: rgba(0, 0, 0, 0.5);
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   justify-content: center;
   z-index: 1000;
   padding: var(--spacing-lg);
+  overflow-y: auto;
 }
 
 .platform-admin-modal {
   background: var(--white);
   border-radius: var(--radius-lg);
   padding: var(--spacing-xl);
-  max-width: 440px;
+  max-width: 680px;
   width: 100%;
+  max-height: calc(100vh - 2 * var(--spacing-lg));
+  overflow-y: auto;
   box-shadow: var(--shadow-xl);
+  margin: auto 0;
 }
 
 .platform-admin-modal h2 {
@@ -240,6 +244,7 @@
   flex-direction: column;
   gap: var(--spacing-md);
   margin-bottom: var(--spacing-xl);
+  overflow: visible;
 }
 
 .platform-admin-form label {
@@ -269,4 +274,8 @@
   display: flex;
   justify-content: flex-end;
   gap: var(--spacing-md);
+  position: sticky;
+  bottom: 0;
+  background: var(--white);
+  padding-top: var(--spacing-sm);
 }

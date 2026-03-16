@@ -1,4 +1,5 @@
 .login-page {
+  position: relative;
   min-height: 100vh;
   display: flex;
   align-items: center;
@@ -10,6 +11,18 @@
 .login-card-wrap {
   width: 100%;
   max-width: 900px;
+}
+
+.login-copyright-text {
+  position: absolute;
+  left: 75%;
+  bottom: var(--spacing-md);
+  transform: translateX(-50%);
+  margin: 0;
+  font-size: var(--font-size-xs);
+  color: rgba(255, 255, 255, 0.92);
+  text-align: center;
+  white-space: nowrap;
 }
 
 .login-card {
@@ -31,6 +44,18 @@
   flex-direction: column;
   justify-content: center;
   overflow: hidden;
+}
+
+.login-version-text {
+  position: absolute;
+  left: var(--spacing-2xl);
+  bottom: var(--spacing-lg);
+  margin: 0;
+  color: rgba(255, 255, 255, 0.92);
+  font-size: var(--font-size-xs);
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  z-index: 1;
 }
 
 .login-welcome-sphere {
@@ -295,5 +320,10 @@
 
   .login-form-section {
     padding: var(--spacing-xl);
+  }
+
+  .login-version-text {
+    left: var(--spacing-xl);
+    bottom: var(--spacing-md);
   }
 }

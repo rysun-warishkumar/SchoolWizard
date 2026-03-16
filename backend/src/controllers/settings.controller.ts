@@ -1191,6 +1191,54 @@ export const getPaymentGateways = async (
   }
 };
 
+export const getRegistrationBillingSettings = async (
+  req: Request,
+  res: Response,
+  next: NextFunction
+): Promise<void> => {
+  try {
+    const schoolId = getSchoolId(req as AuthRequest);
+    if (schoolId == null) return next(createError('School context required', 403));
+
+    const db = getDatabase();
+    const [rows] = await db.execute(
+      `SELECT is_enabled, test_mode, registration_amount, currency
+       FROM platform_payment_configs
+       WHERE gateway_name = 'phonepe'
+       LIMIT 1`
+    ) as any[];
+
+    const row = rows[0] || {};
+    res.json({
+      success: true,
+      data: {
+        gateway_name: 'phonepe',
+        display_name: 'PhonePe',
+        is_enabled: Boolean(row.is_enabled),
+        test_mode: row.test_mode == null ? true : Boolean(row.test_mode),
+        registration_amount: Number(row.registration_amount ?? 0),
+        currency: String(row.currency || 'INR').toUpperCase(),
+      },
+    });
+  } catch (error: any) {
+    if (error?.code === 'ER_NO_SUCH_TABLE') {
+      res.json({
+        success: true,
+        data: {
+          gateway_name: 'phonepe',
+          display_name: 'PhonePe',
+          is_enabled: false,
+          test_mode: true,
+          registration_amount: 0,
+          currency: 'INR',
+        },
+      });
+      return;
+    }
+    next(error);
+  }
+};
+
 export const createPaymentGateway = async (
   req: Request,
   res: Response,

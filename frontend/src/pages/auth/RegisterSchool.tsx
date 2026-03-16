@@ -21,13 +21,21 @@ const RegisterSchool = () => {
     setLoading(true);
 
     try {
-      await authService.registerSchool({
+      const response = await authService.registerSchool({
         schoolName: schoolName.trim(),
         adminName: adminName.trim(),
         email: email.trim(),
         password,
       });
-      showToast('School registered successfully. You can now sign in.', 'success');
+
+      const redirectUrl = response.registrationPayment?.redirectUrl;
+      if (redirectUrl) {
+        showToast('School registered successfully. Redirecting to PhonePe payment gateway...', 'success');
+        window.location.href = redirectUrl;
+        return;
+      }
+
+      showToast(response.message || 'School registered successfully. You can now sign in.', 'success');
       navigate('/login');
     } catch (err: any) {
       const message =

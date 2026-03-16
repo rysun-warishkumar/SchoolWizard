@@ -1,11 +1,241 @@
 import { Request, Response, NextFunction } from 'express';
 import bcrypt from 'bcryptjs';
+import https from 'https';
 import { getDatabase } from '../config/database';
 import { createError } from '../middleware/errorHandler';
 import { sendSchoolOnboardingEmail } from '../utils/emailService';
 import { createPasswordSetupLink } from '../utils/passwordSetupService';
 
 const TRIAL_DAYS = 30;
+
+type PhonePeRegistrationConfig = {
+  is_enabled: boolean;
+  test_mode: boolean;
+  merchant_id: string;
+  salt_key: string;
+  salt_index: number;
+  registration_amount: number;
+  currency: string;
+  api_base_url: string;
+  redirect_url?: string | null;
+  callback_url?: string | null;
+};
+
+const resolvePhonePeRedirectUrl = (responseBody: any): string | null => {
+  return (
+    responseBody?.data?.instrumentResponse?.redirectInfo?.url ||
+    responseBody?.data?.redirectInfo?.url ||
+    responseBody?.data?.redirectUrl ||
+    responseBody?.redirectUrl ||
+    null
+  );
+};
+
+const postJson = async (
+  url: string,
+  payload: Record<string, any>,
+  headers: Record<string, string>
+): Promise<{ statusCode: number; body: any }> => {
+  const serialized = JSON.stringify(payload);
+  const parsed = new URL(url);
+  const options: https.RequestOptions = {
+    protocol: parsed.protocol,
+    hostname: parsed.hostname,
+    port: parsed.port || (parsed.protocol === 'https:' ? 443 : 80),
+    path: `${parsed.pathname}${parsed.search}`,
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'Content-Length': Buffer.byteLength(serialized),
+      ...headers,
+    },
+  };
+
+  return new Promise((resolve, reject) => {
+    const req = https.request(options, (res) => {
+      let raw = '';
+      res.on('data', (chunk) => { raw += chunk; });
+      res.on('end', () => {
+        let parsedBody: any = raw;
+        try {
+          parsedBody = raw ? JSON.parse(raw) : {};
+        } catch {
+          parsedBody = { raw };
+        }
+        resolve({
+          statusCode: Number(res.statusCode || 500),
+          body: parsedBody,
+        });
+      });
+    });
+    req.on('error', reject);
+    req.write(serialized);
+    req.end();
+  });
+};
+
+const postFormUrlEncoded = async (
+  url: string,
+  formData: Record<string, string>
+): Promise<{ statusCode: number; body: any }> => {
+  const encoded = new URLSearchParams(formData).toString();
+  const parsed = new URL(url);
+  const options: https.RequestOptions = {
+    protocol: parsed.protocol,
+    hostname: parsed.hostname,
+    port: parsed.port || (parsed.protocol === 'https:' ? 443 : 80),
+    path: `${parsed.pathname}${parsed.search}`,
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/x-www-form-urlencoded',
+      'Content-Length': Buffer.byteLength(encoded),
+    },
+  };
+
+  return new Promise((resolve, reject) => {
+    const req = https.request(options, (res) => {
+      let raw = '';
+      res.on('data', (chunk) => { raw += chunk; });
+      res.on('end', () => {
+        let parsedBody: any = raw;
+        try {
+          parsedBody = raw ? JSON.parse(raw) : {};
+        } catch {
+          parsedBody = { raw };
+        }
+        resolve({
+          statusCode: Number(res.statusCode || 500),
+          body: parsedBody,
+        });
+      });
+    });
+    req.on('error', reject);
+    req.write(encoded);
+    req.end();
+  });
+};
+
+const getPhonePeRegistrationConfig = async (): Promise<PhonePeRegistrationConfig | null> => {
+  const db = getDatabase();
+  const [rows] = await db.execute(
+    `SELECT is_enabled, test_mode, merchant_id, salt_key, salt_index, registration_amount, currency,
+            api_base_url, redirect_url, callback_url
+     FROM platform_payment_configs
+     WHERE gateway_name = 'phonepe'
+     LIMIT 1`
+  ) as any[];
+
+  if (!rows.length) return null;
+  const row = rows[0];
+  return {
+    is_enabled: row.is_enabled === 1,
+    test_mode: row.test_mode !== 0,
+    merchant_id: String(row.merchant_id || '').trim(),
+    salt_key: String(row.salt_key || '').trim(),
+    salt_index: Number(row.salt_index || 1),
+    registration_amount: Number(row.registration_amount ?? 1),
+    currency: String(row.currency || 'INR').trim().toUpperCase(),
+    api_base_url: String(row.api_base_url || 'https://api-preprod.phonepe.com/apis/pg-sandbox').trim(),
+    redirect_url: row.redirect_url || null,
+    callback_url: row.callback_url || null,
+  };
+};
+
+const decodePhonePeResponseToken = (token: string): any | null => {
+  try {
+    const decoded = Buffer.from(token, 'base64').toString('utf8');
+    return JSON.parse(decoded);
+  } catch {
+    return null;
+  }
+};
+
+const initiatePhonePeRegistrationPayment = async (params: {
+  schoolId: number;
+  req: Request;
+  phonepeConfig: PhonePeRegistrationConfig;
+}): Promise<{
+  merchantTransactionId: string;
+  redirectPaymentUrl: string;
+  rawResponse: any;
+}> => {
+  const { schoolId, req, phonepeConfig } = params;
+  const merchantTransactionId = `SWREG${schoolId}${Date.now().toString().slice(-8)}`;
+  const amountInPaise = Math.round(phonepeConfig.registration_amount * 100);
+  const frontendBase = (process.env.FRONTEND_URL || `${req.protocol}://${req.get('host')}`).replace(/\/$/, '');
+  const callbackBase = `${req.protocol}://${req.get('host')}`;
+  const redirectUrl =
+    phonepeConfig.redirect_url ||
+    `${frontendBase}/login?registration_payment=completed&school=${schoolId}`;
+  const callbackUrl =
+    phonepeConfig.callback_url ||
+    `${callbackBase}/api/v1/public/schools/payment/phonepe/callback`;
+
+  const apiBase = phonepeConfig.api_base_url.replace(/\/$/, '');
+  const authUrl = phonepeConfig.test_mode
+    ? `${apiBase}/v1/oauth/token`
+    : 'https://api.phonepe.com/apis/identity-manager/v1/oauth/token';
+  const payUrl = `${apiBase}/checkout/v2/pay`;
+
+  // PhonePe Standard Checkout v2 auth flow (Client ID, Client Version, Client Secret)
+  const authResponse = await postFormUrlEncoded(authUrl, {
+    client_id: phonepeConfig.merchant_id,
+    client_version: String(phonepeConfig.salt_index),
+    client_secret: phonepeConfig.salt_key,
+    grant_type: 'client_credentials',
+  });
+  const accessToken = String(authResponse.body?.access_token || '').trim();
+  const tokenType = String(authResponse.body?.token_type || 'O-Bearer').trim();
+  if (authResponse.statusCode < 200 || authResponse.statusCode >= 300 || !accessToken) {
+    const authCode = String(authResponse.body?.code || 'AUTH_FAILED');
+    const authMessage = String(authResponse.body?.message || 'Failed to fetch authorization token');
+    throw createError(`PhonePe authorization failed (${authCode}): ${authMessage}`, 502);
+  }
+
+  const payload = {
+    merchantOrderId: merchantTransactionId,
+    amount: amountInPaise,
+    paymentFlow: {
+      type: 'PG_CHECKOUT',
+      merchantUrls: {
+        redirectUrl,
+      },
+    },
+    metaInfo: {
+      udf1: `school:${schoolId}`,
+      udf2: callbackUrl,
+    },
+  };
+  const phonePeResponse = await postJson(
+    payUrl,
+    payload,
+    {
+      Accept: 'application/json',
+      Authorization: `${tokenType} ${accessToken}`,
+    }
+  );
+
+  const redirectPaymentUrl = String(
+    phonePeResponse.body?.redirectUrl ||
+    resolvePhonePeRedirectUrl(phonePeResponse.body) ||
+    ''
+  ).trim() || null;
+  const isSuccess = phonePeResponse.statusCode >= 200
+    && phonePeResponse.statusCode < 300
+    && !phonePeResponse.body?.code;
+
+  if (!isSuccess || !redirectPaymentUrl) {
+    const phonePeCode = String(phonePeResponse.body?.code || 'UNKNOWN');
+    const phonePeMessage = String(phonePeResponse.body?.message || 'Payment initiation failed');
+    throw createError(`PhonePe payment initiation failed (${phonePeCode}): ${phonePeMessage}`, 502);
+  }
+
+  return {
+    merchantTransactionId,
+    redirectPaymentUrl,
+    rawResponse: phonePeResponse.body || {},
+  };
+};
 
 /**
  * Slugify school name for unique URL-friendly slug.
@@ -42,6 +272,22 @@ export const registerSchool = async (
 ): Promise<void> => {
   try {
     const { schoolName, adminName, email, password } = req.body;
+    let phonepeConfig: PhonePeRegistrationConfig | null = null;
+    try {
+      phonepeConfig = await getPhonePeRegistrationConfig();
+    } catch (error: any) {
+      if (error?.code !== 'ER_NO_SUCH_TABLE') {
+        throw error;
+      }
+    }
+
+    const isPhonePePaymentRequired = Boolean(phonepeConfig?.is_enabled);
+    if (
+      isPhonePePaymentRequired &&
+      (!phonepeConfig?.merchant_id || !phonepeConfig?.salt_key || phonepeConfig.registration_amount <= 0)
+    ) {
+      throw createError('Registration payment is enabled but PhonePe is not fully configured. Please complete Payment Configuration.', 503);
+    }
 
     if (!schoolName || typeof schoolName !== 'string' || !schoolName.trim()) {
       throw createError('School name is required', 400);
@@ -63,6 +309,14 @@ export const registerSchool = async (
     let schoolId!: number;
     let adminUserId!: number;
     let slug!: string;
+    let registrationPayment: {
+      enabled: boolean;
+      gateway: 'phonepe';
+      mode: 'test' | 'live';
+      amount: number;
+      currency: string;
+      redirectUrl: string | null;
+    } | null = null;
     const trialStartsAt = new Date();
     const trialEndsAt = new Date();
     trialEndsAt.setDate(trialEndsAt.getDate() + TRIAL_DAYS);
@@ -131,6 +385,36 @@ export const registerSchool = async (
         }
       }
 
+      if (isPhonePePaymentRequired && phonepeConfig) {
+        const paymentInit = await initiatePhonePeRegistrationPayment({
+          schoolId,
+          req,
+          phonepeConfig,
+        });
+
+        await connection.execute(
+          `INSERT INTO registration_payments
+           (school_id, gateway_name, merchant_transaction_id, amount, currency, status, phonepe_response, created_at, updated_at)
+           VALUES (?, 'phonepe', ?, ?, ?, 'initiated', ?, NOW(), NOW())`,
+          [
+            schoolId,
+            paymentInit.merchantTransactionId,
+            phonepeConfig.registration_amount,
+            phonepeConfig.currency,
+            JSON.stringify(paymentInit.rawResponse || {}),
+          ]
+        );
+
+        registrationPayment = {
+          enabled: true,
+          gateway: 'phonepe',
+          mode: phonepeConfig.test_mode ? 'test' : 'live',
+          amount: phonepeConfig.registration_amount,
+          currency: phonepeConfig.currency,
+          redirectUrl: paymentInit.redirectPaymentUrl,
+        };
+      }
+
       await connection.commit();
     } catch (txError) {
       await connection.rollback();
@@ -175,7 +459,9 @@ export const registerSchool = async (
 
     res.status(201).json({
       success: true,
-      message: 'School registered successfully. You can now sign in.',
+      message: registrationPayment?.redirectUrl
+        ? 'School registered successfully. Redirecting to payment gateway...'
+        : 'School registered successfully. You can now sign in.',
       school: {
         id: schoolId,
         name: schoolName.trim(),
@@ -183,7 +469,56 @@ export const registerSchool = async (
         status: 'trial',
         trialEndsAt: trialEndsAt.toISOString(),
       },
+      registrationPayment,
     });
+  } catch (error) {
+    next(error);
+  }
+};
+
+/**
+ * PhonePe callback/redirect receiver for school registration payment.
+ * This endpoint is intentionally tolerant because PhonePe callback payload
+ * shape can vary between integration versions.
+ */
+export const handlePhonePeRegistrationCallback = async (
+  req: Request,
+  res: Response,
+  next: NextFunction
+): Promise<void> => {
+  try {
+    const db = getDatabase();
+    const encodedResponse =
+      (typeof req.body?.response === 'string' && req.body.response) ||
+      (typeof req.query?.response === 'string' && req.query.response) ||
+      null;
+
+    const decoded = encodedResponse ? decodePhonePeResponseToken(encodedResponse) : null;
+    const payload = decoded || req.body || {};
+    const transactionId =
+      payload?.data?.merchantTransactionId ||
+      payload?.merchantOrderId ||
+      payload?.payload?.merchantOrderId ||
+      payload?.merchantTransactionId ||
+      payload?.transactionId ||
+      null;
+    const statusRaw =
+      String(payload?.code || payload?.status || payload?.data?.state || '').toUpperCase();
+    const mappedStatus: 'success' | 'failed' | 'pending' =
+      statusRaw.includes('SUCCESS')
+        ? 'success'
+        : (statusRaw.includes('FAIL') || statusRaw.includes('ERROR') ? 'failed' : 'pending');
+
+    if (transactionId) {
+      await db.execute(
+        `UPDATE registration_payments
+         SET status = ?, phonepe_response = ?, updated_at = NOW()
+         WHERE merchant_transaction_id = ?`,
+        [mappedStatus, JSON.stringify(payload), transactionId]
+      );
+    }
+
+    res.json({ success: true });
   } catch (error) {
     next(error);
   }

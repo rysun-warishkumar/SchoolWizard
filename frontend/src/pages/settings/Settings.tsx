@@ -1482,6 +1482,11 @@ const PaymentGatewaySettingsTab = () => {
     () => settingsService.getPaymentGateways(),
     { refetchOnWindowFocus: false }
   );
+  const { data: registrationBillingData } = useQuery(
+    'registration-billing-settings',
+    () => settingsService.getRegistrationBillingSettings(),
+    { refetchOnWindowFocus: false }
+  );
 
   const [formData, setFormData] = useState({
     gateway_name: '',
@@ -1578,6 +1583,7 @@ const PaymentGatewaySettingsTab = () => {
 
   const gateways = paymentData?.data || [];
   const gatewayOptions = [
+    { value: 'phonepe', label: 'PhonePe' },
     { value: 'paypal', label: 'PayPal' },
     { value: 'stripe', label: 'Stripe' },
     { value: 'payu', label: 'PayU' },
@@ -1594,6 +1600,21 @@ const PaymentGatewaySettingsTab = () => {
         <button className="btn-primary" onClick={() => { resetForm(); setShowModal(true); }}>
           + Add Payment Gateway
         </button>
+      </div>
+
+      <div className="settings-card" style={{ marginBottom: '1rem' }}>
+        <h4 style={{ marginBottom: '0.5rem' }}>Billing</h4>
+        {registrationBillingData?.data?.is_enabled ? (
+          <p style={{ margin: 0, color: 'var(--gray-700)' }}>
+            School registration payment is enabled via <strong>{registrationBillingData.data.display_name}</strong> in{' '}
+            <strong>{registrationBillingData.data.test_mode ? 'Test' : 'Live'}</strong> mode.
+            Registration amount: <strong>{registrationBillingData.data.currency} {Number(registrationBillingData.data.registration_amount || 0).toFixed(2)}</strong>.
+          </p>
+        ) : (
+          <p style={{ margin: 0, color: 'var(--gray-700)' }}>
+            School registration payment is currently disabled by Platform Admin.
+          </p>
+        )}
       </div>
 
       <div className="payment-gateways-list">

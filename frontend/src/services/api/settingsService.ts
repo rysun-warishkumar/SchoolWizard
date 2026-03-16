@@ -60,6 +60,15 @@ export interface EmailSettings {
   is_enabled: boolean;
 }
 
+export interface RegistrationBillingSettings {
+  gateway_name: 'phonepe';
+  display_name: string;
+  is_enabled: boolean;
+  test_mode: boolean;
+  registration_amount: number;
+  currency: string;
+}
+
 export const settingsService = {
   async getGeneralSettings(): Promise<{ success: boolean; data: GeneralSettings }> {
     const response = await apiClient.get<{ success: boolean; data: GeneralSettings }>('/settings/general');
@@ -144,6 +153,13 @@ export const settingsService = {
   // Payment Gateway Settings
   async getPaymentGateways(): Promise<{ success: boolean; data: PaymentGateway[] }> {
     const response = await apiClient.get<{ success: boolean; data: PaymentGateway[] }>('/settings/payment-gateways');
+    return response.data;
+  },
+
+  async getRegistrationBillingSettings(): Promise<{ success: boolean; data: RegistrationBillingSettings }> {
+    const response = await apiClient.get<{ success: boolean; data: RegistrationBillingSettings }>(
+      '/settings/billing/registration'
+    );
     return response.data;
   },
 

@@ -12,6 +12,33 @@ const assertControlPlaneEnabled = () => {
   }
 };
 
+const normalizePhonePeConfig = (row: any) => ({
+  gateway_name: 'phonepe',
+  is_enabled: Boolean(row?.is_enabled),
+  test_mode: row?.test_mode == null ? true : Boolean(row?.test_mode),
+  merchant_id: row?.merchant_id || '',
+  salt_index: Number(row?.salt_index || 1),
+  registration_amount: Number(row?.registration_amount ?? 1),
+  currency: String(row?.currency || 'INR').toUpperCase(),
+  api_base_url: row?.api_base_url || 'https://api-preprod.phonepe.com/apis/pg-sandbox',
+  redirect_url: row?.redirect_url || '',
+  callback_url: row?.callback_url || '',
+  has_salt_key: Boolean(row?.salt_key),
+});
+
+const normalizeAssistantLlmConfig = (row: any) => ({
+  is_enabled: Boolean(row?.is_enabled),
+  provider: String(row?.provider || env.assistant.provider || 'gemini'),
+  model: String(
+    row?.model ||
+      env.assistant.model ||
+      (String(row?.provider || env.assistant.provider || 'gemini') === 'openai' ? 'gpt-4o-mini' : 'gemini-1.5-flash')
+  ),
+  timeout_ms: Number(row?.timeout_ms || env.assistant.timeoutMs || 15000),
+  has_gemini_api_key: Boolean(row?.gemini_api_key || env.assistant.geminiApiKey),
+  has_openai_api_key: Boolean(row?.openai_api_key || env.assistant.openaiApiKey),
+});
+
 const getTenantBySchoolId = async (schoolId: number) => {
   const db = getDatabase();
   const [rows] = await db.execute(
@@ -771,6 +798,421 @@ export const setTenantReadOnlyFreeze = async (
 
     res.json({ success: true });
   } catch (error) {
+    next(error);
+  }
+};
+
+/**
+ * GET /api/v1/platform/payment/registration
+ * Platform-level registration payment config (PhonePe).
+ */
+export const getRegistrationPaymentConfig = async (
+  req: AuthRequest,
+  res: Response,
+  next: NextFunction
+): Promise<void> => {
+  try {
+    const db = getDatabase();
+    const [rows] = await db.execute(
+      `SELECT gateway_name, is_enabled, test_mode, merchant_id, salt_key, salt_index,
+              registration_amount, currency, api_base_url, redirect_url, callback_url
+       FROM platform_payment_configs
+       WHERE gateway_name = 'phonepe'
+       LIMIT 1`
+    ) as any[];
+
+    if (!rows.length) {
+      res.json({
+        success: true,
+        data: normalizePhonePeConfig(null),
+      });
+      return;
+    }
+
+    res.json({
+      success: true,
+      data: normalizePhonePeConfig(rows[0]),
+    });
+  } catch (error: any) {
+    if (error?.code === 'ER_NO_SUCH_TABLE') {
+      res.json({
+        success: true,
+        data: normalizePhonePeConfig(null),
+      });
+      return;
+    }
+    next(error);
+  }
+};
+
+/**
+ * PUT /api/v1/platform/payment/registration
+ * Update platform-level PhonePe registration payment config.
+ */
+export const updateRegistrationPaymentConfig = async (
+  req: AuthRequest,
+  res: Response,
+  next: NextFunction
+): Promise<void> => {
+  try {
+    const {
+      is_enabled,
+      test_mode,
+      merchant_id,
+      salt_key,
+      salt_index,
+      registration_amount,
+      currency,
+      api_base_url,
+      redirect_url,
+      callback_url,
+    } = req.body || {};
+
+    const amountNumber = Number(registration_amount ?? 1);
+    if (!Number.isFinite(amountNumber) || amountNumber < 0) {
+      throw createError('Registration amount must be a non-negative number', 400);
+    }
+
+    const saltIndexNumber = Number(salt_index ?? 1);
+    if (!Number.isInteger(saltIndexNumber) || saltIndexNumber <= 0) {
+      throw createError('Salt index must be a positive integer', 400);
+    }
+
+    const db = getDatabase();
+    const [existingRows] = await db.execute(
+      `SELECT id, salt_key
+       FROM platform_payment_configs
+       WHERE gateway_name = 'phonepe'
+       LIMIT 1`
+    ) as any[];
+
+    const normalizedCurrency = String(currency || 'INR').trim().toUpperCase() || 'INR';
+    const hasIncomingSalt = salt_key !== undefined && String(salt_key).trim() !== '';
+    const preservedSaltKey = existingRows[0]?.salt_key || null;
+    const effectiveSaltKey = hasIncomingSalt ? String(salt_key).trim() : preservedSaltKey;
+
+    if (is_enabled && (!merchant_id || String(merchant_id).trim() === '' || !effectiveSaltKey)) {
+      throw createError('Merchant ID and Salt Key are required to enable PhonePe registration payment', 400);
+    }
+
+    if (existingRows.length === 0) {
+      await db.execute(
+        `INSERT INTO platform_payment_configs
+         (gateway_name, is_enabled, test_mode, merchant_id, salt_key, salt_index, registration_amount,
+          currency, api_base_url, redirect_url, callback_url, created_at, updated_at)
+         VALUES ('phonepe', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW(), NOW())`,
+        [
+          is_enabled ? 1 : 0,
+          test_mode === undefined ? 1 : (test_mode ? 1 : 0),
+          merchant_id ? String(merchant_id).trim() : null,
+          effectiveSaltKey,
+          saltIndexNumber,
+          amountNumber,
+          normalizedCurrency,
+          api_base_url ? String(api_base_url).trim() : null,
+          redirect_url ? String(redirect_url).trim() : null,
+          callback_url ? String(callback_url).trim() : null,
+        ]
+      );
+    } else {
+      await db.execute(
+        `UPDATE platform_payment_configs
+         SET is_enabled = ?,
+             test_mode = ?,
+             merchant_id = ?,
+             salt_key = ?,
+             salt_index = ?,
+             registration_amount = ?,
+             currency = ?,
+             api_base_url = ?,
+             redirect_url = ?,
+             callback_url = ?,
+             updated_at = NOW()
+         WHERE id = ?`,
+        [
+          is_enabled ? 1 : 0,
+          test_mode === undefined ? 1 : (test_mode ? 1 : 0),
+          merchant_id ? String(merchant_id).trim() : null,
+          effectiveSaltKey,
+          saltIndexNumber,
+          amountNumber,
+          normalizedCurrency,
+          api_base_url ? String(api_base_url).trim() : null,
+          redirect_url ? String(redirect_url).trim() : null,
+          callback_url ? String(callback_url).trim() : null,
+          existingRows[0].id,
+        ]
+      );
+    }
+
+    const [rows] = await db.execute(
+      `SELECT gateway_name, is_enabled, test_mode, merchant_id, salt_key, salt_index,
+              registration_amount, currency, api_base_url, redirect_url, callback_url
+       FROM platform_payment_configs
+       WHERE gateway_name = 'phonepe'
+       LIMIT 1`
+    ) as any[];
+
+    res.json({
+      success: true,
+      message: 'Registration payment configuration updated successfully',
+      data: normalizePhonePeConfig(rows[0]),
+    });
+  } catch (error: any) {
+    if (error?.code === 'ER_NO_SUCH_TABLE') {
+      next(createError('Registration billing tables are missing. Run migration 040_platform_phonepe_registration.sql first.', 503));
+      return;
+    }
+    next(error);
+  }
+};
+
+/**
+ * GET /api/v1/platform/payment/registration/status
+ * List school-registration payment attempts.
+ */
+export const getRegistrationPayments = async (
+  req: AuthRequest,
+  res: Response,
+  next: NextFunction
+): Promise<void> => {
+  try {
+    const { status, search, page = '1', limit = '20' } = req.query;
+    const pageNum = Math.max(1, parseInt(String(page), 10) || 1);
+    const limitNum = Math.min(100, Math.max(1, parseInt(String(limit), 10) || 20));
+    const offset = (pageNum - 1) * limitNum;
+
+    const db = getDatabase();
+
+    let whereClause = '1=1';
+    const params: Array<string | number> = [];
+
+    if (status && typeof status === 'string' && ['initiated', 'success', 'failed', 'pending'].includes(status)) {
+      whereClause += ' AND rp.status = ?';
+      params.push(status);
+    }
+
+    if (search && typeof search === 'string' && search.trim()) {
+      const term = `%${search.trim()}%`;
+      whereClause += `
+        AND (
+          s.name LIKE ?
+          OR rp.merchant_transaction_id LIKE ?
+          OR CAST(rp.school_id AS CHAR) LIKE ?
+        )`;
+      params.push(term, term, term);
+    }
+
+    const [rows] = await db.execute(
+      `SELECT
+         rp.id,
+         rp.school_id,
+         s.name AS school_name,
+         rp.gateway_name,
+         rp.merchant_transaction_id,
+         rp.amount,
+         rp.currency,
+         rp.status,
+         rp.created_at,
+         rp.updated_at
+       FROM registration_payments rp
+       INNER JOIN schools s ON s.id = rp.school_id
+       WHERE ${whereClause}
+       ORDER BY rp.created_at DESC
+       LIMIT ? OFFSET ?`,
+      [...params, limitNum, offset]
+    ) as any[];
+
+    const [countResult] = await db.execute(
+      `SELECT COUNT(*) AS total
+       FROM registration_payments rp
+       INNER JOIN schools s ON s.id = rp.school_id
+       WHERE ${whereClause}`,
+      params
+    ) as any[];
+
+    const total = Number(countResult?.[0]?.total || 0);
+    res.json({
+      success: true,
+      data: rows || [],
+      pagination: {
+        page: pageNum,
+        limit: limitNum,
+        total,
+        pages: total > 0 ? Math.ceil(total / limitNum) : 0,
+      },
+    });
+  } catch (error: any) {
+    if (error?.code === 'ER_NO_SUCH_TABLE') {
+      res.json({
+        success: true,
+        data: [],
+        pagination: {
+          page: 1,
+          limit: 20,
+          total: 0,
+          pages: 0,
+        },
+      });
+      return;
+    }
+    next(error);
+  }
+};
+
+/**
+ * GET /api/v1/platform/assistant/llm
+ * Platform-level AI assistant LLM config.
+ */
+export const getAssistantLlmConfig = async (
+  req: AuthRequest,
+  res: Response,
+  next: NextFunction
+): Promise<void> => {
+  try {
+    const db = getDatabase();
+    const [rows] = await db.execute(
+      `SELECT is_enabled, provider, model, gemini_api_key, openai_api_key, timeout_ms
+       FROM platform_assistant_llm_configs
+       ORDER BY id ASC
+       LIMIT 1`
+    ) as any[];
+
+    if (!rows.length) {
+      res.json({
+        success: true,
+        data: normalizeAssistantLlmConfig(null),
+      });
+      return;
+    }
+
+    res.json({
+      success: true,
+      data: normalizeAssistantLlmConfig(rows[0]),
+    });
+  } catch (error: any) {
+    if (error?.code === 'ER_NO_SUCH_TABLE') {
+      res.json({
+        success: true,
+        data: normalizeAssistantLlmConfig(null),
+      });
+      return;
+    }
+    next(error);
+  }
+};
+
+/**
+ * PUT /api/v1/platform/assistant/llm
+ * Update platform-level AI assistant LLM config.
+ */
+export const updateAssistantLlmConfig = async (
+  req: AuthRequest,
+  res: Response,
+  next: NextFunction
+): Promise<void> => {
+  try {
+    const {
+      is_enabled,
+      provider,
+      model,
+      timeout_ms,
+      gemini_api_key,
+      openai_api_key,
+    } = req.body || {};
+
+    const providerValue = String(provider || 'gemini').toLowerCase();
+    if (!['gemini', 'openai'].includes(providerValue)) {
+      throw createError('Provider must be gemini or openai', 400);
+    }
+
+    const timeoutMs = Number(timeout_ms ?? 15000);
+    if (!Number.isInteger(timeoutMs) || timeoutMs < 2000 || timeoutMs > 60000) {
+      throw createError('Timeout must be an integer between 2000 and 60000 ms', 400);
+    }
+
+    const db = getDatabase();
+    const [existingRows] = await db.execute(
+      `SELECT id, gemini_api_key, openai_api_key
+       FROM platform_assistant_llm_configs
+       ORDER BY id ASC
+       LIMIT 1`
+    ) as any[];
+
+    const hasIncomingGemini = gemini_api_key !== undefined && String(gemini_api_key).trim() !== '';
+    const hasIncomingOpenAi = openai_api_key !== undefined && String(openai_api_key).trim() !== '';
+    const effectiveGeminiKey = hasIncomingGemini
+      ? String(gemini_api_key).trim()
+      : (existingRows[0]?.gemini_api_key || null);
+    const effectiveOpenAiKey = hasIncomingOpenAi
+      ? String(openai_api_key).trim()
+      : (existingRows[0]?.openai_api_key || null);
+
+    if (Boolean(is_enabled)) {
+      if (providerValue === 'gemini' && !effectiveGeminiKey) {
+        throw createError('Gemini API key is required when enabling assistant with Gemini provider', 400);
+      }
+      if (providerValue === 'openai' && !effectiveOpenAiKey) {
+        throw createError('OpenAI API key is required when enabling assistant with OpenAI provider', 400);
+      }
+    }
+
+    const modelValue = String(model || '').trim() || null;
+
+    if (existingRows.length === 0) {
+      await db.execute(
+        `INSERT INTO platform_assistant_llm_configs
+         (is_enabled, provider, model, gemini_api_key, openai_api_key, timeout_ms, created_at, updated_at)
+         VALUES (?, ?, ?, ?, ?, ?, NOW(), NOW())`,
+        [
+          is_enabled ? 1 : 0,
+          providerValue,
+          modelValue,
+          effectiveGeminiKey,
+          effectiveOpenAiKey,
+          timeoutMs,
+        ]
+      );
+    } else {
+      await db.execute(
+        `UPDATE platform_assistant_llm_configs
+         SET is_enabled = ?,
+             provider = ?,
+             model = ?,
+             gemini_api_key = ?,
+             openai_api_key = ?,
+             timeout_ms = ?,
+             updated_at = NOW()
+         WHERE id = ?`,
+        [
+          is_enabled ? 1 : 0,
+          providerValue,
+          modelValue,
+          effectiveGeminiKey,
+          effectiveOpenAiKey,
+          timeoutMs,
+          existingRows[0].id,
+        ]
+      );
+    }
+
+    const [rows] = await db.execute(
+      `SELECT is_enabled, provider, model, gemini_api_key, openai_api_key, timeout_ms
+       FROM platform_assistant_llm_configs
+       ORDER BY id ASC
+       LIMIT 1`
+    ) as any[];
+
+    res.json({
+      success: true,
+      message: 'Assistant LLM configuration updated successfully',
+      data: normalizeAssistantLlmConfig(rows[0]),
+    });
+  } catch (error: any) {
+    if (error?.code === 'ER_NO_SUCH_TABLE') {
+      next(createError('Assistant LLM config table is missing. Run migration 041_platform_assistant_llm_config.sql first.', 503));
+      return;
+    }
     next(error);
   }
 };

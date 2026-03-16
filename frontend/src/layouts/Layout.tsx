@@ -3,6 +3,7 @@ import { useLocation } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import Sidebar from '../components/layout/Sidebar';
 import Header from '../components/layout/Header';
+import SchoolAssistantWidget from '../components/common/SchoolAssistantWidget';
 import './Layout.css';
 
 interface LayoutProps {
@@ -73,6 +74,7 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
           <main className={`layout-content ${isChatPage ? 'chat-layout' : ''}`}>{children}</main>
         </div>
       </div>
+      <SchoolAssistantWidget />
     </div>
   );
 };

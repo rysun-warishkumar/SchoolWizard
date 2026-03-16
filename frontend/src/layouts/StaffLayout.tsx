@@ -1,6 +1,7 @@
 import React, { ReactNode, useState } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
+import SchoolAssistantWidget from '../components/common/SchoolAssistantWidget';
 import './StaffLayout.css';
 
 interface StaffLayoutProps {
@@ -98,6 +99,7 @@ const StaffLayout: React.FC<StaffLayoutProps> = ({ children }) => {
 
         <main className="staff-content">{children}</main>
       </div>
+      <SchoolAssistantWidget />
     </div>
   );
 };

@@ -167,11 +167,23 @@ const Sidebar = ({ isCollapsed, onToggle, isMobileOpen = false, onMobileClose }:
               <li>
                 <NavLink
                   to="/platform"
+                  end
                   className={({ isActive }) => (isActive ? 'active' : '')}
                   title={isCollapsed ? 'Platform Admin' : ''}
                 >
                   <span className="menu-icon">⚙</span>
                   {!isCollapsed && <span className="menu-label">Platform Admin</span>}
+                </NavLink>
+              </li>
+              <li>
+                <NavLink
+                  to="/platform/payment-configuration"
+                  end
+                  className={({ isActive }) => (isActive ? 'active' : '')}
+                  title={isCollapsed ? 'Payment Configuration' : ''}
+                >
+                  <span className="menu-icon">💳</span>
+                  {!isCollapsed && <span className="menu-label">Payment Configuration</span>}
                 </NavLink>
               </li>
             </>

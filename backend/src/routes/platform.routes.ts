@@ -15,6 +15,11 @@ import {
   markTenantCutoverComplete,
   rollbackTenantMigration,
   setTenantReadOnlyFreeze,
+  getRegistrationPaymentConfig,
+  updateRegistrationPaymentConfig,
+  getRegistrationPayments,
+  getAssistantLlmConfig,
+  updateAssistantLlmConfig,
 } from '../controllers/platform.controller';
 
 const router = express.Router();
@@ -34,5 +39,10 @@ router.post('/schools/:id/migrations/:migrationId/precheck', runTenantMigrationP
 router.post('/schools/:id/migrations/:migrationId/cutover', markTenantCutoverComplete);
 router.post('/schools/:id/migrations/:migrationId/rollback', rollbackTenantMigration);
 router.patch('/schools/:id/read-only-freeze', setTenantReadOnlyFreeze);
+router.get('/payment/registration', getRegistrationPaymentConfig);
+router.put('/payment/registration', updateRegistrationPaymentConfig);
+router.get('/payment/registration/status', getRegistrationPayments);
+router.get('/assistant/llm', getAssistantLlmConfig);
+router.put('/assistant/llm', updateAssistantLlmConfig);
 
 export default router;

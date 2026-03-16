@@ -1,9 +1,8 @@
-import React, { useState, useEffect, useRef } from 'react';
-import { useQuery, useMutation, useQueryClient } from 'react-query';
-import { chatService, ChatConversation, ChatMessage, ChatUser } from '../../services/api/chatService';
-import { useToast } from '../../contexts/ToastContext';
-import { useAuth } from '../../contexts/AuthContext';
+import React, { useEffect, useRef, useState } from 'react';
+import { useMutation, useQuery, useQueryClient } from 'react-query';
 import Modal from '../../components/common/Modal';
+import { useToast } from '../../contexts/ToastContext';
+import { ChatConversation, ChatUser, chatService } from '../../services/api/chatService';
 import './Chat.css';
 
 const Chat = () => {
@@ -13,10 +12,9 @@ const Chat = () => {
   const [messageText, setMessageText] = useState('');
   const [isMobileView, setIsMobileView] = useState(() => window.innerWidth <= 768);
   const [showMobileConversations, setShowMobileConversations] = useState(() => window.innerWidth <= 768);
-  const messagesEndRef = useRef<HTMLDivElement>(null);
-  const messagesContainerRef = useRef<HTMLDivElement>(null);
 
-  const { user } = useAuth();
+  const messagesEndRef = useRef<HTMLDivElement>(null);
+
   const { showToast } = useToast();
   const queryClient = useQueryClient();
 
@@ -34,7 +32,7 @@ const Chat = () => {
   );
 
   // Get messages for selected conversation
-  const { data: messages = [], refetch: refetchMessages } = useQuery(
+  const { data: messages = [] } = useQuery(
     ['chat-messages', selectedConversation?.id],
     () => selectedConversation ? chatService.getMessages(selectedConversation.id) : Promise.resolve([]),
     {
@@ -325,7 +323,7 @@ const Chat = () => {
                 </div>
               </div>
 
-              <div className="messages-container" ref={messagesContainerRef}>
+              <div className="messages-container">
                 {messages.length === 0 ? (
                   <div className="empty-state">
                     <p>No messages yet. Start the conversation!</p>
@@ -478,6 +476,7 @@ const Chat = () => {
           </div>
         </div>
       </Modal>
+
     </div>
   );
 };

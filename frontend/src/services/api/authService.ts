@@ -19,13 +19,39 @@ export const authService = {
     throw new Error('Login failed');
   },
 
-  async registerSchool(data: RegisterSchoolData): Promise<{ success: boolean; message: string }> {
-    const response = await apiClient.post<{ success: boolean; message: string }>(
+  async registerSchool(data: RegisterSchoolData): Promise<{
+    success: boolean;
+    message: string;
+    registrationPayment?: {
+      enabled: boolean;
+      gateway: 'phonepe';
+      mode: 'test' | 'live';
+      amount: number;
+      currency: string;
+      redirectUrl: string | null;
+    } | null;
+  }> {
+    const response = await apiClient.post<{
+      success: boolean;
+      message: string;
+      registrationPayment?: {
+        enabled: boolean;
+        gateway: 'phonepe';
+        mode: 'test' | 'live';
+        amount: number;
+        currency: string;
+        redirectUrl: string | null;
+      } | null;
+    }>(
       '/public/schools/register',
       data
     );
     if (response.data.success) {
-      return { success: true, message: response.data.message };
+      return {
+        success: true,
+        message: response.data.message,
+        registrationPayment: response.data.registrationPayment ?? null,
+      };
     }
     throw new Error('School registration failed');
   },

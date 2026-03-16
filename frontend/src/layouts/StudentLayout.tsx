@@ -3,6 +3,7 @@ import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { useQuery } from 'react-query';
 import { chatService } from '../services/api/chatService';
+import SchoolAssistantWidget from '../components/common/SchoolAssistantWidget';
 import './StudentLayout.css';
 
 interface StudentLayoutProps {
@@ -129,6 +130,7 @@ const StudentLayout: React.FC<StudentLayoutProps> = ({ children }) => {
 
         <main className="student-content">{children}</main>
       </div>
+      <SchoolAssistantWidget />
     </div>
   );
 };

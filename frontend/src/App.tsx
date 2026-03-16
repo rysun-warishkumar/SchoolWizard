@@ -11,6 +11,7 @@ import ResetPassword from './pages/auth/ResetPassword';
 import RegisterSchool from './pages/auth/RegisterSchool';
 import TrialExpired from './pages/auth/TrialExpired';
 import PlatformAdmin from './pages/platform/PlatformAdmin';
+import PaymentConfiguration from './pages/platform/PaymentConfiguration';
 import HostingGuide from './pages/platform/HostingGuide';
 import PlatformSchoolDetails from './pages/platform/PlatformSchoolDetails';
 import Dashboard from './pages/Dashboard';
@@ -211,6 +212,14 @@ function App() {
                         <Route path="/admission-inquiries" element={<ModuleViewRoute moduleName="settings"><AdmissionInquiries /></ModuleViewRoute>} />
                         <Route path="/contact-messages" element={<ModuleViewRoute moduleName="settings"><ContactMessages /></ModuleViewRoute>} />
                         <Route path="/platform" element={<PlatformAdminOnlyRoute><PlatformAdmin /></PlatformAdminOnlyRoute>} />
+                        <Route
+                          path="/platform/payment-configuration"
+                          element={
+                            <PlatformAdminOnlyRoute>
+                              <PaymentConfiguration />
+                            </PlatformAdminOnlyRoute>
+                          }
+                        />
                         <Route path="/platform/schools/:id" element={<PlatformAdminOnlyRoute><PlatformSchoolDetails /></PlatformAdminOnlyRoute>} />
                         <Route
                           path="/hosting-guide"

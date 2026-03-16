@@ -76,6 +76,7 @@ const Login = () => {
                 School Management System. Sign in to access your dashboard.
               </p>
             </div>
+            <p className="login-version-text">Version v1.0</p>
           </div>
           <div className="login-form-section">
             <h1 className="login-form-title">Sign in</h1>
@@ -154,6 +155,7 @@ const Login = () => {
           </div>
         </div>
       </div>
+      <p className="login-copyright-text">Copyright @2026 for Make My School</p>
     </div>
   );
 };
