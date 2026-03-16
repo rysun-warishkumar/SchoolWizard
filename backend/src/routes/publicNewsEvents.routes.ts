@@ -1,17 +1,19 @@
 import express from 'express';
 import { getDatabase } from '../config/database';
 import { createError } from '../middleware/errorHandler';
+import { resolvePublicSchoolContext } from '../middleware/publicSchoolContext';
 
 const router = express.Router();
 
 // Get all active news articles (optionally filtered by category)
-router.get('/news', async (req, res, next) => {
+router.get('/news', resolvePublicSchoolContext, async (req, res, next) => {
   try {
     const db = getDatabase();
+    const schoolId = Number((req as any).user?.schoolId);
     const { category, featured, limit } = req.query;
     
-    let query = 'SELECT * FROM news_articles WHERE is_active = TRUE';
-    const params: any[] = [];
+    let query = 'SELECT * FROM news_articles WHERE school_id = ? AND is_active = TRUE';
+    const params: any[] = [schoolId];
     
     if (category) {
       query += ' AND category = ?';
@@ -38,18 +40,19 @@ router.get('/news', async (req, res, next) => {
 });
 
 // Get single news article by ID or slug
-router.get('/news/:identifier', async (req, res, next) => {
+router.get('/news/:identifier', resolvePublicSchoolContext, async (req, res, next) => {
   try {
     const db = getDatabase();
+    const schoolId = Number((req as any).user?.schoolId);
     const { identifier } = req.params;
     
     // Check if identifier is a number (ID) or string (slug)
     const isId = !isNaN(parseInt(identifier));
     const query = isId 
-      ? 'SELECT * FROM news_articles WHERE id = ? AND is_active = TRUE'
-      : 'SELECT * FROM news_articles WHERE slug = ? AND is_active = TRUE';
+      ? 'SELECT * FROM news_articles WHERE id = ? AND school_id = ? AND is_active = TRUE'
+      : 'SELECT * FROM news_articles WHERE slug = ? AND school_id = ? AND is_active = TRUE';
     
-    const [articles] = await db.execute(query, [isId ? String(identifier) : identifier]) as any[];
+    const [articles] = await db.execute(query, [isId ? String(identifier) : identifier, schoolId]) as any[];
     
     if (!articles || (Array.isArray(articles) && articles.length === 0)) {
       return next(createError('News article not found', 404));
@@ -60,7 +63,10 @@ router.get('/news/:identifier', async (req, res, next) => {
     // Increment views count
     const articleId = article?.id;
     if (articleId) {
-      await db.execute('UPDATE news_articles SET views_count = views_count + 1 WHERE id = ?', [String(articleId)]);
+      await db.execute(
+        'UPDATE news_articles SET views_count = views_count + 1 WHERE id = ? AND school_id = ?',
+        [String(articleId), schoolId]
+      );
     }
     
     res.json({ success: true, data: article });
@@ -70,13 +76,14 @@ router.get('/news/:identifier', async (req, res, next) => {
 });
 
 // Get all active events (optionally filtered by category, upcoming/past)
-router.get('/events', async (req, res, next) => {
+router.get('/events', resolvePublicSchoolContext, async (req, res, next) => {
   try {
     const db = getDatabase();
+    const schoolId = Number((req as any).user?.schoolId);
     const { category, featured, upcoming, limit } = req.query;
     
-    let query = 'SELECT * FROM events WHERE is_active = TRUE';
-    const params: any[] = [];
+    let query = 'SELECT * FROM events WHERE school_id = ? AND is_active = TRUE';
+    const params: any[] = [schoolId];
     
     if (category) {
       query += ' AND category = ?';
@@ -109,18 +116,19 @@ router.get('/events', async (req, res, next) => {
 });
 
 // Get single event by ID or slug
-router.get('/events/:identifier', async (req, res, next) => {
+router.get('/events/:identifier', resolvePublicSchoolContext, async (req, res, next) => {
   try {
     const db = getDatabase();
+    const schoolId = Number((req as any).user?.schoolId);
     const { identifier } = req.params;
     
     // Check if identifier is a number (ID) or string (slug)
     const isId = !isNaN(parseInt(identifier));
     const query = isId 
-      ? 'SELECT * FROM events WHERE id = ? AND is_active = TRUE'
-      : 'SELECT * FROM events WHERE slug = ? AND is_active = TRUE';
+      ? 'SELECT * FROM events WHERE id = ? AND school_id = ? AND is_active = TRUE'
+      : 'SELECT * FROM events WHERE slug = ? AND school_id = ? AND is_active = TRUE';
     
-    const [events] = await db.execute(query, [isId ? String(identifier) : identifier]);
+    const [events] = await db.execute(query, [isId ? String(identifier) : identifier, schoolId]);
     
     if (!events || (Array.isArray(events) && events.length === 0)) {
       return next(createError('Event not found', 404));
