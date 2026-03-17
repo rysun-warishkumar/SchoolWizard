@@ -252,11 +252,6 @@ export const updateWebsiteSettings = async (req: Request, res: Response, next: N
       throw createError('School name can contain only letters, numbers and spaces', 400);
     }
 
-    const subdomain = buildSubdomainLabel(school_name);
-    if (subdomain.length < 3 || subdomain.length > 40) {
-      throw createError('Generated subdomain must be between 3 and 40 characters', 400);
-    }
-    const fullDomain = `${subdomain}.${getBaseWebsiteDomain()}`;
     const schoolNameKey = getSchoolNameKey(school_name);
 
     try {
@@ -274,17 +269,50 @@ export const updateWebsiteSettings = async (req: Request, res: Response, next: N
         throw createError('School name already exists. Please choose a unique school name.', 409);
       }
 
-      const [duplicateDomainRows] = await connection.execute(
-        `SELECT td.id
+      const baseDomain = getBaseWebsiteDomain();
+      const [existingDomainRows] = await connection.execute(
+        `SELECT td.domain
          FROM tenant_domains td
          INNER JOIN tenants t ON t.id = td.tenant_id
-         WHERE td.domain = ?
-           AND t.school_id <> ?
+         WHERE t.school_id = ?
+           AND td.domain_type = 'subdomain'
+           AND td.is_active = 1
+           AND td.is_primary = 1
+         ORDER BY td.id DESC
          LIMIT 1`,
-        [fullDomain, schoolId]
+        [schoolId]
       ) as any[];
-      if (Array.isArray(duplicateDomainRows) && duplicateDomainRows.length > 0) {
-        throw createError('Subdomain already in use. Please choose a different school name.', 409);
+      const lockedDomain = Array.isArray(existingDomainRows) && existingDomainRows.length > 0
+        ? String(existingDomainRows[0]?.domain || '').trim().toLowerCase()
+        : '';
+      const hasLockedDomain = Boolean(lockedDomain);
+      let subdomain = hasLockedDomain && lockedDomain.endsWith(`.${baseDomain}`)
+        ? lockedDomain.slice(0, -(baseDomain.length + 1))
+        : null;
+      let fullDomain = hasLockedDomain ? lockedDomain : '';
+
+      if (!hasLockedDomain) {
+        const generatedSubdomain = buildSubdomainLabel(school_name);
+        if (generatedSubdomain.length < 3 || generatedSubdomain.length > 40) {
+          throw createError('Generated subdomain must be between 3 and 40 characters', 400);
+        }
+        const generatedFullDomain = `${generatedSubdomain}.${baseDomain}`;
+
+        const [duplicateDomainRows] = await connection.execute(
+          `SELECT td.id
+           FROM tenant_domains td
+           INNER JOIN tenants t ON t.id = td.tenant_id
+           WHERE td.domain = ?
+             AND t.school_id <> ?
+           LIMIT 1`,
+          [generatedFullDomain, schoolId]
+        ) as any[];
+        if (Array.isArray(duplicateDomainRows) && duplicateDomainRows.length > 0) {
+          throw createError('Subdomain already in use. Please choose a different school name.', 409);
+        }
+
+        subdomain = generatedSubdomain;
+        fullDomain = generatedFullDomain;
       }
 
       const [existing] = await connection.execute(
@@ -410,10 +438,17 @@ export const updateWebsiteSettings = async (req: Request, res: Response, next: N
         );
       }
 
-      await connection.execute(
-        'UPDATE schools SET name = ?, slug = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?',
-        [school_name, subdomain, schoolId]
-      );
+      if (hasLockedDomain) {
+        await connection.execute(
+          'UPDATE schools SET name = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?',
+          [school_name, schoolId]
+        );
+      } else {
+        await connection.execute(
+          'UPDATE schools SET name = ?, slug = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?',
+          [school_name, subdomain, schoolId]
+        );
+      }
 
       let tenantId: number | null = null;
       const [tenantRows] = await connection.execute(
@@ -437,29 +472,31 @@ export const updateWebsiteSettings = async (req: Request, res: Response, next: N
         throw createError('Unable to map school tenant for website domain', 500);
       }
 
-      await connection.execute(
-        `UPDATE tenant_domains
-         SET is_primary = 0, is_active = 0, updated_at = NOW()
-         WHERE tenant_id = ? AND domain_type = 'subdomain'`,
-        [tenantId]
-      );
+      if (!hasLockedDomain) {
+        await connection.execute(
+          `UPDATE tenant_domains
+           SET is_primary = 0, is_active = 0, updated_at = NOW()
+           WHERE tenant_id = ? AND domain_type = 'subdomain'`,
+          [tenantId]
+        );
 
-      await connection.execute(
-        `INSERT INTO tenant_domains (
-           tenant_id, domain, domain_type, verification_status, dns_target, ssl_status,
-           is_primary, is_active, verified_at, created_at, updated_at
-         ) VALUES (?, ?, 'subdomain', 'verified', NULL, 'pending', 1, 1, NOW(), NOW(), NOW())
-         ON DUPLICATE KEY UPDATE
-           tenant_id = VALUES(tenant_id),
-           domain_type = 'subdomain',
-           verification_status = 'verified',
-           ssl_status = 'pending',
-           is_primary = 1,
-           is_active = 1,
-           verified_at = NOW(),
-           updated_at = NOW()`,
-        [tenantId, fullDomain]
-      );
+        await connection.execute(
+          `INSERT INTO tenant_domains (
+             tenant_id, domain, domain_type, verification_status, dns_target, ssl_status,
+             is_primary, is_active, verified_at, created_at, updated_at
+           ) VALUES (?, ?, 'subdomain', 'verified', NULL, 'pending', 1, 1, NOW(), NOW(), NOW())
+           ON DUPLICATE KEY UPDATE
+             tenant_id = VALUES(tenant_id),
+             domain_type = 'subdomain',
+             verification_status = 'verified',
+             ssl_status = 'pending',
+             is_primary = 1,
+             is_active = 1,
+             verified_at = NOW(),
+             updated_at = NOW()`,
+          [tenantId, fullDomain]
+        );
+      }
 
       await connection.commit();
     } catch (error) {
@@ -475,11 +512,11 @@ export const updateWebsiteSettings = async (req: Request, res: Response, next: N
 
     res.json({
       success: true,
-      message: 'Website settings and subdomain updated successfully',
+      message: websiteMeta.website_url ? 'Website settings updated successfully' : 'Website settings and subdomain updated successfully',
       data: {
         ...setting,
         subdomain: websiteMeta.subdomain,
-        website_url: websiteMeta.website_url || buildWebsiteUrl(subdomain),
+        website_url: websiteMeta.website_url || (setting?.slug ? buildWebsiteUrl(String(setting.slug)) : null),
         is_website_ready: websiteMeta.is_website_ready,
       },
     });
