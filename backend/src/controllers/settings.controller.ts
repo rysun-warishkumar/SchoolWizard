@@ -544,7 +544,7 @@ export const getEmailSettings = async (
         smtp_username: setting.smtp_username || '',
         smtp_password: '', // Never send password back
         from_email: setting.from_email || '',
-        from_name: setting.from_name || 'SchoolWizard',
+        from_name: setting.from_name || 'Make My School',
         is_enabled: setting.is_enabled === 1,
       },
     });
@@ -628,7 +628,7 @@ export const updateEmailSettings = async (
       updates.push('from_email = ?');
       params.push(from_email || smtp_username || '');
       updates.push('from_name = ?');
-      params.push(from_name || 'SchoolWizard');
+      params.push(from_name || 'Make My School');
       updates.push('is_enabled = ?');
       params.push(is_enabled ? 1 : 0);
       updates.push('updated_at = NOW()');
@@ -652,7 +652,7 @@ export const updateEmailSettings = async (
           smtp_username || '',
           smtp_password || '',
           from_email || smtp_username || '',
-          from_name || 'SchoolWizard',
+          from_name || 'Make My School',
           is_enabled ? 1 : 0,
         ]
       );
@@ -779,11 +779,11 @@ export const testEmailSettings = async (
     // Send test email
     try {
       const fromEmail = setting.from_email || setting.smtp_username;
-      const fromName = setting.from_name || 'SchoolWizard';
+      const fromName = setting.from_name || 'Make My School';
 
       await sendEmail({
         to: test_email,
-        subject: 'Test Email from SchoolWizard',
+        subject: 'Test Email from Make My School',
         schoolId,
         html: `
           <!DOCTYPE html>
@@ -837,7 +837,7 @@ export const testEmailSettings = async (
               <div class="success">
                 <strong>Congratulations!</strong> Your SMTP configuration is working correctly.
               </div>
-              <p>This is a test email from <strong>SchoolWizard</strong>.</p>
+              <p>This is a test email from <strong>Make My School</strong>.</p>
               <p>If you received this email, it means:</p>
               <ul>
                 <li>Your SMTP server connection is successful</li>
@@ -852,8 +852,20 @@ export const testEmailSettings = async (
                 SMTP Host: ${setting.smtp_host}<br>
                 SMTP Port: ${setting.smtp_port || 587}
               </div>
-              <p>You can now use the email functionality in SchoolWizard to send notifications, admission emails, and other communications.</p>
-              <p>Best regards,<br>SchoolWizard System</p>
+              <p>You can now use the email functionality in Make My School to send notifications, admission emails, and other communications.</p>
+              <p>Best regards,<br>Make My School System</p>
+              <hr style="border:none;border-top:1px solid #e5e7eb;margin:20px 0;">
+              <p style="font-size:13px;color:#4b5563;">
+                Contact: <a href="mailto:support@makemyschool.com">support@makemyschool.com</a>,
+                <a href="mailto:info@makemyschool.com">info@makemyschool.com</a>,
+                <a href="tel:8200614808">8200614808</a>
+              </p>
+              <p style="font-size:13px;">
+                <a href="https://makemyschool.com" target="_blank" rel="noopener noreferrer">makemyschool.com</a> |
+                <a href="https://www.instagram.com/makemyschool/?hl=af" target="_blank" rel="noopener noreferrer">Instagram</a> |
+                <a href="https://www.facebook.com/profile.php?id=61588644934093" target="_blank" rel="noopener noreferrer">Facebook</a> |
+                <a href="https://www.youtube.com/@MakeMySchool" target="_blank" rel="noopener noreferrer">YouTube</a>
+              </p>
             </div>
           </body>
           </html>

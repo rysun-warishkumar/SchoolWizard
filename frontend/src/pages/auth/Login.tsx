@@ -70,7 +70,7 @@ const Login = () => {
             <div className="login-welcome-sphere login-welcome-sphere--2" aria-hidden="true" />
             <div className="login-welcome-sphere login-welcome-sphere--3" aria-hidden="true" />
             <div className="login-welcome-content">
-              <h2 className="login-welcome-title">WELCOME</h2>
+              <h2 className="login-welcome-title">WELCOME TO</h2>
               <p className="login-welcome-headline">{schoolName}</p>
               <p className="login-welcome-tagline">
                 School Management System. Sign in to access your dashboard.

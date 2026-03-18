@@ -20,8 +20,7 @@ type TabType =
   | 'financial-summary'
   | 'library'
   | 'transport'
-  | 'inventory'
-  | 'admission-enquiry';
+  | 'inventory';
 
 const Reports = () => {
   const [searchParams, setSearchParams] = useSearchParams();
@@ -41,7 +40,6 @@ const Reports = () => {
     'library',
     'transport',
     'inventory',
-    'admission-enquiry',
   ];
   const defaultTab: TabType = validTabs.includes(tabFromUrl) ? tabFromUrl : 'student-list';
 
@@ -157,12 +155,6 @@ const Reports = () => {
           >
             Inventory
           </button>
-          <button
-            className={activeTab === 'admission-enquiry' ? 'active' : ''}
-            onClick={() => handleTabChange('admission-enquiry')}
-          >
-            Admission Enquiry
-          </button>
         </div>
       </div>
 
@@ -181,7 +173,6 @@ const Reports = () => {
         {activeTab === 'library' && <LibraryReport />}
         {activeTab === 'transport' && <TransportReport />}
         {activeTab === 'inventory' && <InventoryReport />}
-        {activeTab === 'admission-enquiry' && <AdmissionEnquiryReport />}
       </div>
     </div>
   );

@@ -6,7 +6,7 @@ import { createError } from '../middleware/errorHandler';
 import { sendSchoolOnboardingEmail } from '../utils/emailService';
 import { createPasswordSetupLink } from '../utils/passwordSetupService';
 
-const TRIAL_DAYS = 30;
+const TRIAL_DAYS = 15;
 
 type PhonePeRegistrationConfig = {
   is_enabled: boolean;
@@ -263,7 +263,7 @@ function slugify(name: string): string {
 
 /**
  * POST /api/v1/public/schools/register
- * Public school registration. Creates school (trial 30 days) + admin user.
+ * Public school registration. Creates school (trial 15 days) + admin user.
  */
 export const registerSchool = async (
   req: Request,
@@ -448,8 +448,9 @@ export const registerSchool = async (
         trialStartsAt,
         trialEndsAt,
         adminEmail: email.trim(),
+        adminPassword: String(password || ''),
         setupUrl,
-        loginUrl: `${req.protocol}://${req.get('host')}/login`,
+        loginUrl: 'https://admin.makemyschool.com/login',
         contactEmail,
         contactPhone,
       });

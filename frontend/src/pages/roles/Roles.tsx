@@ -37,6 +37,8 @@ const moduleIconMap: Record<string, string> = {
   'roles': '🔐',
 };
 
+const HIDDEN_PERMISSION_MODULES = new Set(['certificate']);
+
 // Helper function to get module icon
 const getModuleIcon = (moduleName: string, iconFromDb?: string | null): string => {
   // Normalize module name (lowercase, trim)
@@ -231,7 +233,7 @@ const Roles = () => {
       const updatableRoles = rolesData.data.filter((role) => role.id !== 1); // Skip superadmin
       for (const role of updatableRoles) {
         const rolePerms = allRolePermissions[role.id] || {};
-        const permissions = modulesData.data.flatMap((module) => {
+        const permissions = groupedModules.flatMap((module) => {
           const modulePerms = rolePerms[module.id] || {};
           return permissionsData.data.map((perm) => ({
             module_id: module.id,
@@ -263,7 +265,9 @@ const Roles = () => {
   };
 
   // Group modules by category (for future use)
-  const groupedModules = modulesData?.data || [];
+  const groupedModules = (modulesData?.data || []).filter(
+    (module) => !HIDDEN_PERMISSION_MODULES.has(String(module.name || '').toLowerCase())
+  );
 
   return (
     <div className="roles-page">
