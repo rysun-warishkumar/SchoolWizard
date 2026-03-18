@@ -495,7 +495,7 @@ export const sendSchoolOnboardingEmail = async (data: {
 
   await sendEmail({
     to: data.to,
-    subject: `🎉 Welcome to ${BRAND_NAME} — ${data.schoolName} Onboarding Complete`,
+    subject: `🎉 Welcome to ${BRAND_NAME} — ${data.schoolName}`,
     html: emailHtml,
   });
 };
