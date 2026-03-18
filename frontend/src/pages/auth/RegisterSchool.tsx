@@ -57,7 +57,7 @@ const RegisterSchool = () => {
             <div className="register-school-welcome-sphere register-school-welcome-sphere--2" aria-hidden="true" />
             <div className="register-school-welcome-content">
               <h2 className="register-school-welcome-title">REGISTER YOUR SCHOOL</h2>
-              <p className="register-school-welcome-headline">Start your 30-day free trial</p>
+              <p className="register-school-welcome-headline">Start your 15-day free trial</p>
               <p className="register-school-welcome-tagline">
                 Create your school account and get full access to the school management system. No credit card required.
               </p>

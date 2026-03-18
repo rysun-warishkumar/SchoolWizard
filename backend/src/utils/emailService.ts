@@ -123,13 +123,15 @@ export const getEmailConfig = async (schoolId?: number): Promise<EmailConfig | n
 
     let selectedSetting = settings.length > 0 ? settings[0] : null;
 
-    // Backward compatibility: if no explicit global SMTP row exists, use latest enabled SMTP row.
-    if (!selectedSetting && hasSchoolIdColumn && schoolId == null) {
+    // Fallback: if school-specific SMTP is missing, use the latest enabled SMTP row.
+    // This keeps public flows (school registration / forgot password) working from
+    // a central superadmin-managed SMTP configuration.
+    if (!selectedSetting && hasSchoolIdColumn) {
       const [fallbackSettings] = await db.execute(
         `SELECT smtp_host, smtp_port, smtp_secure, smtp_username, smtp_password
          FROM email_settings
          WHERE is_enabled = 1
-         ORDER BY id DESC
+         ORDER BY updated_at DESC, id DESC
          LIMIT 1`
       ) as any[];
       selectedSetting = fallbackSettings.length > 0 ? fallbackSettings[0] : null;
@@ -324,22 +326,24 @@ const buildEmailTemplate = (data: {
               <tr>
                 <td style="border-top:1px solid #e5e7eb;background:#f8fafc;padding:18px 24px;">
                   <p style="margin:0 0 10px;font-size:13px;color:#4b5563;">
-                    Need help? Contact us at
-                    <a href="mailto:${SUPPORT_EMAIL}" style="color:#1d4ed8;text-decoration:none;">${SUPPORT_EMAIL}</a>,
+                    If you need any assistance, please email us at
+                    <a href="mailto:${SUPPORT_EMAIL}" style="color:#1d4ed8;text-decoration:none;">${SUPPORT_EMAIL}</a>.
+                    For other queries, contact
                     <a href="mailto:${INFO_EMAIL}" style="color:#1d4ed8;text-decoration:none;">${INFO_EMAIL}</a>
                     or call <a href="tel:${SUPPORT_PHONE}" style="color:#1d4ed8;text-decoration:none;">${SUPPORT_PHONE}</a>.
                   </p>
-                  <p style="margin:0 0 10px;font-size:13px;">
+                  <p style="margin:0 0 10px;font-size:13px;text-align:center;">
                     <a href="${MAIN_WEBSITE_URL}" target="_blank" rel="noopener noreferrer" style="color:#1d4ed8;text-decoration:none;">makemyschool.com</a>
                   </p>
-                  <p style="margin:0 0 10px;font-size:13px;">
-                    <a href="${SOCIAL_LINKS.instagram}" target="_blank" rel="noopener noreferrer" style="color:#1d4ed8;text-decoration:none;">Instagram</a>
+                  <p style="margin:0 0 10px;font-size:13px;text-align:center;">
+                    <a href="${SOCIAL_LINKS.instagram}" target="_blank" rel="noopener noreferrer" style="color:#1d4ed8;text-decoration:none;">📸 Instagram</a>
                     &nbsp;|&nbsp;
-                    <a href="${SOCIAL_LINKS.facebook}" target="_blank" rel="noopener noreferrer" style="color:#1d4ed8;text-decoration:none;">Facebook</a>
+                    <a href="${SOCIAL_LINKS.facebook}" target="_blank" rel="noopener noreferrer" style="color:#1d4ed8;text-decoration:none;">📘 Facebook</a>
                     &nbsp;|&nbsp;
-                    <a href="${SOCIAL_LINKS.youtube}" target="_blank" rel="noopener noreferrer" style="color:#1d4ed8;text-decoration:none;">YouTube</a>
+                    <a href="${SOCIAL_LINKS.youtube}" target="_blank" rel="noopener noreferrer" style="color:#1d4ed8;text-decoration:none;">▶️ YouTube</a>
                   </p>
                   <p style="margin:0;font-size:11px;color:#6b7280;">This is an automated email from ${BRAND_NAME}. Please do not reply directly.</p>
+                  <p style="margin:6px 0 0;font-size:10px;color:#94a3b8;text-align:center;">Powered By W | Technology</p>
                 </td>
               </tr>
             </table>
@@ -486,7 +490,6 @@ export const sendSchoolOnboardingEmail = async (data: {
       <p style="margin:0 0 16px;text-align:center;">
         <a href="${loginUrl}" target="_blank" rel="noopener noreferrer" style="display:inline-block;padding:11px 20px;background:#1d4ed8;color:#fff;text-decoration:none;border-radius:8px;font-weight:600;">Login to Admin Panel</a>
       </p>
-      <p style="margin:0;padding:12px;background:#fff7ed;border:1px solid #fed7aa;border-radius:8px;font-size:13px;"><strong>Need assistance?</strong> Reach us at <a href="mailto:${SUPPORT_EMAIL}" style="color:#1d4ed8;text-decoration:none;">${SUPPORT_EMAIL}</a>, <a href="mailto:${INFO_EMAIL}" style="color:#1d4ed8;text-decoration:none;">${INFO_EMAIL}</a> or call <a href="tel:${SUPPORT_PHONE}" style="color:#1d4ed8;text-decoration:none;">${SUPPORT_PHONE}</a>.</p>
     `,
   });
 

@@ -363,7 +363,11 @@ export const forgotPassword = async (
     );
 
     res.json({ success: true, message: 'If an account with that email exists, a reset link has been sent.' });
-  } catch (error) {
+  } catch (error: any) {
+    if (error?.code === 'ER_NO_SUCH_TABLE' || error?.code === 'ER_BAD_TABLE_ERROR') {
+      next(createError('Password reset setup is incomplete on server. Please run database migration 037_password_resets_table.sql.', 503));
+      return;
+    }
     next(error);
   }
 };

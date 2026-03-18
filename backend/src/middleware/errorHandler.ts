@@ -99,18 +99,26 @@ export const errorHandler = (
     // Remove duplicates
     const uniqueOrigins = [...new Set(allowedOrigins)];
     
-    // Normalize origin for comparison
-    const normalizedOrigin = origin.toLowerCase().replace(/\/$/, '');
-    const isAllowed = uniqueOrigins.some(allowed => {
-      const normalizedAllowed = allowed.toLowerCase().replace(/\/$/, '');
-      return normalizedOrigin === normalizedAllowed;
-    });
-    
-    if (isAllowed) {
+    if (uniqueOrigins.length === 0) {
+      // Match main CORS middleware behavior: allow origin when no explicit allowlist configured.
       res.header('Access-Control-Allow-Origin', origin);
       res.header('Access-Control-Allow-Credentials', 'true');
       res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, PATCH, OPTIONS');
       res.header('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Requested-With, Accept, Origin');
+    } else {
+      // Normalize origin for comparison
+      const normalizedOrigin = origin.toLowerCase().replace(/\/$/, '');
+      const isAllowed = uniqueOrigins.some(allowed => {
+        const normalizedAllowed = allowed.toLowerCase().replace(/\/$/, '');
+        return normalizedOrigin === normalizedAllowed;
+      });
+
+      if (isAllowed) {
+        res.header('Access-Control-Allow-Origin', origin);
+        res.header('Access-Control-Allow-Credentials', 'true');
+        res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, PATCH, OPTIONS');
+        res.header('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Requested-With, Accept, Origin');
+      }
     }
   }
 
