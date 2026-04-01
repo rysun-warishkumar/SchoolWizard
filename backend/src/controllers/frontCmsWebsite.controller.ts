@@ -88,6 +88,7 @@ export const getWebsiteSettings = async (req: Request, res: Response, next: Next
       return res.json({
         success: true,
         data: {
+          school_id: schoolId,
           website_logo: null,
           school_name: 'School Name',
           tag_line: 'A School with a Difference',
@@ -109,6 +110,7 @@ export const getWebsiteSettings = async (req: Request, res: Response, next: Next
           subdomain: websiteMeta.subdomain,
           website_url: websiteMeta.website_url,
           is_website_ready: websiteMeta.is_website_ready,
+          can_edit_school_identity: canEditSchoolIdentity(websiteMeta.subdomain),
         },
       });
     }
@@ -121,6 +123,7 @@ export const getWebsiteSettings = async (req: Request, res: Response, next: Next
         subdomain: websiteMeta.subdomain,
         website_url: websiteMeta.website_url,
         is_website_ready: websiteMeta.is_website_ready,
+        can_edit_school_identity: canEditSchoolIdentity(websiteMeta.subdomain),
       },
     });
   } catch (error: any) {
@@ -204,6 +207,8 @@ const getWebsiteAccessMeta = async (
   };
 };
 
+const canEditSchoolIdentity = (subdomain: string | null): boolean => !Boolean(subdomain);
+
 // Update Website Settings
 export const updateWebsiteSettings = async (req: Request, res: Response, next: NextFunction) => {
   try {
@@ -245,8 +250,8 @@ export const updateWebsiteSettings = async (req: Request, res: Response, next: N
       throw createError('School name is required', 400);
     }
     const school_name = normalizeSchoolName(rawSchoolName);
-    if (school_name.length < 3 || school_name.length > 60) {
-      throw createError('School name must be between 3 and 60 characters', 400);
+    if (school_name.length < 3 || school_name.length > 25) {
+      throw createError('School name must be between 3 and 25 characters', 400);
     }
     if (!/^[A-Za-z0-9 ]+$/.test(school_name)) {
       throw createError('School name can contain only letters, numbers and spaces', 400);
@@ -313,6 +318,20 @@ export const updateWebsiteSettings = async (req: Request, res: Response, next: N
 
         subdomain = generatedSubdomain;
         fullDomain = generatedFullDomain;
+      }
+
+      const [currentSchoolRows] = await connection.execute(
+        'SELECT name FROM schools WHERE id = ? LIMIT 1',
+        [schoolId]
+      ) as any[];
+      const currentSchoolName = Array.isArray(currentSchoolRows) && currentSchoolRows.length > 0
+        ? normalizeSchoolName(String(currentSchoolRows[0]?.name || ''))
+        : '';
+      if (hasLockedDomain && currentSchoolName && currentSchoolName !== school_name) {
+        throw createError(
+          'School name is locked after initial subdomain creation. Contact support@makemyschool.com for rename requests.',
+          409
+        );
       }
 
       const [existing] = await connection.execute(
@@ -518,6 +537,7 @@ export const updateWebsiteSettings = async (req: Request, res: Response, next: N
         subdomain: websiteMeta.subdomain,
         website_url: websiteMeta.website_url || (setting?.slug ? buildWebsiteUrl(String(setting.slug)) : null),
         is_website_ready: websiteMeta.is_website_ready,
+        can_edit_school_identity: canEditSchoolIdentity(websiteMeta.subdomain),
       },
     });
   } catch (error: any) {

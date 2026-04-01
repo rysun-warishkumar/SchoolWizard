@@ -460,3 +460,10 @@
   }
 }
 
+/* Collect Fees → View Fees: wide modal (full usable width; requested as 100% with !important) */
+.fees-page .modal-overlay > .modal-content.fees-view-fee-modal {
+  width: 100% !important;
+  max-width: min(1200px, calc(100vw - 32px)) !important;
+  max-height: calc(100vh - 48px) !important;
+}
+

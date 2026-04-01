@@ -805,13 +805,17 @@ export const getMyOnlineExams = async (req: AuthRequest, res: Response, next: Ne
     if (!req.user) {
       throw createError('Not authenticated', 401);
     }
+    const schoolId = getSchoolId(req);
+    if (schoolId == null) throw createError('School context required', 403);
 
     const db = getDatabase();
 
     // Find student by user_id
     const [students] = await db.execute(
-      `SELECT id, class_id, section_id, session_id FROM students WHERE user_id = ? AND is_active = 1`,
-      [req.user.id]
+      `SELECT id, class_id, section_id, session_id
+       FROM students
+       WHERE user_id = ? AND school_id = ? AND is_active = 1`,
+      [req.user.id, schoolId]
     ) as any[];
 
     if (students.length === 0) {
@@ -849,12 +853,13 @@ export const getMyOnlineExams = async (req: AuthRequest, res: Response, next: Ne
               AND oea.student_id = ? 
               AND oea.status = 'submitted') as has_submitted_attempt
       FROM online_exams oe
-      INNER JOIN online_exam_students oes ON oe.id = oes.online_exam_id
-      INNER JOIN subjects s ON oe.subject_id = s.id
-      INNER JOIN sessions sess ON oe.session_id = sess.id
-      LEFT JOIN classes c ON oe.class_id = c.id
-      LEFT JOIN sections sec ON oe.section_id = sec.id
+      INNER JOIN online_exam_students oes ON oe.id = oes.online_exam_id AND oes.school_id = ?
+      INNER JOIN subjects s ON oe.subject_id = s.id AND s.school_id = ?
+      INNER JOIN sessions sess ON oe.session_id = sess.id AND sess.school_id = ?
+      LEFT JOIN classes c ON oe.class_id = c.id AND c.school_id = ?
+      LEFT JOIN sections sec ON oe.section_id = sec.id AND sec.school_id = ?
       WHERE oes.student_id = ?
+        AND oe.school_id = ?
         AND oe.is_published = 1
         AND oe.is_active = 1
         AND (oe.class_id IS NULL OR oe.class_id = ?)
@@ -866,7 +871,13 @@ export const getMyOnlineExams = async (req: AuthRequest, res: Response, next: Ne
     const [exams] = await db.execute(query, [
       student.id,
       student.id,
+      schoolId,
+      schoolId,
+      schoolId,
+      schoolId,
+      schoolId,
       student.id,
+      schoolId,
       student.class_id,
       student.section_id,
       student.session_id,
@@ -915,14 +926,16 @@ export const startExamAttempt = async (req: AuthRequest, res: Response, next: Ne
     if (!req.user) {
       throw createError('Not authenticated', 401);
     }
+    const schoolId = getSchoolId(req);
+    if (schoolId == null) throw createError('School context required', 403);
 
     const { online_exam_id } = req.params;
     const db = getDatabase();
 
     // Find student by user_id
     const [students] = await db.execute(
-      `SELECT id FROM students WHERE user_id = ? AND is_active = 1`,
-      [req.user.id]
+      `SELECT id FROM students WHERE user_id = ? AND school_id = ? AND is_active = 1`,
+      [req.user.id, schoolId]
     ) as any[];
 
     if (students.length === 0) {
@@ -935,10 +948,14 @@ export const startExamAttempt = async (req: AuthRequest, res: Response, next: Ne
     const [exams] = await db.execute(
       `SELECT oe.*, s.name as subject_name
        FROM online_exams oe
-       INNER JOIN online_exam_students oes ON oe.id = oes.online_exam_id
-       INNER JOIN subjects s ON oe.subject_id = s.id
-       WHERE oe.id = ? AND oes.student_id = ? AND oe.is_published = 1 AND oe.is_active = 1`,
-      [online_exam_id, student.id]
+       INNER JOIN online_exam_students oes ON oe.id = oes.online_exam_id AND oes.school_id = ?
+       INNER JOIN subjects s ON oe.subject_id = s.id AND s.school_id = ?
+       WHERE oe.id = ?
+         AND oe.school_id = ?
+         AND oes.student_id = ?
+         AND oe.is_published = 1
+         AND oe.is_active = 1`,
+      [schoolId, schoolId, online_exam_id, schoolId, student.id]
     ) as any[];
 
     if (exams.length === 0) {
@@ -1063,10 +1080,10 @@ export const startExamAttempt = async (req: AuthRequest, res: Response, next: Ne
     const [questions] = await db.execute(
       `SELECT oeq.*, qb.question, qb.option_a, qb.option_b, qb.option_c, qb.option_d, qb.option_e, qb.correct_answer
        FROM online_exam_questions oeq
-       INNER JOIN question_bank qb ON oeq.question_id = qb.id
-       WHERE oeq.online_exam_id = ?
+       INNER JOIN question_bank qb ON oeq.question_id = qb.id AND qb.school_id = ?
+       WHERE oeq.online_exam_id = ? AND oeq.school_id = ?
        ORDER BY oeq.display_order ASC, oeq.id ASC`,
-      [online_exam_id]
+      [schoolId, online_exam_id, schoolId]
     ) as any[];
 
     // Get existing answers
@@ -1121,6 +1138,8 @@ export const saveAnswer = async (req: AuthRequest, res: Response, next: NextFunc
     if (!req.user) {
       throw createError('Not authenticated', 401);
     }
+    const schoolId = getSchoolId(req);
+    if (schoolId == null) throw createError('School context required', 403);
 
     const { attempt_id } = req.params;
     const { question_id, selected_answer } = req.body;
@@ -1133,8 +1152,8 @@ export const saveAnswer = async (req: AuthRequest, res: Response, next: NextFunc
 
     // Verify attempt belongs to student
     const [students] = await db.execute(
-      `SELECT id FROM students WHERE user_id = ? AND is_active = 1`,
-      [req.user.id]
+      `SELECT id FROM students WHERE user_id = ? AND school_id = ? AND is_active = 1`,
+      [req.user.id, schoolId]
     ) as any[];
 
     if (students.length === 0) {
@@ -1144,8 +1163,11 @@ export const saveAnswer = async (req: AuthRequest, res: Response, next: NextFunc
     const student = students[0];
 
     const [attempts] = await db.execute(
-      `SELECT id, status FROM online_exam_attempts WHERE id = ? AND student_id = ?`,
-      [attempt_id, student.id]
+      `SELECT oea.id, oea.status, oea.online_exam_id
+       FROM online_exam_attempts oea
+       INNER JOIN online_exams oe ON oea.online_exam_id = oe.id
+       WHERE oea.id = ? AND oea.student_id = ? AND oe.school_id = ?`,
+      [attempt_id, student.id, schoolId]
     ) as any[];
 
     if (attempts.length === 0) {
@@ -1158,8 +1180,12 @@ export const saveAnswer = async (req: AuthRequest, res: Response, next: NextFunc
 
     // Get question details to check correct answer
     const [questions] = await db.execute(
-      `SELECT correct_answer, marks FROM question_bank WHERE id = ?`,
-      [question_id]
+      `SELECT qb.correct_answer, oeq.marks
+       FROM online_exam_questions oeq
+       INNER JOIN question_bank qb ON oeq.question_id = qb.id AND qb.school_id = ?
+       WHERE oeq.online_exam_id = ? AND oeq.question_id = ? AND oeq.school_id = ?
+       LIMIT 1`,
+      [schoolId, attempts[0].online_exam_id, question_id, schoolId]
     ) as any[];
 
     if (questions.length === 0) {
@@ -1197,14 +1223,16 @@ export const submitExam = async (req: AuthRequest, res: Response, next: NextFunc
     if (!req.user) {
       throw createError('Not authenticated', 401);
     }
+    const schoolId = getSchoolId(req);
+    if (schoolId == null) throw createError('School context required', 403);
 
     const { attempt_id } = req.params;
     const db = getDatabase();
 
     // Verify attempt belongs to student
     const [students] = await db.execute(
-      `SELECT id FROM students WHERE user_id = ? AND is_active = 1`,
-      [req.user.id]
+      `SELECT id FROM students WHERE user_id = ? AND school_id = ? AND is_active = 1`,
+      [req.user.id, schoolId]
     ) as any[];
 
     if (students.length === 0) {
@@ -1214,8 +1242,11 @@ export const submitExam = async (req: AuthRequest, res: Response, next: NextFunc
     const student = students[0];
 
     const [attempts] = await db.execute(
-      `SELECT id, online_exam_id, started_at, status FROM online_exam_attempts WHERE id = ? AND student_id = ?`,
-      [attempt_id, student.id]
+      `SELECT oea.id, oea.online_exam_id, oea.started_at, oea.status, oe.total_marks
+       FROM online_exam_attempts oea
+       INNER JOIN online_exams oe ON oea.online_exam_id = oe.id
+       WHERE oea.id = ? AND oea.student_id = ? AND oe.school_id = ?`,
+      [attempt_id, student.id, schoolId]
     ) as any[];
 
     if (attempts.length === 0) {
@@ -1236,13 +1267,7 @@ export const submitExam = async (req: AuthRequest, res: Response, next: NextFunc
 
     const obtainedMarks = answers[0]?.obtained_marks || 0;
 
-    // Get exam total marks
-    const [exams] = await db.execute(
-      `SELECT total_marks FROM online_exams WHERE id = ?`,
-      [attempt.online_exam_id]
-    ) as any[];
-
-    const totalMarks = exams[0]?.total_marks || 0;
+    const totalMarks = attempt.total_marks || 0;
     const percentage = totalMarks > 0 ? (obtainedMarks / totalMarks) * 100 : 0;
 
     // Calculate time taken
@@ -1283,14 +1308,16 @@ export const terminateExam = async (req: AuthRequest, res: Response, next: NextF
     if (!req.user) {
       throw createError('Not authenticated', 401);
     }
+    const schoolId = getSchoolId(req);
+    if (schoolId == null) throw createError('School context required', 403);
 
     const { attempt_id } = req.params;
     const db = getDatabase();
 
     // Verify attempt belongs to student
     const [students] = await db.execute(
-      `SELECT id FROM students WHERE user_id = ? AND is_active = 1`,
-      [req.user.id]
+      `SELECT id FROM students WHERE user_id = ? AND school_id = ? AND is_active = 1`,
+      [req.user.id, schoolId]
     ) as any[];
 
     if (students.length === 0) {
@@ -1300,8 +1327,11 @@ export const terminateExam = async (req: AuthRequest, res: Response, next: NextF
     const student = students[0];
 
     const [attempts] = await db.execute(
-      `SELECT id, status FROM online_exam_attempts WHERE id = ? AND student_id = ?`,
-      [attempt_id, student.id]
+      `SELECT oea.id, oea.status, oea.online_exam_id
+       FROM online_exam_attempts oea
+       INNER JOIN online_exams oe ON oea.online_exam_id = oe.id
+       WHERE oea.id = ? AND oea.student_id = ? AND oe.school_id = ?`,
+      [attempt_id, student.id, schoolId]
     ) as any[];
 
     if (attempts.length === 0) {
@@ -1321,8 +1351,8 @@ export const terminateExam = async (req: AuthRequest, res: Response, next: NextF
     const obtainedMarks = answers[0]?.obtained_marks || 0;
 
     const [exams] = await db.execute(
-      `SELECT total_marks FROM online_exams WHERE id = (SELECT online_exam_id FROM online_exam_attempts WHERE id = ?)`,
-      [attempt_id]
+      `SELECT total_marks FROM online_exams WHERE id = ? AND school_id = ?`,
+      [attempts[0].online_exam_id, schoolId]
     ) as any[];
 
     const totalMarks = exams[0]?.total_marks || 0;

@@ -31,6 +31,10 @@ import {
   getMyStudents,
   getMyTimetable,
   bulkImportStaff,
+  getTeacherRatings,
+  submitTeacherRating,
+  approveTeacherRating,
+  rejectTeacherRating,
 } from '../controllers/hr.controller';
 import { authenticate, requireSchool } from '../middleware/auth';
 import { checkPermission, checkPermissionOrStaffSelfService } from '../middleware/permissions';
@@ -83,6 +87,13 @@ router.get('/payroll/:id', checkPermission('hr', 'view'), getPayrollById);
 router.post('/payroll', checkPermission('hr', 'add'), generatePayroll);
 router.put('/payroll/:id', checkPermission('hr', 'edit'), updatePayroll);
 router.patch('/payroll/:id/revert', checkPermission('hr', 'edit'), revertPayrollStatus);
+
+// Teacher Ratings
+router.get('/teacher-ratings', checkPermission('hr', 'view'), getTeacherRatings);
+// Students submit reviews from student portal; admin/staff can also post if needed.
+router.post('/teacher-ratings', submitTeacherRating);
+router.post('/teacher-ratings/:id/approve', checkPermission('hr', 'edit'), approveTeacherRating);
+router.delete('/teacher-ratings/:id', checkPermission('hr', 'delete'), rejectTeacherRating);
 
 export default router;
 

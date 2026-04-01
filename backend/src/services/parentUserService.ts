@@ -59,36 +59,27 @@ export const createOrGetParentUser = async (
        WHERE r.id = ? LIMIT 1`,
       [currentUser.role_id]
     ) as any[];
-    const currentRoleName = currentRoleRows[0]?.role_name;
+    const currentRoleName = String(currentRoleRows[0]?.role_name || '').toLowerCase();
 
-    // If user exists but doesn't have parent role, update it
-    if (currentRoleName !== 'parent') {
-      // Get parent role ID
-      const [parentRoles] = await db.execute(
-        'SELECT id FROM roles WHERE name = ?',
-        ['parent']
-      ) as any[];
-
-      if (parentRoles.length === 0) {
-        throw createError('Parent role not found in system. Please contact administrator.', 500);
+    // Reuse existing parent login only — never convert student/staff/other accounts (avoids breaking logins and import edge cases).
+    if (currentRoleName === 'parent') {
+      if (name && name.trim() && currentUser.name !== name.trim()) {
+        await db.execute(
+          'UPDATE users SET name = ? WHERE id = ? AND school_id = ?',
+          [name.trim(), currentUser.id, schoolId]
+        );
       }
 
-      // Update user role to parent
-      await db.execute('UPDATE users SET role_id = ? WHERE id = ? AND school_id = ?', [parentRoles[0].id, currentUser.id, schoolId]);
+      return {
+        userId: currentUser.id,
+        isNewUser: false,
+      };
     }
 
-    // Update name if provided and different
-    if (name && name.trim() && currentUser.name !== name.trim()) {
-      await db.execute(
-        'UPDATE users SET name = ? WHERE id = ? AND school_id = ?',
-        [name.trim(), currentUser.id, schoolId]
-      );
-    }
-
-    return {
-      userId: currentUser.id,
-      isNewUser: false,
-    };
+    throw createError(
+      `A user with email "${trimmedEmail}" already exists for this school as ${currentRoleName || 'user'}. Use a different email for the parent/guardian account.`,
+      400
+    );
   }
 
   // User doesn't exist, create new parent account

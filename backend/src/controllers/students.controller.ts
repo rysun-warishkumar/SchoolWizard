@@ -1508,6 +1508,18 @@ export const rejectOnlineAdmission = async (
   }
 };
 
+function normalizeStudentImportEmailForDedup(raw: unknown): string | null {
+  if (raw == null || String(raw).trim() === '') return null;
+  return String(raw).trim().toLowerCase();
+}
+
+function isUsersTableEmailDuplicateError(err: any): boolean {
+  const dup = err?.code === 'ER_DUP_ENTRY' || err?.errno === 1062;
+  if (!dup) return false;
+  const msg = String(err?.sqlMessage || err?.message || '');
+  return msg.includes('email') || msg.includes('users.');
+}
+
 // ========== Bulk Import Students ==========
 export const bulkImportStudents = async (
   req: AuthRequest,
@@ -1523,6 +1535,19 @@ export const bulkImportStudents = async (
     if (!Array.isArray(students) || students.length === 0) {
       throw createError('Students array is required and must not be empty', 400);
     }
+
+    const studentEmailFirstRow = new Map<string, number>();
+    const duplicateStudentEmailRows = new Set<number>();
+    students.forEach((row: any, idx: number) => {
+      const e = normalizeStudentImportEmailForDedup(row?.email);
+      if (!e) return;
+      const rowNum = idx + 2;
+      if (studentEmailFirstRow.has(e)) {
+        duplicateStudentEmailRows.add(rowNum);
+      } else {
+        studentEmailFirstRow.set(e, rowNum);
+      }
+    });
 
     // Get current session (no transaction needed for this)
     const [sessions] = await db.execute(
@@ -1546,17 +1571,6 @@ export const bulkImportStudents = async (
     `) as any[];
 
     const actualColumns = tableColumns.map((col: any) => col.COLUMN_NAME);
-    
-    // Get parent role ID once (used for all students)
-    const [parentRoles] = await db.execute(
-      'SELECT id FROM roles WHERE name = ?',
-      ['parent']
-    ) as any[];
-    const parentRoleId = parentRoles.length > 0 ? parentRoles[0].id : null;
-    
-    if (!parentRoleId) {
-      throw createError('Parent role not found in system. Please contact administrator.', 500);
-    }
 
     const results = {
       success: [] as any[],
@@ -1570,72 +1584,83 @@ export const bulkImportStudents = async (
       const rowNumber = i + 2; // +2 because row 1 is header, and arrays are 0-indexed
       let studentUserId: number | null = null;
       let parentUserIds: number[] = [];
-      
-      // Get a new connection for each student's transaction
+
+      const {
+        admission_no,
+        roll_no,
+        class_id,
+        section_id,
+        first_name,
+        last_name,
+        gender,
+        date_of_birth,
+        admission_date,
+        category_id,
+        religion,
+        caste,
+        student_mobile,
+        email,
+        blood_group,
+        house_id,
+        height,
+        weight,
+        father_name,
+        father_occupation,
+        father_phone,
+        father_email,
+        mother_name,
+        mother_occupation,
+        mother_phone,
+        mother_email,
+        guardian_name,
+        guardian_relation,
+        guardian_occupation,
+        guardian_phone,
+        guardian_email,
+        current_address,
+        permanent_address,
+      } = studentData;
+
+      const missingFields: string[] = [];
+      if (!admission_no || String(admission_no).trim() === '') missingFields.push('Admission Number');
+      if (!class_id) missingFields.push('Class ID');
+      if (!section_id) missingFields.push('Section ID');
+      if (!first_name || String(first_name).trim() === '') missingFields.push('First Name');
+      if (!gender) missingFields.push('Gender');
+      if (!date_of_birth) missingFields.push('Date of Birth');
+      if (!admission_date) missingFields.push('Admission Date');
+
+      if (missingFields.length > 0) {
+        results.failed.push({
+          row: rowNumber,
+          admission_no: admission_no || 'N/A',
+          first_name: first_name || 'N/A',
+          error: `Missing required fields: ${missingFields.join(', ')}`,
+        });
+        continue;
+      }
+
+      const dedupStuEmail = normalizeStudentImportEmailForDedup(email);
+      if (dedupStuEmail && duplicateStudentEmailRows.has(rowNumber)) {
+        const firstAt = studentEmailFirstRow.get(dedupStuEmail);
+        results.failed.push({
+          row: rowNumber,
+          admission_no: String(admission_no).trim(),
+          first_name: String(first_name).trim(),
+          error:
+            firstAt != null && firstAt !== rowNumber
+              ? `Duplicate student email in import file (first used at row ${firstAt})`
+              : 'Duplicate student email in import file',
+        });
+        continue;
+      }
+
       let studentConnection: any = null;
 
       try {
-        // Start transaction for this student
         studentConnection = await db.getConnection();
         await studentConnection.beginTransaction();
-        // Extract and validate required fields
-        const {
-          admission_no,
-          roll_no,
-          class_id,
-          section_id,
-          first_name,
-          last_name,
-          gender,
-          date_of_birth,
-          admission_date,
-          category_id,
-          religion,
-          caste,
-          student_mobile,
-          email,
-          blood_group,
-          house_id,
-          height,
-          weight,
-          father_name,
-          father_occupation,
-          father_phone,
-          father_email,
-          mother_name,
-          mother_occupation,
-          mother_phone,
-          mother_email,
-          guardian_name,
-          guardian_relation,
-          guardian_occupation,
-          guardian_phone,
-          guardian_email,
-          current_address,
-          permanent_address,
-        } = studentData;
 
-        // Validate required fields
-        const missingFields: string[] = [];
-        if (!admission_no || String(admission_no).trim() === '') missingFields.push('Admission Number');
-        if (!class_id) missingFields.push('Class ID');
-        if (!section_id) missingFields.push('Section ID');
-        if (!first_name || String(first_name).trim() === '') missingFields.push('First Name');
-        if (!gender) missingFields.push('Gender');
-        if (!date_of_birth) missingFields.push('Date of Birth');
-        if (!admission_date) missingFields.push('Admission Date');
-
-        if (missingFields.length > 0) {
-          results.failed.push({
-            row: rowNumber,
-            admission_no: admission_no || 'N/A',
-            first_name: first_name || 'N/A',
-            error: `Missing required fields: ${missingFields.join(', ')}`,
-          });
-          continue;
-        }
-
-        // Check if admission number already exists
         const [existing] = await studentConnection.execute(
           'SELECT id FROM students WHERE admission_no = ? AND school_id = ?',
           [String(admission_no).trim(), schoolId]
@@ -1644,6 +1669,7 @@ export const bulkImportStudents = async (
         if (existing.length > 0) {
           await studentConnection.rollback();
           studentConnection.release();
+          studentConnection = null;
           results.failed.push({
             row: rowNumber,
             admission_no: String(admission_no).trim(),
@@ -1653,16 +1679,121 @@ export const bulkImportStudents = async (
           continue;
         }
 
-        // Create user account if email is provided (within transaction)
+        const [classExists] = await studentConnection.execute(
+          'SELECT id FROM classes WHERE id = ? AND school_id = ? LIMIT 1',
+          [Number(class_id), schoolId]
+        ) as any[];
+        if (!classExists || classExists.length === 0) {
+          await studentConnection.rollback();
+          studentConnection.release();
+          studentConnection = null;
+          results.failed.push({
+            row: rowNumber,
+            admission_no: String(admission_no).trim(),
+            first_name: String(first_name).trim(),
+            error: 'Class ID does not exist for this school',
+          });
+          continue;
+        }
+
+        const [sectionExists] = await studentConnection.execute(
+          'SELECT id FROM sections WHERE id = ? AND school_id = ? LIMIT 1',
+          [Number(section_id), schoolId]
+        ) as any[];
+        if (!sectionExists || sectionExists.length === 0) {
+          await studentConnection.rollback();
+          studentConnection.release();
+          studentConnection = null;
+          results.failed.push({
+            row: rowNumber,
+            admission_no: String(admission_no).trim(),
+            first_name: String(first_name).trim(),
+            error: 'Section ID does not exist for this school',
+          });
+          continue;
+        }
+
+        if (category_id) {
+          const [catExists] = await studentConnection.execute(
+            'SELECT id FROM student_categories WHERE id = ? AND school_id = ? LIMIT 1',
+            [Number(category_id), schoolId]
+          ) as any[];
+          if (!catExists || catExists.length === 0) {
+            await studentConnection.rollback();
+            studentConnection.release();
+            studentConnection = null;
+            results.failed.push({
+              row: rowNumber,
+              admission_no: String(admission_no).trim(),
+              first_name: String(first_name).trim(),
+              error: 'Category ID does not exist for this school',
+            });
+            continue;
+          }
+        }
+
+        if (house_id) {
+          const [houseExists] = await studentConnection.execute(
+            'SELECT id FROM student_houses WHERE id = ? AND school_id = ? LIMIT 1',
+            [Number(house_id), schoolId]
+          ) as any[];
+          if (!houseExists || houseExists.length === 0) {
+            await studentConnection.rollback();
+            studentConnection.release();
+            studentConnection = null;
+            results.failed.push({
+              row: rowNumber,
+              admission_no: String(admission_no).trim(),
+              first_name: String(first_name).trim(),
+              error: 'House ID does not exist for this school',
+            });
+            continue;
+          }
+        }
+
         if (email && String(email).trim() !== '') {
           const emailStr = String(email).trim();
           const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
           if (emailRegex.test(emailStr)) {
+            const [dupStudentEmail] = await studentConnection.execute(
+              'SELECT admission_no FROM students WHERE email = ? AND school_id = ? LIMIT 1',
+              [emailStr, schoolId]
+            ) as any[];
+            if (dupStudentEmail.length > 0) {
+              await studentConnection.rollback();
+              studentConnection.release();
+              studentConnection = null;
+              results.failed.push({
+                row: rowNumber,
+                admission_no: String(admission_no).trim(),
+                first_name: String(first_name).trim(),
+                error: `A student with email "${emailStr}" already exists in this school (Admission: ${dupStudentEmail[0].admission_no})`,
+              });
+              continue;
+            }
+
+            const [dupUser] = await studentConnection.execute(
+              'SELECT id FROM users WHERE email = ? LIMIT 1',
+              [emailStr]
+            ) as any[];
+            if (dupUser.length > 0) {
+              await studentConnection.rollback();
+              studentConnection.release();
+              studentConnection = null;
+              results.failed.push({
+                row: rowNumber,
+                admission_no: String(admission_no).trim(),
+                first_name: String(first_name).trim(),
+                error: `An account with email "${emailStr}" already exists (login emails must be unique)`,
+              });
+              continue;
+            }
+
             try {
+              // Same as single create: random 16-byte key, base64url — user must use password setup / reset (not shown in import response).
               const plainPassword = crypto.randomBytes(12).toString('base64url');
               const hashedPassword = await bcrypt.hash(plainPassword, 10);
 
-              // Get student role
               const [roles] = await studentConnection.execute(
                 'SELECT id FROM roles WHERE name = ?',
                 ['student']
@@ -1676,7 +1807,18 @@ export const bulkImportStudents = async (
                 studentUserId = userResult.insertId;
               }
             } catch (userError: any) {
-              // If user creation fails, rollback and fail this student
+              if (isUsersTableEmailDuplicateError(userError)) {
+                await studentConnection.rollback();
+                studentConnection.release();
+                studentConnection = null;
+                results.failed.push({
+                  row: rowNumber,
+                  admission_no: String(admission_no).trim(),
+                  first_name: String(first_name).trim(),
+                  error: `An account with email "${String(email).trim()}" already exists`,
+                });
+                continue;
+              }
               throw createError(`Failed to create user account: ${userError.message}`, 400);
             }
           }
@@ -1788,15 +1930,8 @@ export const bulkImportStudents = async (
           );
           parentUserIds = parentResult.parentUserIds;
         } catch (parentError: any) {
-          // If we get here, student is already committed
-          // Log the error but don't fail - student creation succeeded
+          // Student row is already committed; parent creation uses a separate DB connection
           console.warn(`Student ${admission_no} created successfully, but parent account creation failed:`, parentError.message);
-          // Ensure connection is released even if parent creation fails
-          if (studentConnection) {
-            await studentConnection.commit();
-            studentConnection.release();
-            studentConnection = null;
-          }
         }
 
         results.success.push({
@@ -1832,6 +1967,79 @@ export const bulkImportStudents = async (
       success: true,
       message: `Import completed: ${results.success.length} successful, ${results.failed.length} failed`,
       data: results,
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+// ========== Student Password Management ==========
+export const updateStudentPassword = async (
+  req: AuthRequest,
+  res: Response,
+  next: NextFunction
+): Promise<void> => {
+  try {
+    const schoolId = getSchoolId(req);
+    if (schoolId == null) return next(createError('School context required', 403));
+    const { id } = req.params;
+    const { new_password } = req.body;
+
+    if (!id || Number.isNaN(Number(id))) {
+      throw createError('Valid student ID is required', 400);
+    }
+
+    if (!new_password || String(new_password).trim() === '') {
+      throw createError('New password is required', 400);
+    }
+
+    const password = String(new_password);
+    if (password.length < 8) {
+      throw createError('Password must be at least 8 characters long', 400);
+    }
+
+    const db = getDatabase();
+    const [students] = await db.execute(
+      'SELECT id, user_id, first_name, last_name, admission_no FROM students WHERE id = ? AND school_id = ? LIMIT 1',
+      [Number(id), schoolId]
+    ) as any[];
+
+    if (!Array.isArray(students) || students.length === 0) {
+      throw createError('Student not found', 404);
+    }
+
+    const student = students[0];
+    if (!student.user_id) {
+      throw createError('Student has no login account (email missing). Add student email first.', 400);
+    }
+
+    const [userRows] = await db.execute(
+      `SELECT u.id, u.role_id, r.name AS role_name
+       FROM users u
+       LEFT JOIN roles r ON r.id = u.role_id
+       WHERE u.id = ? AND u.school_id = ?
+       LIMIT 1`,
+      [Number(student.user_id), schoolId]
+    ) as any[];
+
+    if (!Array.isArray(userRows) || userRows.length === 0) {
+      throw createError('Student login account not found', 404);
+    }
+
+    const roleName = String(userRows[0]?.role_name || '').toLowerCase();
+    if (roleName !== 'student') {
+      throw createError('Linked login is not a student account. Please contact administrator.', 400);
+    }
+
+    const hashedPassword = await bcrypt.hash(password, 10);
+    await db.execute(
+      'UPDATE users SET password = ?, updated_at = NOW() WHERE id = ? AND school_id = ?',
+      [hashedPassword, Number(student.user_id), schoolId]
+    );
+
+    res.json({
+      success: true,
+      message: `Password updated successfully for ${student.first_name || 'student'} (${student.admission_no || 'N/A'})`,
     });
   } catch (error) {
     next(error);

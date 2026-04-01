@@ -21,6 +21,15 @@ const StudentTimetable = () => {
   const timetable = timetableData?.data || [];
 
   const daysOfWeek = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday'];
+  const dayShortLabels: Record<string, string> = {
+    monday: 'Mon',
+    tuesday: 'Tue',
+    wednesday: 'Wed',
+    thursday: 'Thu',
+    friday: 'Fri',
+    saturday: 'Sat',
+    sunday: 'Sun',
+  };
 
   // Group timetable by day
   const timetableByDay = daysOfWeek.reduce((acc, day) => {
@@ -60,11 +69,19 @@ const StudentTimetable = () => {
         ) : (
           <div className="timetable-table-wrapper">
             <table className="timetable-table">
+              <colgroup>
+                <col className="time-col" />
+                {daysOfWeek.map((day) => (
+                  <col key={day} className="day-col" />
+                ))}
+              </colgroup>
               <thead>
                 <tr>
                   <th>Time</th>
                   {daysOfWeek.map((day) => (
-                    <th key={day}>{day.charAt(0).toUpperCase() + day.slice(1)}</th>
+                    <th key={day} title={day.charAt(0).toUpperCase() + day.slice(1)}>
+                      {dayShortLabels[day]}
+                    </th>
                   ))}
                 </tr>
               </thead>

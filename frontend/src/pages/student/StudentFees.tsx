@@ -129,9 +129,17 @@ const StudentFees = () => {
   );
 
   const totalAmount = invoices.reduce((sum, inv) => sum + parseFloat(inv.amount?.toString() || '0'), 0);
-  const paidAmount = invoices
-    .filter((inv) => inv.status === 'paid')
-    .reduce((sum, inv) => sum + parseFloat(inv.paid_amount?.toString() || '0'), 0);
+  const paidFromInvoices = invoices.reduce(
+    (sum, inv) => sum + parseFloat(inv.paid_amount?.toString() || '0'),
+    0
+  );
+  const paidFromPayments = payments.reduce(
+    (sum, p) => sum + parseFloat(String(p.amount ?? 0)),
+    0
+  );
+  // Payment rows are authoritative when present (matches transaction history / avoids stale invoice.paid_amount).
+  const paidAmount =
+    paidFromPayments > 0 ? paidFromPayments : paidFromInvoices;
   const pendingAmount = invoices
     .filter((inv) => inv.status !== 'paid')
     .reduce((sum, inv) => sum + parseFloat(inv.balance_amount?.toString() || '0'), 0);

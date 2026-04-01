@@ -7,6 +7,8 @@ interface ModalProps {
   title: string;
   children: ReactNode;
   size?: 'small' | 'medium' | 'large' | 'xlarge';
+  /** Extra class names on `.modal-content` (e.g. width overrides) */
+  className?: string;
   headerActions?: ReactNode;
   disableBackdropClose?: boolean;
 }
@@ -17,6 +19,7 @@ const Modal = ({
   title,
   children,
   size = 'medium',
+  className,
   headerActions,
   disableBackdropClose = false,
 }: ModalProps) => {
@@ -58,7 +61,10 @@ const Modal = ({
 
   return (
     <div className="modal-overlay" onClick={handleOverlayClick}>
-      <div className={`modal-content modal-${size}`} onClick={(e) => e.stopPropagation()}>
+      <div
+        className={['modal-content', `modal-${size}`, className].filter(Boolean).join(' ')}
+        onClick={(e) => e.stopPropagation()}
+      >
         <div className="modal-header">
           <h2>{title}</h2>
           <div className="modal-header-actions">

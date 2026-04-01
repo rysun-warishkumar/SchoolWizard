@@ -110,11 +110,17 @@ const ImportStaffModal: React.FC<ImportStaffModalProps> = ({ isOpen, onClose, on
         'role': 'role_id',
         'role_id': 'role_id',
         'designation id': 'designation_id',
-        'designation': 'designation_id',
         'designation_id': 'designation_id',
+        'designation name': 'designation_name',
+        'designation_name': 'designation_name',
+        'designation': 'designation_name',
+        'job title': 'designation_name',
+        'job_title': 'designation_name',
         'department id': 'department_id',
-        'department': 'department_id',
         'department_id': 'department_id',
+        'department name': 'department_name',
+        'department_name': 'department_name',
+        'department': 'department_name',
         'first name': 'first_name',
         'firstname': 'first_name',
         'first_name': 'first_name',
@@ -292,7 +298,7 @@ const ImportStaffModal: React.FC<ImportStaffModalProps> = ({ isOpen, onClose, on
               }
             }
             
-            // Convert numeric fields
+            // Convert numeric fields (designation/department use names + backend resolve/create)
             if (['role_id', 'designation_id', 'department_id', 'basic_salary', 'number_of_leaves'].includes(mappedField)) {
               value = Number(value) || (mappedField === 'basic_salary' || mappedField === 'number_of_leaves' ? 0 : null);
             }
@@ -338,8 +344,8 @@ const ImportStaffModal: React.FC<ImportStaffModalProps> = ({ isOpen, onClose, on
       [
         'Staff ID',
         'Role ID',
-        'Designation ID',
-        'Department ID',
+        'Designation Name',
+        'Department Name',
         'First Name',
         'Last Name',
         'Father Name',
@@ -375,8 +381,8 @@ const ImportStaffModal: React.FC<ImportStaffModalProps> = ({ isOpen, onClose, on
       [
         'STF001',
         '3',
-        '1',
-        '1',
+        'Teacher',
+        'Academics',
         'John',
         'Doe',
         'John Father',
@@ -424,8 +430,22 @@ const ImportStaffModal: React.FC<ImportStaffModalProps> = ({ isOpen, onClose, on
           <h4 style={{ marginTop: 0 }}>Instructions:</h4>
           <ul style={{ margin: '10px 0', paddingLeft: '20px' }}>
             <li>Download the template Excel file below</li>
-            <li>Fill in staff information (required fields: Staff ID, Role ID, First Name, Date of Joining)</li>
+            <li>
+              Fill in staff information (required: Staff ID, Role ID, First Name, Date of Joining). Use{' '}
+              <strong>Designation Name</strong> and <strong>Department Name</strong> — new names are created for your
+              school automatically if they do not exist. Legacy columns <strong>Designation ID</strong> /{' '}
+              <strong>Department ID</strong> are still accepted.
+            </li>
             <li>Upload the completed Excel file</li>
+            <li>
+              Imports apply to <strong>this school only</strong> (staff IDs are unique per school).{' '}
+              <strong>Email</strong> must be unique across the whole system; duplicate emails in the same file or
+              already used by another user will fail that row.
+            </li>
+            <li>
+              If you provide an email, the staff login password is set to <strong>staff123</strong> (same as when adding
+              staff manually). Ask users to change it after first login.
+            </li>
             <li>Profile pictures are not included in import - add them manually after import</li>
           </ul>
         </div>

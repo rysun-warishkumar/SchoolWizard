@@ -2111,18 +2111,76 @@ export const submitTeacherRating = async (
     if (schoolId == null) throw createError('School context required', 403);
     const { teacher_id, student_id, rating, review } = req.body;
     const db = getDatabase();
+    const authReq = req as AuthRequest;
+    const roleName = String(authReq.user?.role || '').toLowerCase();
 
-    if (!teacher_id || !student_id || !rating) {
-      throw createError('Teacher, student, and rating are required', 400);
+    if (!teacher_id || !rating) {
+      throw createError('Teacher and rating are required', 400);
     }
 
     if (rating < 1 || rating > 5) {
       throw createError('Rating must be between 1 and 5', 400);
     }
 
+    const teacherId = Number(teacher_id);
+    if (Number.isNaN(teacherId)) {
+      throw createError('Valid teacher is required', 400);
+    }
+
+    const [teacherRows] = await db.execute(
+      'SELECT id FROM staff WHERE id = ? AND school_id = ? LIMIT 1',
+      [teacherId, schoolId]
+    ) as any[];
+    if (!Array.isArray(teacherRows) || teacherRows.length === 0) {
+      throw createError('Teacher not found for this school', 404);
+    }
+
+    let effectiveStudentId = Number(student_id);
+    if (roleName === 'student') {
+      const [students] = await db.execute(
+        'SELECT id FROM students WHERE user_id = ? AND school_id = ? LIMIT 1',
+        [authReq.user?.id, schoolId]
+      ) as any[];
+      if (!Array.isArray(students) || students.length === 0) {
+        throw createError('Student profile not found', 404);
+      }
+      effectiveStudentId = Number(students[0].id);
+    } else if (roleName === 'parent') {
+      const parentEmail = String(authReq.user?.email || '').trim();
+      if (!parentEmail) throw createError('Parent email is required', 400);
+      if (!student_id || Number.isNaN(Number(student_id))) {
+        throw createError('Valid student is required', 400);
+      }
+      const [children] = await db.execute(
+        `SELECT id
+         FROM students
+         WHERE school_id = ?
+           AND id = ?
+           AND (father_email = ? OR mother_email = ? OR guardian_email = ?)
+         LIMIT 1`,
+        [schoolId, Number(student_id), parentEmail, parentEmail, parentEmail]
+      ) as any[];
+      if (!Array.isArray(children) || children.length === 0) {
+        throw createError('You can only submit ratings for linked students', 403);
+      }
+      effectiveStudentId = Number(children[0].id);
+    } else {
+      if (!student_id || Number.isNaN(Number(student_id))) {
+        throw createError('Valid student is required', 400);
+      }
+      const [students] = await db.execute(
+        'SELECT id FROM students WHERE id = ? AND school_id = ? LIMIT 1',
+        [Number(student_id), schoolId]
+      ) as any[];
+      if (!Array.isArray(students) || students.length === 0) {
+        throw createError('Student not found for this school', 404);
+      }
+      effectiveStudentId = Number(students[0].id);
+    }
+
     const [existing] = await db.execute(
       'SELECT id FROM teacher_ratings WHERE school_id = ? AND teacher_id = ? AND student_id = ?',
-      [schoolId, teacher_id, student_id]
+      [schoolId, teacherId, effectiveStudentId]
     ) as any[];
 
     if (existing.length > 0) {
@@ -2145,7 +2203,7 @@ export const submitTeacherRating = async (
     } else {
       const [result] = await db.execute(
         'INSERT INTO teacher_ratings (school_id, teacher_id, student_id, rating, review, is_approved) VALUES (?, ?, ?, ?, ?, 0)',
-        [schoolId, teacher_id, student_id, rating, review || null]
+        [schoolId, teacherId, effectiveStudentId, rating, review || null]
       ) as any;
 
       const [newRating] = await db.execute(
@@ -2214,6 +2272,106 @@ export const rejectTeacherRating = async (
   }
 };
 
+/** Find or create designation for school (case-insensitive name match). Numeric-only strings first try match by ID for legacy Excel. */
+async function resolveOrCreateDesignationId(
+  connection: any,
+  schoolId: number,
+  raw: string | undefined | null
+): Promise<number | null> {
+  if (raw == null) return null;
+  const trimmed = String(raw).trim();
+  if (!trimmed) return null;
+
+  if (/^\d+$/.test(trimmed)) {
+    const [byId] = await connection.execute(
+      'SELECT id FROM designations WHERE id = ? AND school_id = ? LIMIT 1',
+      [Number(trimmed), schoolId]
+    ) as any[];
+    if (byId.length > 0) return Number(byId[0].id);
+  }
+
+  const [rows] = await connection.execute(
+    `SELECT id FROM designations WHERE school_id = ? AND LOWER(TRIM(name)) = LOWER(?) LIMIT 1`,
+    [schoolId, trimmed]
+  ) as any[];
+  if (rows.length > 0) return Number(rows[0].id);
+
+  try {
+    const [ins] = await connection.execute(
+      'INSERT INTO designations (school_id, name, description) VALUES (?, ?, NULL)',
+      [schoolId, trimmed]
+    ) as any;
+    return Number(ins.insertId);
+  } catch (e: any) {
+    if (e?.code === 'ER_DUP_ENTRY') {
+      const [again] = await connection.execute(
+        `SELECT id FROM designations WHERE school_id = ? AND LOWER(TRIM(name)) = LOWER(?) LIMIT 1`,
+        [schoolId, trimmed]
+      ) as any[];
+      if (again.length > 0) return Number(again[0].id);
+    }
+    throw e;
+  }
+}
+
+/** Find or create department for school (case-insensitive name match). Numeric-only strings first try match by ID for legacy Excel. */
+async function resolveOrCreateDepartmentId(
+  connection: any,
+  schoolId: number,
+  raw: string | undefined | null
+): Promise<number | null> {
+  if (raw == null) return null;
+  const trimmed = String(raw).trim();
+  if (!trimmed) return null;
+
+  if (/^\d+$/.test(trimmed)) {
+    const [byId] = await connection.execute(
+      'SELECT id FROM departments WHERE id = ? AND school_id = ? LIMIT 1',
+      [Number(trimmed), schoolId]
+    ) as any[];
+    if (byId.length > 0) return Number(byId[0].id);
+  }
+
+  const [rows] = await connection.execute(
+    `SELECT id FROM departments WHERE school_id = ? AND LOWER(TRIM(name)) = LOWER(?) LIMIT 1`,
+    [schoolId, trimmed]
+  ) as any[];
+  if (rows.length > 0) return Number(rows[0].id);
+
+  try {
+    const [ins] = await connection.execute(
+      'INSERT INTO departments (school_id, name, description) VALUES (?, ?, NULL)',
+      [schoolId, trimmed]
+    ) as any;
+    return Number(ins.insertId);
+  } catch (e: any) {
+    if (e?.code === 'ER_DUP_ENTRY') {
+      const [again] = await connection.execute(
+        `SELECT id FROM departments WHERE school_id = ? AND LOWER(TRIM(name)) = LOWER(?) LIMIT 1`,
+        [schoolId, trimmed]
+      ) as any[];
+      if (again.length > 0) return Number(again[0].id);
+    }
+    throw e;
+  }
+}
+
+/** Normalize email for duplicate detection in import (matches typical uniqueness checks). */
+function normalizeImportEmailForDedup(raw: unknown): string | null {
+  if (raw == null || String(raw).trim() === '') return null;
+  return String(raw).trim().toLowerCase();
+}
+
+function isDuplicateKeyError(err: any): boolean {
+  return err?.code === 'ER_DUP_ENTRY' || err?.errno === 1062;
+}
+
+function isUsersEmailDuplicateError(err: any): boolean {
+  if (!isDuplicateKeyError(err)) return false;
+  const msg = String(err?.sqlMessage || err?.message || '');
+  return msg.includes('email') || msg.includes('users.');
+}
+
 // ========== Bulk Import Staff ==========
 export const bulkImportStaff = async (
   req: AuthRequest,
@@ -2229,6 +2387,19 @@ export const bulkImportStaff = async (
     if (!Array.isArray(staff) || staff.length === 0) {
       throw createError('Staff array is required and must not be empty', 400);
     }
+
+    const staffEmailFirstRow = new Map<string, number>();
+    const duplicateStaffEmailRows = new Set<number>();
+    staff.forEach((row: any, idx: number) => {
+      const e = normalizeImportEmailForDedup(row?.email);
+      if (!e) return;
+      const rowNum = idx + 2;
+      if (staffEmailFirstRow.has(e)) {
+        duplicateStaffEmailRows.add(rowNum);
+      } else {
+        staffEmailFirstRow.set(e, rowNum);
+      }
+    });
 
     // Get actual table structure from database to ensure we match exactly
     const [tableColumns] = await db.execute(`
@@ -2258,16 +2429,14 @@ export const bulkImportStaff = async (
       let staffConnection: any = null;
 
       try {
-        // Start transaction for this staff member
-        staffConnection = await db.getConnection();
-        await staffConnection.beginTransaction();
-
-        // Extract and validate required fields
+        // Extract and validate required fields (before opening DB connection)
         const {
           staff_id,
           role_id,
           designation_id,
           department_id,
+          designation_name,
+          department_name,
           first_name,
           last_name,
           father_name,
@@ -2315,10 +2484,27 @@ export const bulkImportStaff = async (
             first_name: first_name || 'N/A',
             error: `Missing required fields: ${missingFields.join(', ')}`,
           });
-          await staffConnection.rollback();
-          staffConnection.release();
           continue;
         }
+
+        const dedupEmail = normalizeImportEmailForDedup(email);
+        if (dedupEmail && duplicateStaffEmailRows.has(rowNumber)) {
+          const firstAt = staffEmailFirstRow.get(dedupEmail);
+          results.failed.push({
+            row: rowNumber,
+            staff_id: String(staff_id).trim(),
+            first_name: String(first_name).trim(),
+            error:
+              firstAt != null && firstAt !== rowNumber
+                ? `Duplicate email in import file (first used at row ${firstAt})`
+                : 'Duplicate email in import file',
+          });
+          continue;
+        }
+
+        // Start transaction for this staff member
+        staffConnection = await db.getConnection();
+        await staffConnection.beginTransaction();
 
         const [existing] = await staffConnection.execute(
           'SELECT id FROM staff WHERE staff_id = ? AND school_id = ?',
@@ -2328,6 +2514,7 @@ export const bulkImportStaff = async (
         if (existing.length > 0) {
           await staffConnection.rollback();
           staffConnection.release();
+          staffConnection = null;
           results.failed.push({
             row: rowNumber,
             staff_id: String(staff_id).trim(),
@@ -2342,8 +2529,42 @@ export const bulkImportStaff = async (
           const emailStr = String(email).trim();
           const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
           if (emailRegex.test(emailStr)) {
+            const [existingStaffEmail] = await staffConnection.execute(
+              'SELECT id FROM staff WHERE email = ? AND school_id = ? LIMIT 1',
+              [emailStr, schoolId]
+            ) as any[];
+            if (existingStaffEmail.length > 0) {
+              await staffConnection.rollback();
+              staffConnection.release();
+              staffConnection = null;
+              results.failed.push({
+                row: rowNumber,
+                staff_id: String(staff_id).trim(),
+                first_name: String(first_name).trim(),
+                error: `Email "${emailStr}" is already used by another staff member in this school`,
+              });
+              continue;
+            }
+
+            const [existingUser] = await staffConnection.execute(
+              'SELECT id FROM users WHERE email = ? LIMIT 1',
+              [emailStr]
+            ) as any[];
+            if (existingUser.length > 0) {
+              await staffConnection.rollback();
+              staffConnection.release();
+              staffConnection = null;
+              results.failed.push({
+                row: rowNumber,
+                staff_id: String(staff_id).trim(),
+                first_name: String(first_name).trim(),
+                error: `An account with email "${emailStr}" already exists (must be unique across all users)`,
+              });
+              continue;
+            }
+
             try {
-              // Generate default password: staff123 (same as manual creation)
+              // Generate default password: staff123 (same as manual staff creation)
               const defaultPassword = 'staff123';
               const hashedPassword = await bcrypt.hash(defaultPassword, 10);
 
@@ -2353,15 +2574,15 @@ export const bulkImportStaff = async (
               ) as any;
               staffUserId = userResult.insertId;
             } catch (userError: any) {
-              // If user creation fails, rollback and fail this staff
-              if (userError.code === 'ER_DUP_ENTRY' && userError.message.includes('email')) {
+              if (isUsersEmailDuplicateError(userError)) {
                 await staffConnection.rollback();
                 staffConnection.release();
+                staffConnection = null;
                 results.failed.push({
                   row: rowNumber,
                   staff_id: String(staff_id).trim(),
                   first_name: String(first_name).trim(),
-                  error: `Email "${emailStr}" already exists`,
+                  error: `An account with email "${emailStr}" already exists`,
                 });
                 continue;
               }
@@ -2370,13 +2591,53 @@ export const bulkImportStaff = async (
           }
         }
 
+        let resolvedDesignationId: number | null = null;
+        let resolvedDepartmentId: number | null = null;
+
+        const desigNameTrim =
+          designation_name != null && String(designation_name).trim() !== ''
+            ? String(designation_name).trim()
+            : '';
+        const deptNameTrim =
+          department_name != null && String(department_name).trim() !== ''
+            ? String(department_name).trim()
+            : '';
+
+        if (desigNameTrim !== '') {
+          resolvedDesignationId = await resolveOrCreateDesignationId(
+            staffConnection,
+            schoolId,
+            desigNameTrim
+          );
+        } else if (
+          designation_id != null &&
+          String(designation_id).trim() !== '' &&
+          !Number.isNaN(Number(designation_id))
+        ) {
+          resolvedDesignationId = Number(designation_id);
+        }
+
+        if (deptNameTrim !== '') {
+          resolvedDepartmentId = await resolveOrCreateDepartmentId(
+            staffConnection,
+            schoolId,
+            deptNameTrim
+          );
+        } else if (
+          department_id != null &&
+          String(department_id).trim() !== '' &&
+          !Number.isNaN(Number(department_id))
+        ) {
+          resolvedDepartmentId = Number(department_id);
+        }
+
         const staffFields: Record<string, any> = {
           school_id: schoolId,
           staff_id: String(staff_id).trim(),
           user_id: staffUserId,
           role_id: Number(role_id),
-          designation_id: designation_id ? Number(designation_id) : null,
-          department_id: department_id ? Number(department_id) : null,
+          designation_id: resolvedDesignationId,
+          department_id: resolvedDepartmentId,
           first_name: String(first_name).trim(),
           last_name: last_name ? String(last_name).trim() : null,
           father_name: father_name ? String(father_name).trim() : null,

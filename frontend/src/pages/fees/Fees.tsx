@@ -1418,6 +1418,7 @@ const CollectFeesTab = () => {
   const [selectedSection, setSelectedSection] = useState('');
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedStudent, setSelectedStudent] = useState<any>(null);
+  const [showStudentFeesModal, setShowStudentFeesModal] = useState(false);
   const [showPaymentModal, setShowPaymentModal] = useState(false);
   const [selectedInvoice, setSelectedInvoice] = useState<FeesInvoice | null>(null);
   const [paymentForm, setPaymentForm] = useState({
@@ -1480,11 +1481,20 @@ const CollectFeesTab = () => {
       }),
     { enabled: !!selectedStudent && !!currentSession }
   );
+  const { data: paymentsData, refetch: refetchPayments } = useQuery(
+    ['fees-payments', selectedStudent?.id],
+    () =>
+      feesService.getFeesPayments({
+        student_id: selectedStudent?.id,
+      }),
+    { enabled: !!selectedStudent }
+  );
 
   const paymentMutation = useMutation(feesService.createFeesPayment, {
     onSuccess: () => {
       queryClient.invalidateQueries('fees-payments');
       refetchInvoices();
+      refetchPayments();
       showToast('Payment recorded successfully', 'success');
       setShowPaymentModal(false);
       setPaymentForm({
@@ -1547,6 +1557,7 @@ const CollectFeesTab = () => {
       ? (studentsData as any).data
       : [];
   const invoices = Array.isArray(invoicesData) ? invoicesData : [];
+  const payments = Array.isArray(paymentsData) ? paymentsData : [];
 
   return (
     <div className="fees-tab-content">
@@ -1643,7 +1654,10 @@ const CollectFeesTab = () => {
                   <td>
                     <button
                       className="btn-sm btn-primary"
-                      onClick={() => setSelectedStudent(student)}
+                      onClick={() => {
+                        setSelectedStudent(student);
+                        setShowStudentFeesModal(true);
+                      }}
                     >
                       View Fees
                     </button>
@@ -1661,73 +1675,149 @@ const CollectFeesTab = () => {
         </div>
       )}
 
-      {selectedStudent && (
-        <div className="student-fees-section">
-          <h3>
-            Fees for {selectedStudent.first_name} {selectedStudent.last_name} (
-            {selectedStudent.admission_no})
-          </h3>
-          {invoices.length > 0 ? (
-            <table className="data-table">
-              <thead>
-                <tr>
-                  <th>Invoice No</th>
-                  <th>Fees Group</th>
-                  <th>Fees Type</th>
-                  <th>Amount</th>
-                  <th>Paid</th>
-                  <th>Balance</th>
-                  <th>Due Date</th>
-                  <th>Status</th>
-                  <th>Actions</th>
-                </tr>
-              </thead>
-              <tbody>
-                {invoices.map((invoice) => (
-                  <tr key={invoice.id}>
-                    <td>{invoice.invoice_no}</td>
-                    <td>{invoice.fees_group_name}</td>
-                    <td>{invoice.fees_type_name}</td>
-                    <td>₹{invoice.amount}</td>
-                    <td>₹{invoice.paid_amount}</td>
-                    <td>₹{invoice.balance_amount}</td>
-                    <td>
-                      {invoice.due_date
-                        ? new Date(invoice.due_date).toLocaleDateString()
-                        : '-'}
-                    </td>
-                    <td>
-                      <span
-                        className={`badge ${
-                          invoice.status === 'paid'
-                            ? 'badge-success'
-                            : invoice.status === 'partial'
-                            ? 'badge-warning'
-                            : 'badge-danger'
-                        }`}
-                      >
-                        {invoice.status}
-                      </span>
-                    </td>
-                    <td>
-                      {invoice.balance_amount > 0 && (
-                        <button
-                          className="btn-sm btn-primary"
-                          onClick={() => handleCollectFees(invoice)}
-                        >
-                          Collect
-                        </button>
-                      )}
-                    </td>
+      <Modal
+        isOpen={showStudentFeesModal}
+        onClose={() => {
+          setShowStudentFeesModal(false);
+          setSelectedStudent(null);
+        }}
+        size="xlarge"
+        className="fees-view-fee-modal"
+        title={
+          selectedStudent
+            ? `Fees Details - ${selectedStudent.first_name} ${selectedStudent.last_name || ''} (${selectedStudent.admission_no})`
+            : 'Fees Details'
+        }
+      >
+        {selectedStudent && (
+          <div className="student-fees-section">
+            <h3 style={{ marginBottom: '12px' }}>Invoices</h3>
+            {invoices.length > 0 ? (
+              <table className="data-table">
+                <thead>
+                  <tr>
+                    <th>Invoice No</th>
+                    <th>Fees Group</th>
+                    <th>Fees Type</th>
+                    <th>Amount</th>
+                    <th>Paid</th>
+                    <th>Balance</th>
+                    <th>Due Date</th>
+                    <th>Status</th>
+                    <th>Actions</th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
-          ) : (
-            <div className="empty-state">No fees invoices found for this student.</div>
-          )}
-        </div>
-      )}
+                </thead>
+                <tbody>
+                  {invoices.map((invoice) => {
+                    const paidFromTx = payments
+                      .filter((p) => p.fees_invoice_id === invoice.id)
+                      .reduce((s, p) => s + Number(p.amount || 0), 0);
+                    const displayPaid =
+                      paidFromTx > 0 ? paidFromTx : Number(invoice.paid_amount || 0);
+                    const amt = Number(invoice.amount || 0);
+                    const disc = Number(invoice.discount_amount || 0);
+                    const fine = Number(invoice.fine_amount || 0);
+                    const displayBalance = Math.max(0, amt - disc + fine - displayPaid);
+                    return (
+                    <tr key={invoice.id}>
+                      <td>{invoice.invoice_no}</td>
+                      <td>{invoice.fees_group_name}</td>
+                      <td>{invoice.fees_type_name}</td>
+                      <td>₹{Number(invoice.amount || 0).toFixed(2)}</td>
+                      <td>₹{displayPaid.toFixed(2)}</td>
+                      <td>₹{displayBalance.toFixed(2)}</td>
+                      <td>
+                        {invoice.due_date
+                          ? new Date(invoice.due_date).toLocaleDateString()
+                          : '-'}
+                      </td>
+                      <td>
+                        <span
+                          className={`badge ${
+                            invoice.status === 'paid'
+                              ? 'badge-success'
+                              : invoice.status === 'partial'
+                              ? 'badge-warning'
+                              : 'badge-danger'
+                          }`}
+                        >
+                          {invoice.status}
+                        </span>
+                      </td>
+                      <td style={{ display: 'flex', gap: '8px' }}>
+                        <button
+                          className="btn-sm btn-secondary"
+                          onClick={async () => {
+                            try {
+                              await feesService.downloadInvoicePDF(invoice.id);
+                            } catch (error: any) {
+                              showToast(
+                                error?.response?.data?.message ||
+                                  'Failed to download invoice PDF',
+                                'error'
+                              );
+                            }
+                          }}
+                        >
+                          Invoice
+                        </button>
+                        {displayBalance > 0 && (
+                          <button
+                            className="btn-sm btn-primary"
+                            onClick={() =>
+                              handleCollectFees({
+                                ...invoice,
+                                balance_amount: displayBalance,
+                              })
+                            }
+                          >
+                            Collect
+                          </button>
+                        )}
+                      </td>
+                    </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            ) : (
+              <div className="empty-state">No fees invoices found for this student.</div>
+            )}
+
+            <h3 style={{ margin: '18px 0 12px' }}>Transaction Details</h3>
+            {payments.length > 0 ? (
+              <table className="data-table">
+                <thead>
+                  <tr>
+                    <th>Payment ID</th>
+                    <th>Invoice No</th>
+                    <th>Amount</th>
+                    <th>Discount</th>
+                    <th>Fine</th>
+                    <th>Payment Date</th>
+                    <th>Payment Mode</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {payments.map((payment) => (
+                    <tr key={payment.id}>
+                      <td>{payment.payment_id}</td>
+                      <td>{payment.invoice_no || '-'}</td>
+                      <td>₹{Number(payment.amount || 0).toFixed(2)}</td>
+                      <td>₹{Number(payment.discount_amount || 0).toFixed(2)}</td>
+                      <td>₹{Number(payment.fine_amount || 0).toFixed(2)}</td>
+                      <td>{new Date(payment.payment_date).toLocaleDateString()}</td>
+                      <td>{payment.payment_mode || '-'}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            ) : (
+              <div className="empty-state">No transaction records found for this student.</div>
+            )}
+          </div>
+        )}
+      </Modal>
 
       <Modal
         isOpen={showPaymentModal}
@@ -1956,7 +2046,11 @@ const DueFeesTab = () => {
   const { data: feesGroups } = useQuery('fees-groups', feesService.getFeesGroups);
   const { data: feesTypes } = useQuery('fees-types', feesService.getFeesTypes);
   const { data: classesData } = useQuery('classes', academicsService.getClasses);
-  const { data: sectionsData } = useQuery('sections', () => academicsService.getSections());
+  const { data: sectionsData } = useQuery(
+    ['sections-for-due-fees', selectedClass],
+    () => academicsService.getSections(selectedClass ? Number(selectedClass) : undefined),
+    { enabled: !!selectedClass }
+  );
   const { data: sessionsData } = useQuery('sessions', () => settingsService.getSessions());
 
   const sessions = sessionsData?.data || [];
@@ -1994,10 +2088,12 @@ const DueFeesTab = () => {
         }
       }
 
-      // Filter by fees type if selected
-      const filteredInvoices = feesType
-        ? allInvoices.filter((inv) => (inv as any).fees_type_id === Number(feesType))
-        : allInvoices;
+      // Filter by fees group/type if selected
+      const filteredInvoices = allInvoices.filter((inv) => {
+        const matchesFeesGroup = feesGroup ? (inv as any).fees_group_id === Number(feesGroup) : true;
+        const matchesFeesType = feesType ? (inv as any).fees_type_id === Number(feesType) : true;
+        return matchesFeesGroup && matchesFeesType;
+      });
 
       // Group by student
       const studentMap = new Map();

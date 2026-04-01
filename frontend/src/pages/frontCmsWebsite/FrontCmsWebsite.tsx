@@ -161,9 +161,20 @@ const FrontCmsWebsite: React.FC = () => {
 
   const handleSettingsSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+    const isSchoolIdentityLocked = settingsForm.can_edit_school_identity === false || Boolean(settingsForm.subdomain);
+    if (isSchoolIdentityLocked) {
+      updateSettingsMutation.mutate({
+        data: {
+          ...settingsForm,
+          school_name: String(settings?.school_name || settingsForm.school_name || '').trim(),
+        },
+        logoFile,
+      });
+      return;
+    }
     const schoolName = String(settingsForm.school_name || '').trim().replace(/\s+/g, ' ');
-    if (schoolName.length < 3 || schoolName.length > 60) {
-      showToast('School name must be between 3 and 60 characters', 'error');
+    if (schoolName.length < 3 || schoolName.length > 25) {
+      showToast('School name must be between 3 and 25 characters', 'error');
       return;
     }
     if (!/^[A-Za-z0-9 ]+$/.test(schoolName)) {
@@ -991,10 +1002,31 @@ const FrontCmsWebsite: React.FC = () => {
   }
 
   const schoolWebsiteUrl = String(settings?.website_url || settingsForm.website_url || '').trim();
-  const canViewSchoolWebsite = Boolean(schoolWebsiteUrl);
   const schoolNamePreview = String(settingsForm.school_name || '').trim().replace(/\s+/g, ' ');
-  const subdomainPreview = schoolNamePreview.toLowerCase().replace(/[^a-z0-9 ]/g, '').replace(/\s+/g, '');
+  const generatedSubdomainPreview = schoolNamePreview.toLowerCase().replace(/[^a-z0-9 ]/g, '').replace(/\s+/g, '');
+  const lockedSubdomain = String(settingsForm.subdomain || '').trim();
+  const subdomainPreview = lockedSubdomain || generatedSubdomainPreview;
   const baseDomain = 'makemyschool.com';
+  const isSchoolIdentityLocked = settingsForm.can_edit_school_identity === false || Boolean(lockedSubdomain);
+  const supportSubject = encodeURIComponent('Support Required for the CMS School');
+  const supportBody = encodeURIComponent(`Please help with school identity update.\n\nCurrent school name: ${String(settingsForm.school_name || '').trim()}\nCurrent subdomain: ${subdomainPreview || '(not generated)'}\n`);
+  const supportMailToLink = `mailto:support@makemyschool.com?subject=${supportSubject}&body=${supportBody}`;
+  const publicWebsiteBaseUrl = String(import.meta.env.VITE_PUBLIC_WEBSITE_URL || '').trim();
+  let resolvedSchoolWebsiteUrl = schoolWebsiteUrl;
+  if (publicWebsiteBaseUrl && settingsForm.school_id) {
+    try {
+      const publicUrl = new URL(publicWebsiteBaseUrl);
+      if (!publicUrl.searchParams.get('school_id')) {
+        publicUrl.searchParams.set('school_id', String(settingsForm.school_id));
+      }
+      resolvedSchoolWebsiteUrl = publicUrl.toString();
+    } catch {
+      resolvedSchoolWebsiteUrl = schoolWebsiteUrl;
+    }
+  }
+  const canViewSchoolWebsite = Boolean(resolvedSchoolWebsiteUrl);
+  const isWebsiteReady = Boolean(settingsForm.is_website_ready);
+  const isViewWebsiteDisabled = !canViewSchoolWebsite || !isWebsiteReady;
 
   return (
     <div className="front-cms-website">
@@ -1006,20 +1038,25 @@ const FrontCmsWebsite: React.FC = () => {
         <button
           type="button"
           className="btn-view-school-website"
-          disabled={!canViewSchoolWebsite}
+          disabled={isViewWebsiteDisabled}
           onClick={() => {
-            if (!canViewSchoolWebsite) return;
-            window.open(schoolWebsiteUrl, '_blank', 'noopener,noreferrer');
+            if (isViewWebsiteDisabled) return;
+            window.open(resolvedSchoolWebsiteUrl, '_blank', 'noopener,noreferrer');
           }}
           title={
-            canViewSchoolWebsite
-              ? 'Open school website in new tab'
-              : 'Save a valid school name first to generate school website URL'
+            !canViewSchoolWebsite
+              ? 'Save a valid school name first to generate school website URL'
+              : !isWebsiteReady
+              ? 'Website is being configured. Please wait 3-4 hours after saving.'
+              : 'Open school website in new tab'
           }
         >
           <i className="fas fa-external-link-alt" aria-hidden />
           View School Website
         </button>
+        <div className="school-website-hint school-website-wait-note">
+          After saving your school details, please wait 3-4 hours for your school website to go live.
+        </div>
         {!canViewSchoolWebsite && (
           <div className="school-website-hint">
             Save a valid school name to enable website preview.
@@ -1027,12 +1064,12 @@ const FrontCmsWebsite: React.FC = () => {
         )}
         {canViewSchoolWebsite && (
           <a
-            href={schoolWebsiteUrl}
+            href={resolvedSchoolWebsiteUrl}
             target="_blank"
             rel="noopener noreferrer"
             className="school-website-url"
           >
-            {schoolWebsiteUrl}
+            {resolvedSchoolWebsiteUrl}
           </a>
         )}
       </div>
@@ -1099,13 +1136,14 @@ const FrontCmsWebsite: React.FC = () => {
                       <button
                         type="button"
                         className="remove-logo-btn"
+                        aria-label="Remove selected logo"
                         onClick={() => {
                           setLogoPreview(null);
                           setLogoFile(null);
                           setSettingsForm({ ...settingsForm, website_logo: null });
                         }}
                       >
-                        <i className="fas fa-times"></i>
+                        ×
                       </button>
                     </div>
                   )}
@@ -1128,16 +1166,32 @@ const FrontCmsWebsite: React.FC = () => {
                   onChange={(e) =>
                     setSettingsForm({ ...settingsForm, school_name: e.target.value })
                   }
+                  disabled={isSchoolIdentityLocked}
                   required
-                  maxLength={60}
+                  maxLength={25}
                   pattern="[A-Za-z0-9 ]+"
                   placeholder="Enter school name"
                 />
-                <p className="help-text">Only letters, numbers and spaces allowed. Max 60 characters.</p>
+                <p className="help-text">Only letters, numbers and spaces allowed. Max 25 characters.</p>
                 {subdomainPreview.length >= 3 && (
                   <p className="help-text">
                     Subdomain preview: <strong>{`${subdomainPreview}.${baseDomain}`}</strong>
                   </p>
+                )}
+                {isSchoolIdentityLocked && (
+                  <div className="school-identity-lock-note">
+                    <p className="help-text">
+                      School name and subdomain are locked after first save to keep tenant domain mapping stable.
+                    </p>
+                    <a
+                      href={supportMailToLink}
+                      className="school-identity-support-btn"
+                      target="_blank"
+                      rel="noopener noreferrer"
+                    >
+                      Contact Support
+                    </a>
+                  </div>
                 )}
               </div>
 

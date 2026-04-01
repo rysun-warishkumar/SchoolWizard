@@ -154,6 +154,11 @@ export const studentsService = {
     return response.data;
   },
 
+  async updateStudentPassword(id: string, new_password: string): Promise<{ success: boolean; message: string }> {
+    const response = await apiClient.patch<{ success: boolean; message: string }>(`/students/${id}/password`, { new_password });
+    return response.data;
+  },
+
   // Categories
   async getCategories(): Promise<{ success: boolean; data: StudentCategory[] }> {
     const response = await apiClient.get<{ success: boolean; data: StudentCategory[] }>('/students/categories');

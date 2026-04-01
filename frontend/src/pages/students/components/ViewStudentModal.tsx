@@ -12,6 +12,8 @@ interface ViewStudentModalProps {
 const ViewStudentModal: React.FC<ViewStudentModalProps> = ({ studentId, onClose }) => {
   const [photoPreview, setPhotoPreview] = useState<string | null>(null);
   const [isUploadingPhoto, setIsUploadingPhoto] = useState(false);
+  const [newPassword, setNewPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
   const queryClient = useQueryClient();
   const { showToast } = useToast();
 
@@ -40,6 +42,21 @@ const ViewStudentModal: React.FC<ViewStudentModalProps> = ({ studentId, onClose 
         showToast(error.response?.data?.message || 'Failed to update photo', 'error');
         setIsUploadingPhoto(false);
         setPhotoPreview(null);
+      },
+    }
+  );
+
+  const updatePasswordMutation = useMutation(
+    (payload: { id: string; new_password: string }) =>
+      studentsService.updateStudentPassword(payload.id, payload.new_password),
+    {
+      onSuccess: (data) => {
+        setNewPassword('');
+        setConfirmPassword('');
+        showToast(data?.message || 'Student password updated successfully', 'success');
+      },
+      onError: (error: any) => {
+        showToast(error.response?.data?.message || 'Failed to update student password', 'error');
       },
     }
   );
@@ -80,6 +97,26 @@ const ViewStudentModal: React.FC<ViewStudentModalProps> = ({ studentId, onClose 
     
     // Upload file
     updatePhotoMutation.mutate(formData);
+  };
+
+  const handleUpdatePassword = () => {
+    const password = String(newPassword || '');
+    const confirm = String(confirmPassword || '');
+
+    if (password.trim() === '') {
+      showToast('Please enter new password', 'error');
+      return;
+    }
+    if (password.length < 8) {
+      showToast('Password must be at least 8 characters long', 'error');
+      return;
+    }
+    if (password !== confirm) {
+      showToast('Password and confirm password do not match', 'error');
+      return;
+    }
+
+    updatePasswordMutation.mutate({ id: String(studentId), new_password: password });
   };
 
 
@@ -197,6 +234,36 @@ const ViewStudentModal: React.FC<ViewStudentModalProps> = ({ studentId, onClose 
                 <span className={`status-badge-large ${student.is_active ? 'active' : 'inactive'}`}>
                   {student.is_active ? 'Active' : 'Inactive'}
                 </span>
+              </div>
+              <div style={{ marginTop: '12px', maxWidth: '420px' }}>
+                <div style={{ fontSize: '13px', fontWeight: 600, marginBottom: '8px' }}>Update Student Password</div>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr auto', gap: '8px' }}>
+                  <input
+                    type="password"
+                    placeholder="New password (min 8 chars)"
+                    value={newPassword}
+                    onChange={(e) => setNewPassword(e.target.value)}
+                    disabled={updatePasswordMutation.isLoading}
+                    style={{ padding: '8px' }}
+                  />
+                  <input
+                    type="password"
+                    placeholder="Confirm password"
+                    value={confirmPassword}
+                    onChange={(e) => setConfirmPassword(e.target.value)}
+                    disabled={updatePasswordMutation.isLoading}
+                    style={{ padding: '8px' }}
+                  />
+                  <button
+                    type="button"
+                    className="btn-primary"
+                    onClick={handleUpdatePassword}
+                    disabled={updatePasswordMutation.isLoading}
+                    style={{ whiteSpace: 'nowrap' }}
+                  >
+                    {updatePasswordMutation.isLoading ? 'Updating...' : 'Update Password'}
+                  </button>
+                </div>
               </div>
             </div>
           </div>

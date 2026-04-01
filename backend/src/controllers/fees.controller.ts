@@ -435,7 +435,14 @@ export const getStudentFeesInvoices = async (
         fm.due_date as fees_due_date,
         fg.name as fees_group_name,
         ft.name as fees_type_name,
-        ft.code as fees_type_code
+        ft.code as fees_type_code,
+        (
+          SELECT COALESCE(SUM(fp.amount), 0)
+          FROM fees_payments fp
+          WHERE fp.fees_invoice_id = fi.id
+            AND fp.school_id = fi.school_id
+            AND fp.is_reverted = 0
+        ) AS payments_total
       FROM fees_invoices fi
       INNER JOIN fees_master fm ON fi.fees_master_id = fm.id AND fm.school_id = ?
       INNER JOIN fees_groups fg ON fm.fees_group_id = fg.id AND fg.school_id = ?
@@ -473,7 +480,25 @@ export const getStudentFeesInvoices = async (
 
     const [invoices] = await db.execute(query, params) as any[];
 
-    res.json({ success: true, data: invoices });
+    // Normalize amounts: MySQL DECIMALs may arrive as strings; payment sums are authoritative for paid/balance display.
+    const data = (Array.isArray(invoices) ? invoices : []).map((row: any) => {
+      const sumPaid = Number(row.payments_total ?? 0);
+      const amt = Number(row.amount ?? 0);
+      const disc = Number(row.discount_amount ?? 0);
+      const fine = Number(row.fine_amount ?? 0);
+      const newBalance = Math.max(0, amt - disc + fine - sumPaid);
+      const newStatus =
+        newBalance <= 0 ? 'paid' : sumPaid > 0 ? 'partial' : String(row.status || 'pending');
+      const { payments_total: _pt, ...rest } = row;
+      return {
+        ...rest,
+        paid_amount: sumPaid,
+        balance_amount: newBalance,
+        status: newStatus,
+      };
+    });
+
+    res.json({ success: true, data });
   } catch (error) {
     next(error);
   }
@@ -642,8 +667,11 @@ export const createFeesPayment = async (
       }
 
       const currentInvoice = invoice[0];
-      const newPaidAmount = (currentInvoice.paid_amount || 0) + Number(amount);
-      const newBalanceAmount = currentInvoice.balance_amount - Number(amount);
+      const prevPaid = Number(currentInvoice.paid_amount ?? 0);
+      const prevBalance = Number(currentInvoice.balance_amount ?? 0);
+      const payAmt = Number(amount);
+      const newPaidAmount = prevPaid + payAmt;
+      const newBalanceAmount = prevBalance - payAmt;
       const newStatus =
         newBalanceAmount <= 0
           ? 'paid'
@@ -1316,6 +1344,8 @@ export const downloadInvoicePDF = async (
   next: NextFunction
 ): Promise<void> => {
   try {
+    const schoolId = getSchoolId(req);
+    if (schoolId == null) throw createError('School context required', 403);
     const { invoice_id } = req.params;
     if (!invoice_id) {
       throw createError('Invoice ID is required', 400);
@@ -1326,17 +1356,36 @@ export const downloadInvoicePDF = async (
     }
     const db = getDatabase();
 
-    // If user is a student, ensure they can only access their own invoices
-    let actualStudentId: number | null = null;
-    if (req.user?.role === 'student') {
+    // If user is a student/parent, ensure they can only access allowed student invoices
+    let allowedStudentIds: number[] | null = null;
+    const userRole = String(req.user?.role || '').toLowerCase();
+    if (userRole === 'student') {
       const [students] = await db.execute(
-        'SELECT id FROM students WHERE user_id = ?',
-        [req.user.id]
+        'SELECT id FROM students WHERE user_id = ? AND school_id = ?',
+        [req.user.id, schoolId]
       ) as any[];
       if (students.length === 0) {
         throw createError('Student profile not found', 404);
       }
-      actualStudentId = students[0].id;
+      allowedStudentIds = [Number(students[0].id)];
+    } else if (userRole === 'parent') {
+      const parentEmail = req.user?.email;
+      if (!parentEmail) {
+        throw createError('Parent email is required to access children invoices', 400);
+      }
+      const [children] = await db.execute(
+        `SELECT s.id
+         FROM students s
+         WHERE s.school_id = ?
+           AND (s.father_email = ? OR s.mother_email = ? OR s.guardian_email = ?)`,
+        [schoolId, parentEmail, parentEmail, parentEmail]
+      ) as any[];
+      allowedStudentIds = children
+        .map((child: any) => Number(child.id))
+        .filter((id: number) => !Number.isNaN(id));
+      if (allowedStudentIds.length === 0) {
+        throw createError('No linked students found for parent account', 403);
+      }
     }
 
     // Fetch invoice with related data
@@ -1366,13 +1415,14 @@ export const downloadInvoicePDF = async (
       LEFT JOIN classes c ON s.class_id = c.id
       LEFT JOIN sections sec ON s.section_id = sec.id
       LEFT JOIN sessions sess ON fi.session_id = sess.id
-      WHERE fi.id = ?
+      WHERE fi.id = ? AND fi.school_id = ?
     `;
-    const invoiceParams: any[] = [invoiceId];
+    const invoiceParams: any[] = [invoiceId, schoolId];
 
-    if (actualStudentId) {
-      invoiceQuery += ' AND fi.student_id = ?';
-      invoiceParams.push(actualStudentId);
+    if (allowedStudentIds && allowedStudentIds.length > 0) {
+      const placeholders = allowedStudentIds.map(() => '?').join(', ');
+      invoiceQuery += ` AND fi.student_id IN (${placeholders})`;
+      invoiceParams.push(...allowedStudentIds);
     }
 
     const [invoices] = await db.execute(invoiceQuery, invoiceParams) as any[];
@@ -1383,9 +1433,27 @@ export const downloadInvoicePDF = async (
 
     const invoice = invoices[0];
 
+    // Authoritative paid/balance from payments (avoids stale or string-concat bugs on fi.paid_amount)
+    const [paymentSumRows] = await db.execute(
+      `SELECT COALESCE(SUM(amount), 0) AS total_paid
+       FROM fees_payments
+       WHERE fees_invoice_id = ? AND school_id = ? AND is_reverted = 0`,
+      [invoiceId, schoolId]
+    ) as any[];
+    const pdfPaidAmount = Number(
+      paymentSumRows?.[0]?.total_paid != null ? paymentSumRows[0].total_paid : 0
+    );
+    const invAmount = Number(invoice.amount ?? 0);
+    const invDiscount = Number(invoice.discount_amount ?? 0);
+    const invFine = Number(invoice.fine_amount ?? 0);
+    const pdfBalanceAmount = Math.max(0, invAmount - invDiscount + invFine - pdfPaidAmount);
+    const pdfStatusLabel =
+      pdfBalanceAmount <= 0 ? 'PAID' : pdfPaidAmount > 0 ? 'PARTIAL' : String(invoice.status || 'pending').toUpperCase();
+
     // Fetch school settings
     const [settings] = await db.execute(
-      'SELECT setting_key, setting_value, setting_type FROM general_settings'
+      'SELECT setting_key, setting_value, setting_type FROM general_settings WHERE school_id = ?',
+      [schoolId]
     ) as any[];
 
     const settingsObj: any = {};
@@ -1403,7 +1471,17 @@ export const downloadInvoicePDF = async (
     const schoolAddress = settingsObj.address || '';
     const schoolPhone = settingsObj.phone || '';
     const schoolEmail = settingsObj.email || '';
-    const currencySymbol = settingsObj.currency_symbol || '₹';
+    const currencySymbolRaw = String(settingsObj.currency_symbol || '₹').trim();
+    // Normalize USD symbol for this product's invoice format.
+    const currencySymbol = currencySymbolRaw === '$' ? 'Rs. ' : currencySymbolRaw;
+    const formatAmount = (value: number | string): string => {
+      const amount = Number.parseFloat(String(value || 0));
+      if (Number.isNaN(amount)) return `${currencySymbol}0.00`;
+      return `${currencySymbol}${amount.toLocaleString('en-IN', {
+        minimumFractionDigits: 2,
+        maximumFractionDigits: 2,
+      })}`;
+    };
     const printLogo = settingsObj.print_logo || settingsObj.admin_logo || '';
     
     // Get logo path
@@ -1489,21 +1567,35 @@ export const downloadInvoicePDF = async (
     }
     
     // Right side - Invoice Title and Details
+    const headerRightWidth = 220;
+    const headerRightX = rightMargin - headerRightWidth;
     doc.fontSize(24).font('Helvetica-Bold');
-    doc.text('INVOICE', rightMargin - 150, yPos, { width: 150, align: 'right' });
-    yPos += 20;
+    doc.text('INVOICE', headerRightX, yPos, { width: headerRightWidth, align: 'right' });
+    const invoiceMetaTopY = yPos + 32;
     
-    doc.fontSize(9).font('Helvetica');
-    doc.text(`INVOICE #${invoice.invoice_no}`, rightMargin - 150, yPos, { width: 150, align: 'right' });
-    yPos += 12;
+    doc.fontSize(10).font('Helvetica-Bold');
+    const invoiceNoText = `INVOICE # ${invoice.invoice_no}`;
+    doc.text(invoiceNoText, headerRightX, invoiceMetaTopY, {
+      width: headerRightWidth,
+      align: 'right',
+    });
     
     // Format date more compactly
     const invoiceDate = new Date(invoice.created_at);
     const monthAbbr = ['JAN', 'FEB', 'MAR', 'APR', 'MAY', 'JUN', 'JUL', 'AUG', 'SEP', 'OCT', 'NOV', 'DEC'];
     const formattedDate = `${monthAbbr[invoiceDate.getMonth()]} ${invoiceDate.getDate()}, ${invoiceDate.getFullYear()}`;
-    doc.text(`DATE: ${formattedDate}`, rightMargin - 150, yPos, { width: 150, align: 'right' });
+    const invoiceNoHeight = doc.heightOfString(invoiceNoText, {
+      width: headerRightWidth,
+      align: 'right',
+    });
+    const dateY = invoiceMetaTopY + invoiceNoHeight + 5;
+    doc.fontSize(10).font('Helvetica');
+    doc.text(`DATE: ${formattedDate}`, headerRightX, dateY, {
+      width: headerRightWidth,
+      align: 'right',
+    });
     
-    yPos = Math.max(headerLeftY, yPos + 10) + 15;
+    yPos = Math.max(headerLeftY, dateY + 12) + 15;
     
     // ========== TO: AND SHIP TO: SECTIONS ==========
     const toSectionY = yPos;
@@ -1559,7 +1651,9 @@ export const downloadInvoicePDF = async (
     
     // ========== DETAIL TABLE ==========
     const detailTableY = yPos;
-    const detailTableHeight = 25;
+    const detailHeaderHeight = 16;
+    const detailDataHeight = 20;
+    const detailTableHeight = detailHeaderHeight + detailDataHeight;
     // Adjusted column widths for better spacing
     const col1Width = 100; // FEE GROUP
     const col2Width = 90;  // FEE TYPE
@@ -1580,40 +1674,40 @@ export const downloadInvoicePDF = async (
     doc.moveTo(currentX += col5Width, detailTableY).lineTo(currentX, detailTableY + detailTableHeight).lineWidth(0.5).stroke();
     
     // Detail table headers
-    doc.rect(leftMargin, detailTableY, pageWidth, detailTableHeight / 2).fill('#f0f0f0');
+    doc.rect(leftMargin, detailTableY, pageWidth, detailHeaderHeight).fill('#f0f0f0');
     doc.fontSize(8).font('Helvetica-Bold');
     doc.fillColor('black');
     currentX = leftMargin + 5;
-    doc.text('FEE GROUP', currentX, detailTableY + 8, { width: col1Width - 10 });
+    doc.text('FEE GROUP', currentX, detailTableY + 5, { width: col1Width - 10, lineBreak: false });
     currentX += col1Width;
-    doc.text('FEE TYPE', currentX, detailTableY + 8, { width: col2Width - 10 });
+    doc.text('FEE TYPE', currentX, detailTableY + 5, { width: col2Width - 10, lineBreak: false });
     currentX += col2Width;
-    doc.text('SESSION', currentX, detailTableY + 8, { width: col3Width - 10 });
+    doc.text('SESSION', currentX, detailTableY + 5, { width: col3Width - 10, lineBreak: false });
     currentX += col3Width;
-    doc.text('DUE DATE', currentX, detailTableY + 8, { width: col4Width - 10 });
+    doc.text('DUE DATE', currentX, detailTableY + 5, { width: col4Width - 10, lineBreak: false });
     currentX += col4Width;
-    doc.text('STATUS', currentX, detailTableY + 8, { width: col5Width - 10 });
+    doc.text('STATUS', currentX, detailTableY + 5, { width: col5Width - 10, lineBreak: false });
     currentX += col5Width;
-    doc.text('PAYMENT MODE', currentX, detailTableY + 8, { width: col6Width - 10 });
+    doc.text('PAYMENT MODE', currentX, detailTableY + 5, { width: col6Width - 10, lineBreak: false });
     
     // Detail table separator
-    doc.moveTo(leftMargin, detailTableY + detailTableHeight / 2).lineTo(leftMargin + pageWidth, detailTableY + detailTableHeight / 2).lineWidth(1).stroke();
+    doc.moveTo(leftMargin, detailTableY + detailHeaderHeight).lineTo(leftMargin + pageWidth, detailTableY + detailHeaderHeight).lineWidth(1).stroke();
     
     // Detail table data
     doc.fontSize(8).font('Helvetica');
     doc.fillColor('black');
     currentX = leftMargin + 5;
-    doc.text(invoice.fees_group_name || '-', currentX, detailTableY + 18, { width: col1Width - 10 });
+    doc.text(invoice.fees_group_name || '-', currentX, detailTableY + detailHeaderHeight + 5, { width: col1Width - 10, lineBreak: false });
     currentX += col1Width;
-    doc.text(invoice.fees_type_name || '-', currentX, detailTableY + 18, { width: col2Width - 10 });
+    doc.text(invoice.fees_type_name || '-', currentX, detailTableY + detailHeaderHeight + 5, { width: col2Width - 10, lineBreak: false });
     currentX += col2Width;
-    doc.text(invoice.session_name || '-', currentX, detailTableY + 18, { width: col3Width - 10 });
+    doc.text(invoice.session_name || '-', currentX, detailTableY + detailHeaderHeight + 5, { width: col3Width - 10, lineBreak: false });
     currentX += col3Width;
-    doc.text(invoice.due_date ? new Date(invoice.due_date).toLocaleDateString() : '-', currentX, detailTableY + 18, { width: col4Width - 10 });
+    doc.text(invoice.due_date ? new Date(invoice.due_date).toLocaleDateString() : '-', currentX, detailTableY + detailHeaderHeight + 5, { width: col4Width - 10, lineBreak: false });
     currentX += col4Width;
-    doc.text((invoice.status || 'PENDING').toUpperCase(), currentX, detailTableY + 18, { width: col5Width - 10 });
+    doc.text(pdfStatusLabel, currentX, detailTableY + detailHeaderHeight + 5, { width: col5Width - 10, lineBreak: false });
     currentX += col5Width;
-    doc.text('-', currentX, detailTableY + 18, { width: col6Width - 10 });
+    doc.text('-', currentX, detailTableY + detailHeaderHeight + 5, { width: col6Width - 10, lineBreak: false });
     
     yPos = detailTableY + detailTableHeight + 15;
     
@@ -1632,8 +1726,8 @@ export const downloadInvoicePDF = async (
     lineItems.push({
       qty: '1',
       desc: invoice.fees_type_name || 'School Fee',
-      unitPrice: `${currencySymbol}${parseFloat(invoice.amount || 0).toFixed(2)}`,
-      total: `${currencySymbol}${parseFloat(invoice.amount || 0).toFixed(2)}`
+      unitPrice: formatAmount(invoice.amount || 0),
+      total: formatAmount(invoice.amount || 0)
     });
     
     const tableHeight = 25 + (lineItems.length * tableRowHeight); // Header + rows
@@ -1676,9 +1770,9 @@ export const downloadInvoicePDF = async (
     }
     
     // ========== SUMMARY SECTION (Right side) ==========
-    const summaryX = leftMargin + qtyWidth + descWidth + unitPriceWidth + 10;
+    const summaryWidth = 170;
+    const summaryX = leftMargin + pageWidth - summaryWidth;
     const summaryY = tableY;
-    const summaryWidth = totalWidth - 10;
     const summaryBoxHeight = 18;
     
     let summaryYPos = summaryY + tableHeight + 10;
@@ -1688,14 +1782,14 @@ export const downloadInvoicePDF = async (
     doc.fontSize(8).font('Helvetica');
     doc.fillColor('black');
     doc.text('SUBTOTAL', summaryX + 5, summaryYPos + 6);
-    doc.text(`${currencySymbol}${parseFloat(invoice.amount || 0).toFixed(2)}`, summaryX + 5, summaryYPos + 6, { width: summaryWidth - 10, align: 'right' });
+    doc.text(formatAmount(invoice.amount || 0), summaryX + 5, summaryYPos + 6, { width: summaryWidth - 10, align: 'right' });
     summaryYPos += summaryBoxHeight;
     
     // DISCOUNT (if any)
     if (parseFloat(invoice.discount_amount || 0) > 0) {
       doc.rect(summaryX, summaryYPos, summaryWidth, summaryBoxHeight).stroke();
       doc.text('DISCOUNT', summaryX + 5, summaryYPos + 6);
-      doc.text(`-${currencySymbol}${parseFloat(invoice.discount_amount || 0).toFixed(2)}`, summaryX + 5, summaryYPos + 6, { width: summaryWidth - 10, align: 'right' });
+      doc.text(`-${formatAmount(invoice.discount_amount || 0)}`, summaryX + 5, summaryYPos + 6, { width: summaryWidth - 10, align: 'right' });
       summaryYPos += summaryBoxHeight;
     }
     
@@ -1703,15 +1797,15 @@ export const downloadInvoicePDF = async (
     if (parseFloat(invoice.fine_amount || 0) > 0) {
       doc.rect(summaryX, summaryYPos, summaryWidth, summaryBoxHeight).stroke();
       doc.text('FINE', summaryX + 5, summaryYPos + 6);
-      doc.text(`${currencySymbol}${parseFloat(invoice.fine_amount || 0).toFixed(2)}`, summaryX + 5, summaryYPos + 6, { width: summaryWidth - 10, align: 'right' });
+      doc.text(formatAmount(invoice.fine_amount || 0), summaryX + 5, summaryYPos + 6, { width: summaryWidth - 10, align: 'right' });
       summaryYPos += summaryBoxHeight;
     }
     
-    // PAID AMOUNT (if any)
-    if (parseFloat(invoice.paid_amount || 0) > 0) {
+    // PAID AMOUNT (if any) — uses sum of fees_payments
+    if (pdfPaidAmount > 0) {
       doc.rect(summaryX, summaryYPos, summaryWidth, summaryBoxHeight).stroke();
       doc.text('PAID', summaryX + 5, summaryYPos + 6);
-      doc.text(`${currencySymbol}${parseFloat(invoice.paid_amount || 0).toFixed(2)}`, summaryX + 5, summaryYPos + 6, { width: summaryWidth - 10, align: 'right' });
+      doc.text(formatAmount(pdfPaidAmount), summaryX + 5, summaryYPos + 6, { width: summaryWidth - 10, align: 'right' });
       summaryYPos += summaryBoxHeight;
     }
     
@@ -1724,7 +1818,7 @@ export const downloadInvoicePDF = async (
     // Label on left
     doc.text('TOTAL DUE', summaryX + 5, summaryYPos + 7);
     // Amount on right, same line
-    doc.text(`${currencySymbol}${parseFloat(invoice.balance_amount || 0).toFixed(2)}`, summaryX + 5, summaryYPos + 7, { width: summaryWidth - 10, align: 'right' });
+    doc.text(formatAmount(pdfBalanceAmount), summaryX + 5, summaryYPos + 7, { width: summaryWidth - 10, align: 'right' });
     
     yPos = Math.max(rowY, summaryYPos + summaryBoxHeight + 5) + 15;
     

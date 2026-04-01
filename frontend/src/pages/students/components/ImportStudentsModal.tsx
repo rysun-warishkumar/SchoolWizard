@@ -475,7 +475,21 @@ const ImportStudentsModal: React.FC<ImportStudentsModalProps> = ({ isOpen, onClo
           <h4 style={{ marginTop: 0 }}>Instructions:</h4>
           <ul style={{ margin: '10px 0', paddingLeft: '20px' }}>
             <li>Download the template Excel file below</li>
-            <li>Fill in student information (required fields: Admission No, Class ID, Section ID, First Name, Gender, Date of Birth, Admission Date)</li>
+            <li>
+              Fill in student information (required fields: Admission No, Class ID, Section ID, First Name, Gender,
+              Date of Birth, Admission Date). Data is saved for <strong>this school only</strong>; class and section
+              IDs must belong to this school.
+            </li>
+            <li>
+              <strong>Student login email</strong> must be unique (not duplicated in the file and not already used by
+              staff, parents, or other students). Father’s parent account uses a separate flow; do not use the same
+              email as the student’s login email for the father.
+            </li>
+            <li>
+              If you provide a student email, a random temporary password is generated (same as single admission). It
+              is not shown in the import result—use <strong>Forgot password</strong> or admin reset so the student can
+              set a password.
+            </li>
             <li>Upload the completed Excel file</li>
             <li>Profile pictures are not included in import - add them manually after import</li>
           </ul>

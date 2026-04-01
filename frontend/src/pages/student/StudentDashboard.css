@@ -1,15 +1,15 @@
 .student-dashboard {
-  padding: var(--spacing-xl);
-  max-width: 1400px;
+  padding: var(--spacing-md);
+  max-width: 1240px;
   margin: 0 auto;
 }
 
 .dashboard-header {
-  margin-bottom: var(--spacing-xl);
+  margin-bottom: var(--spacing-md);
 }
 
 .dashboard-header h1 {
-  font-size: var(--font-size-2xl);
+  font-size: var(--font-size-xl);
   font-weight: var(--font-weight-bold);
   color: var(--gray-900);
   margin: 0 0 var(--spacing-xs) 0;
@@ -18,27 +18,27 @@
 
 .dashboard-header p {
   color: var(--gray-600);
-  font-size: var(--font-size-base);
+  font-size: var(--font-size-sm);
   margin: 0;
   font-weight: var(--font-weight-normal);
 }
 
 .dashboard-stats {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
-  gap: var(--spacing-lg);
-  margin-bottom: var(--spacing-xl);
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: var(--spacing-md);
+  margin-bottom: var(--spacing-md);
 }
 
 .stat-card {
   background: var(--white);
   border-radius: var(--radius-lg);
-  padding: var(--spacing-lg);
+  padding: 12px;
   box-shadow: var(--shadow-sm);
   display: flex;
   flex-direction: row;
   align-items: center;
-  gap: var(--spacing-md);
+  gap: 10px;
   transition: all var(--transition-base);
   border-left: 4px solid var(--primary-color);
 }
@@ -49,9 +49,9 @@
 }
 
 .stat-icon {
-  font-size: 3rem;
-  width: 80px;
-  height: 80px;
+  font-size: 1.75rem;
+  width: 48px;
+  height: 48px;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -66,7 +66,7 @@
 
 .stat-content h3 {
   margin: 0 0 var(--spacing-xs) 0;
-  font-size: var(--font-size-sm);
+  font-size: 11px;
   color: var(--gray-600);
   font-weight: var(--font-weight-medium);
   text-transform: uppercase;
@@ -75,7 +75,7 @@
 
 .stat-value {
   margin: 0 0 var(--spacing-xs) 0;
-  font-size: var(--font-size-3xl);
+  font-size: var(--font-size-lg);
   font-weight: var(--font-weight-bold);
   color: var(--gray-900);
   line-height: 1.2;
@@ -83,27 +83,27 @@
 
 .stat-label {
   margin: 0;
-  font-size: var(--font-size-xs);
+  font-size: 11px;
   color: var(--gray-500);
   font-weight: var(--font-weight-normal);
 }
 
 .dashboard-sections {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(400px, 1fr));
-  gap: var(--spacing-lg);
+  grid-template-columns: repeat(auto-fit, minmax(340px, 1fr));
+  gap: var(--spacing-md);
 }
 
 .dashboard-section {
   background: var(--white);
   border-radius: var(--radius-lg);
-  padding: var(--spacing-lg);
+  padding: var(--spacing-md);
   box-shadow: var(--shadow-sm);
 }
 
 .dashboard-section h2 {
-  margin: 0 0 var(--spacing-lg) 0;
-  font-size: var(--font-size-lg);
+  margin: 0 0 var(--spacing-md) 0;
+  font-size: var(--font-size-md);
   color: var(--gray-900);
   border-bottom: 2px solid var(--gray-200);
   padding-bottom: var(--spacing-sm);
@@ -113,12 +113,12 @@
 .fees-list {
   display: flex;
   flex-direction: column;
-  gap: var(--spacing-md);
+  gap: var(--spacing-sm);
 }
 
 .homework-item,
 .fee-item {
-  padding: var(--spacing-md);
+  padding: var(--spacing-sm);
   background: var(--gray-50);
   border-radius: var(--radius-md);
   border-left: 3px solid var(--primary-color);
@@ -127,7 +127,7 @@
 .homework-info h4,
 .fee-info h4 {
   margin: 0 0 var(--spacing-xs) 0;
-  font-size: var(--font-size-base);
+  font-size: var(--font-size-sm);
   font-weight: var(--font-weight-semibold);
   color: var(--gray-900);
   line-height: 1.4;
@@ -136,7 +136,7 @@
 .homework-info p,
 .fee-info p {
   margin: 0 0 var(--spacing-xs) 0;
-  font-size: var(--font-size-sm);
+  font-size: var(--font-size-xs);
   color: var(--gray-600);
 }
 
@@ -166,18 +166,22 @@
 
 .empty-message {
   text-align: center;
-  padding: var(--spacing-xl);
+  padding: var(--spacing-md);
   color: var(--gray-500);
   font-style: italic;
 }
 
 @media (max-width: 768px) {
+  .student-dashboard {
+    padding: var(--spacing-sm);
+  }
+
   .dashboard-header h1 {
     font-size: var(--font-size-xl);
   }
 
   .dashboard-stats {
-    grid-template-columns: 1fr;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
     gap: var(--spacing-md);
   }
 
@@ -186,13 +190,13 @@
   }
 
   .stat-icon {
-    width: 60px;
-    height: 60px;
-    font-size: 2rem;
+    width: 42px;
+    height: 42px;
+    font-size: 1.4rem;
   }
 
   .stat-value {
-    font-size: var(--font-size-lg);
+    font-size: var(--font-size-md);
   }
 
   .dashboard-sections {
@@ -219,15 +223,15 @@
   }
 
   .stat-card {
-    flex-direction: column;
-    text-align: center;
+    flex-direction: row;
+    text-align: left;
     padding: var(--spacing-sm);
   }
 
   .stat-icon {
-    width: 50px;
-    height: 50px;
-    font-size: 1.5rem;
+    width: 38px;
+    height: 38px;
+    font-size: 1.2rem;
   }
 
   .stat-content h3 {
@@ -236,6 +240,10 @@
 
   .stat-value {
     font-size: var(--font-size-md);
+  }
+
+  .dashboard-stats {
+    grid-template-columns: 1fr;
   }
 }
 

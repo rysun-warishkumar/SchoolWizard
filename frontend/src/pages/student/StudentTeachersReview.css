@@ -108,6 +108,8 @@
 
 .btn-review:hover {
   background: var(--primary-color-dark);
+  color: rgb(1, 1, 1) !important;
+  border: 2px solid var(--primary-color);
 }
 
 .student-teachers-review-page .modal-overlay {

@@ -314,7 +314,9 @@ export const getStudentLeaveRequests = async (
     const db = getDatabase();
 
     let actualStudentId = student_id;
-    if (req.user?.role === 'student') {
+    const roleName = String(req.user?.role || '').toLowerCase();
+    let parentChildIds: number[] = [];
+    if (roleName === 'student') {
       const [students] = await db.execute(
         'SELECT id FROM students WHERE user_id = ? AND school_id = ?',
         [req.user.id, schoolId]
@@ -323,6 +325,29 @@ export const getStudentLeaveRequests = async (
         throw createError('Student profile not found', 404);
       }
       actualStudentId = students[0].id;
+    } else if (roleName === 'parent') {
+      const parentEmail = String(req.user?.email || '').trim();
+      if (!parentEmail) throw createError('Parent email is required', 400);
+      const [children] = await db.execute(
+        `SELECT id
+         FROM students
+         WHERE school_id = ?
+           AND (father_email = ? OR mother_email = ? OR guardian_email = ?)`,
+        [schoolId, parentEmail, parentEmail, parentEmail]
+      ) as any[];
+      parentChildIds = (Array.isArray(children) ? children : [])
+        .map((row: any) => Number(row.id))
+        .filter((id: number) => Number.isInteger(id) && id > 0);
+      if (parentChildIds.length === 0) {
+        throw createError('No linked students found for parent account', 403);
+      }
+      if (actualStudentId) {
+        const reqStudentId = Number(actualStudentId);
+        if (!parentChildIds.includes(reqStudentId)) {
+          throw createError('You can only view leave requests for linked students', 403);
+        }
+        actualStudentId = reqStudentId;
+      }
     }
 
     let query = `
@@ -346,6 +371,10 @@ export const getStudentLeaveRequests = async (
     if (actualStudentId) {
       query += ' AND slr.student_id = ?';
       params.push(actualStudentId);
+    } else if (roleName === 'parent') {
+      const placeholders = parentChildIds.map(() => '?').join(', ');
+      query += ` AND slr.student_id IN (${placeholders})`;
+      params.push(...parentChildIds);
     }
     if (status) {
       query += ' AND slr.status = ?';
@@ -375,6 +404,10 @@ export const getStudentLeaveRequests = async (
     if (actualStudentId) {
       countQuery += ' AND student_id = ?';
       countParams.push(actualStudentId);
+    } else if (roleName === 'parent') {
+      const placeholders = parentChildIds.map(() => '?').join(', ');
+      countQuery += ` AND student_id IN (${placeholders})`;
+      countParams.push(...parentChildIds);
     }
     if (status) {
       countQuery += ' AND status = ?';
@@ -458,7 +491,8 @@ export const createStudentLeaveRequest = async (
 
     const db = getDatabase();
 
-    if (req.user?.role === 'student') {
+    const roleName = String(req.user?.role || '').toLowerCase();
+    if (roleName === 'student') {
       const [students] = await db.execute(
         'SELECT id, class_id, section_id, session_id FROM students WHERE user_id = ? AND school_id = ?',
         [req.user.id, schoolId]
@@ -471,6 +505,29 @@ export const createStudentLeaveRequest = async (
       class_id = student.class_id;
       section_id = student.section_id;
       session_id = student.session_id;
+    } else if (roleName === 'parent') {
+      const parentEmail = String(req.user?.email || '').trim();
+      if (!parentEmail) throw createError('Parent email is required', 400);
+      if (!student_id || Number.isNaN(Number(student_id))) {
+        throw createError('Valid student is required', 400);
+      }
+      const [children] = await db.execute(
+        `SELECT id, class_id, section_id, session_id
+         FROM students
+         WHERE school_id = ?
+           AND id = ?
+           AND (father_email = ? OR mother_email = ? OR guardian_email = ?)
+         LIMIT 1`,
+        [schoolId, Number(student_id), parentEmail, parentEmail, parentEmail]
+      ) as any[];
+      if (!Array.isArray(children) || children.length === 0) {
+        throw createError('You can only submit leave requests for linked students', 403);
+      }
+      const child = children[0];
+      student_id = child.id;
+      class_id = child.class_id;
+      section_id = child.section_id;
+      session_id = child.session_id;
     }
 
     if (!student_id || !class_id || !section_id || !session_id || !apply_date || !leave_date || !reason) {

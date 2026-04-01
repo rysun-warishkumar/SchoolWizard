@@ -5,6 +5,7 @@ import { settingsService } from '../../../services/api/settingsService';
 import { transportService } from '../../../services/api/transportService';
 import { useToast } from '../../../contexts/ToastContext';
 import Modal from '../../../components/common/Modal';
+import { FaEye, FaEyeSlash } from 'react-icons/fa';
 
 interface EditStudentModalProps {
   studentId: number;
@@ -16,6 +17,12 @@ interface EditStudentModalProps {
 const EditStudentModal: React.FC<EditStudentModalProps> = ({ studentId, classes, sections, onClose }) => {
   const { showToast } = useToast();
   const queryClient = useQueryClient();
+  const [isPasswordModalOpen, setIsPasswordModalOpen] = useState(false);
+  const [newPassword, setNewPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
+  const [passwordError, setPasswordError] = useState<string | null>(null);
+  const [showNewPassword, setShowNewPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
 
   const { data: studentData, isLoading } = useQuery(
     ['student', studentId],
@@ -113,6 +120,29 @@ const EditStudentModal: React.FC<EditStudentModalProps> = ({ studentId, classes,
     }
   );
 
+  const updatePasswordMutation = useMutation(
+    (payload: { id: string; new_password: string }) =>
+      studentsService.updateStudentPassword(payload.id, payload.new_password),
+    {
+      onSuccess: (response) => {
+        showToast(response.message || 'Password updated successfully', 'success');
+        setIsPasswordModalOpen(false);
+        setNewPassword('');
+        setConfirmPassword('');
+        setPasswordError(null);
+      },
+      onError: (err: any) => {
+        const status = Number(err?.response?.status || 0);
+        const errorMessage =
+          status === 404
+            ? 'Password update API not found (404). Please restart backend server and try again.'
+            : err.response?.data?.message || 'Failed to update password';
+        setPasswordError(errorMessage);
+        showToast(errorMessage, 'error');
+      },
+    }
+  );
+
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
@@ -130,6 +160,37 @@ const EditStudentModal: React.FC<EditStudentModalProps> = ({ studentId, classes,
       transport_route_id: formData.transport_route_id ? Number(formData.transport_route_id) : null,
       gender: formData.gender as 'male' | 'female' | 'other',
     });
+  };
+
+  const handleOpenPasswordModal = () => {
+    setNewPassword('');
+    setConfirmPassword('');
+    setPasswordError(null);
+    setShowNewPassword(false);
+    setShowConfirmPassword(false);
+    setIsPasswordModalOpen(true);
+  };
+
+  const handlePasswordUpdate = (e: React.FormEvent) => {
+    e.preventDefault();
+    setPasswordError(null);
+    if (!newPassword) {
+      setPasswordError('Please enter new password.');
+      showToast('Please enter new password', 'error');
+      return;
+    }
+    if (newPassword.length < 8) {
+      setPasswordError('Password must be at least 8 characters long.');
+      showToast('Password must be at least 8 characters long', 'error');
+      return;
+    }
+    if (newPassword !== confirmPassword) {
+      setPasswordError('Password and confirm password do not match.');
+      showToast('Password and confirm password do not match', 'error');
+      return;
+    }
+
+    updatePasswordMutation.mutate({ id: String(studentId), new_password: newPassword });
   };
 
   if (isLoading) {
@@ -416,15 +477,109 @@ const EditStudentModal: React.FC<EditStudentModalProps> = ({ studentId, classes,
           </div>
         </div>
 
-        <div className="form-actions">
-          <button type="button" onClick={onClose} className="btn-secondary">
-            Cancel
-          </button>
+        <div
+          className="form-actions"
+          style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '12px', flexWrap: 'wrap' }}
+        >
+          <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+            <button type="button" onClick={handleOpenPasswordModal} className="btn-secondary">
+              Update Password
+            </button>
+            <button type="button" onClick={onClose} className="btn-secondary">
+              Cancel
+            </button>
+          </div>
           <button type="submit" className="btn-primary" disabled={updateMutation.isLoading}>
             {updateMutation.isLoading ? 'Updating...' : 'Update Student'}
           </button>
         </div>
       </form>
+
+      <Modal
+        isOpen={isPasswordModalOpen}
+        onClose={() => setIsPasswordModalOpen(false)}
+        title="Update Student Password"
+        size="small"
+      >
+        <form onSubmit={handlePasswordUpdate}>
+          {passwordError && (
+            <div
+              className="error-message"
+              style={{
+                padding: 'var(--spacing-sm)',
+                marginBottom: 'var(--spacing-md)',
+                backgroundColor: '#fee2e2',
+                color: '#991b1b',
+                borderRadius: 'var(--radius-md)',
+                border: '1px solid #fca5a5',
+                fontSize: 'var(--font-size-sm)',
+              }}
+            >
+              {passwordError}
+            </div>
+          )}
+          <div className="form-group">
+            <label htmlFor="student_new_password">New Password</label>
+            <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+              <input
+                id="student_new_password"
+                type={showNewPassword ? 'text' : 'password'}
+                value={newPassword}
+                onChange={(e) => {
+                  setNewPassword(e.target.value);
+                  if (passwordError) setPasswordError(null);
+                }}
+                placeholder="Minimum 8 characters"
+                required
+              />
+              <button
+                type="button"
+                className="btn-secondary"
+                onClick={() => setShowNewPassword((prev) => !prev)}
+                style={{ minWidth: '40px', display: 'inline-flex', alignItems: 'center', justifyContent: 'center' }}
+                aria-label={showNewPassword ? 'Hide new password' : 'Show new password'}
+                title={showNewPassword ? 'Hide password' : 'Show password'}
+              >
+                {showNewPassword ? <FaEyeSlash /> : <FaEye />}
+              </button>
+            </div>
+          </div>
+          <div className="form-group">
+            <label htmlFor="student_confirm_password">Confirm Password</label>
+            <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+              <input
+                id="student_confirm_password"
+                type={showConfirmPassword ? 'text' : 'password'}
+                value={confirmPassword}
+                onChange={(e) => {
+                  setConfirmPassword(e.target.value);
+                  if (passwordError) setPasswordError(null);
+                }}
+                placeholder="Re-enter password"
+                required
+              />
+              <button
+                type="button"
+                className="btn-secondary"
+                onClick={() => setShowConfirmPassword((prev) => !prev)}
+                style={{ minWidth: '40px', display: 'inline-flex', alignItems: 'center', justifyContent: 'center' }}
+                aria-label={showConfirmPassword ? 'Hide confirm password' : 'Show confirm password'}
+                title={showConfirmPassword ? 'Hide password' : 'Show password'}
+              >
+                {showConfirmPassword ? <FaEyeSlash /> : <FaEye />}
+              </button>
+            </div>
+          </div>
+          <div className="form-actions" style={{ marginTop: '16px', display: 'flex', justifyContent: 'flex-end', gap: '8px', flexWrap: 'wrap' }}>
+            <button type="button" className="btn-secondary" onClick={() => setIsPasswordModalOpen(false)}>
+              Cancel
+            </button>
+            <button type="submit" className="btn-primary" disabled={updatePasswordMutation.isLoading}>
+              {updatePasswordMutation.isLoading ? 'Updating...' : 'Update'}
+            </button>
+          </div>
+        </form>
+      </Modal>
     </Modal>
   );
 };

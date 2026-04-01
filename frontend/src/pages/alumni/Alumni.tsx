@@ -15,6 +15,15 @@ import './Alumni.css';
 
 type TabType = 'alumni-records' | 'alumni-events';
 
+const getMediaUrl = (path?: string | null): string => {
+  if (!path) return '';
+  if (path.startsWith('http')) return path;
+  const normalizedPath = path.startsWith('/') ? path : `/${path}`;
+  const apiBase = import.meta.env.VITE_API_BASE_URL || 'http://localhost:5000/api/v1';
+  const serverBase = String(apiBase).replace(/\/api\/v1\/?$/, '');
+  return `${serverBase}${normalizedPath}`;
+};
+
 const AlumniPage = () => {
   const [searchParams, setSearchParams] = useSearchParams();
   const tabFromUrl = searchParams.get('tab') as TabType;
@@ -342,7 +351,7 @@ const AlumniRecordsTab = () => {
                     <td>
                       {item.photo ? (
                         <img
-                          src={`${import.meta.env.VITE_API_BASE_URL}${item.photo}`}
+                          src={getMediaUrl(item.photo)}
                           alt={`${item.first_name} ${item.last_name || ''}`}
                           className="alumni-photo"
                         />
@@ -591,7 +600,7 @@ const AlumniRecordsTab = () => {
               {selectedAlumni.photo && (
                 <div className="current-photo">
                   <img
-                    src={`${import.meta.env.VITE_API_BASE_URL}${selectedAlumni.photo}`}
+                    src={getMediaUrl(selectedAlumni.photo)}
                     alt="Current photo"
                     className="photo-preview"
                   />
@@ -1078,7 +1087,7 @@ const AlumniEventsTab = () => {
               {selectedEvent.event_image && (
                 <div className="current-photo">
                   <img
-                    src={`${import.meta.env.VITE_API_BASE_URL}${selectedEvent.event_image}`}
+                    src={getMediaUrl(selectedEvent.event_image)}
                     alt="Current event image"
                     className="photo-preview"
                   />

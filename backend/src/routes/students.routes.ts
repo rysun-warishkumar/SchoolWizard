@@ -22,6 +22,7 @@ import {
   promoteStudents,
   uploadStudentPhoto,
   bulkImportStudents,
+  updateStudentPassword,
 } from '../controllers/students.controller';
 import { authenticate, requireSchool } from '../middleware/auth';
 import { checkPermission } from '../middleware/permissions';
@@ -67,6 +68,7 @@ router.post('/', checkPermission('students', 'add'), uploadStudentPhoto.single('
 router.put('/:id(\\d+)', checkPermission('students', 'edit'), uploadStudentPhoto.single('photo'), updateStudent);
 router.delete('/:id(\\d+)', checkPermission('students', 'delete'), deleteStudent);
 router.patch('/:id(\\d+)/disable', checkPermission('students', 'edit'), disableStudent);
+router.patch('/:id(\\d+)/password', checkPermission('students', 'edit'), updateStudentPassword);
 
 export default router;
 
