@@ -593,6 +593,9 @@ export const deleteOnlineExam = async (req: Request, res: Response, next: NextFu
 
 export const addQuestionToExam = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
   try {
+    const schoolId = getSchoolId(req as AuthRequest);
+    if (schoolId == null) throw createError('School context required', 403);
+
     const { online_exam_id } = req.params;
     const { question_id, marks, display_order } = req.body;
 
@@ -602,54 +605,57 @@ export const addQuestionToExam = async (req: Request, res: Response, next: NextF
 
     const db = getDatabase();
 
+    const [exams] = await db.execute(
+      'SELECT id FROM online_exams WHERE id = ? AND school_id = ? LIMIT 1',
+      [online_exam_id, schoolId]
+    ) as any[];
+    if (!Array.isArray(exams) || exams.length === 0) {
+      throw createError('Online exam not found for this school', 404);
+    }
+
+    const [questions] = await db.execute(
+      'SELECT id, marks FROM question_bank WHERE id = ? AND school_id = ? LIMIT 1',
+      [question_id, schoolId]
+    ) as any[];
+    if (!Array.isArray(questions) || questions.length === 0) {
+      throw createError('Question not found for this school', 404);
+    }
+
     // Get the marks from the question if not provided
     let questionMarks = marks;
     if (!questionMarks) {
-      const [questionData] = await db.execute(
-        'SELECT marks FROM question_bank WHERE id = ?',
-        [question_id]
-      ) as any[];
-      
-      if (questionData.length > 0) {
-        questionMarks = questionData[0].marks || 1.00;
-      } else {
-        questionMarks = 1.00;
-      }
+      questionMarks = questions[0].marks || 1.0;
     }
 
     // Get the next display order if not provided
     let nextDisplayOrder = display_order;
     if (nextDisplayOrder === undefined || nextDisplayOrder === null) {
       const [maxOrder] = await db.execute(
-        'SELECT COALESCE(MAX(display_order), 0) + 1 as next_order FROM online_exam_questions WHERE online_exam_id = ?',
-        [online_exam_id]
+        `SELECT COALESCE(MAX(display_order), 0) + 1 as next_order
+         FROM online_exam_questions
+         WHERE online_exam_id = ? AND school_id = ?`,
+        [online_exam_id, schoolId]
       ) as any[];
       nextDisplayOrder = maxOrder[0]?.next_order || 1;
     }
 
     await db.execute(
-      `INSERT INTO online_exam_questions (online_exam_id, question_id, marks, display_order)
-       VALUES (?, ?, ?, ?)
-       ON DUPLICATE KEY UPDATE marks = ?, display_order = ?`,
-      [
-        online_exam_id,
-        question_id,
-        questionMarks,
-        nextDisplayOrder,
-        questionMarks,
-        nextDisplayOrder,
-      ]
+      `INSERT INTO online_exam_questions (school_id, online_exam_id, question_id, marks, display_order)
+       VALUES (?, ?, ?, ?, ?)
+       ON DUPLICATE KEY UPDATE marks = VALUES(marks), display_order = VALUES(display_order)`,
+      [schoolId, online_exam_id, question_id, questionMarks, nextDisplayOrder]
     );
 
     // Update total marks
     const [totalMarks] = await db.execute(
-      `SELECT SUM(marks) as total FROM online_exam_questions WHERE online_exam_id = ?`,
-      [online_exam_id]
+      `SELECT SUM(marks) as total FROM online_exam_questions WHERE online_exam_id = ? AND school_id = ?`,
+      [online_exam_id, schoolId]
     ) as any[];
 
-    await db.execute('UPDATE online_exams SET total_marks = ? WHERE id = ?', [
+    await db.execute('UPDATE online_exams SET total_marks = ? WHERE id = ? AND school_id = ?', [
       totalMarks[0].total || 0,
       online_exam_id,
+      schoolId,
     ]);
 
     res.json({
