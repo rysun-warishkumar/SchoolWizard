@@ -1,0 +1,21 @@
+/**
+ * Lesson Plan — table action row layout only.
+ * Button visuals: components/common/ActionIconButton.css
+ */
+
+.lesson-plan-page .lp-table-actions {
+  display: inline-flex;
+  flex-direction: row;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 8px;
+  flex-wrap: wrap;
+  vertical-align: middle;
+}
+
+@media (max-width: 768px) {
+  .lesson-plan-page .lp-table-actions {
+    gap: 6px;
+    justify-content: flex-end;
+  }
+}

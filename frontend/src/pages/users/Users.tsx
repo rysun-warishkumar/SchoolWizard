@@ -184,7 +184,12 @@ const Users = () => {
                         >
                           {user.is_active ? 'Disable' : 'Enable'}
                         </button>
-                        <ActionIconButton variant="delete" onClick={() => handleDelete(user.id)} tooltip="Delete user" />
+                        <ActionIconButton
+                          variant="delete"
+                          onClick={() => handleDelete(user.id)}
+                          disabled={!!user.is_active}
+                          tooltip={user.is_active ? 'Disable user first before deleting' : 'Delete user'}
+                        />
                       </div>
                     </td>
                   </tr>

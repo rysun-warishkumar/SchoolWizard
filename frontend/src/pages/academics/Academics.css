@@ -587,38 +587,6 @@
   padding: var(--spacing-sm);
 }
 
-.timetable-table .btn-edit,
-.timetable-table .btn-delete {
-  padding: 6px 12px;
-  font-size: var(--font-size-xs);
-  white-space: nowrap;
-  min-width: 60px;
-  flex-shrink: 0;
-  border-radius: var(--radius-sm);
-  border: 1px solid transparent;
-  cursor: pointer;
-  transition: all var(--transition-base);
-  font-weight: 500;
-}
-
-.timetable-table .btn-edit {
-  background: var(--primary-color);
-  color: var(--white);
-}
-
-.timetable-table .btn-edit:hover {
-  background: var(--primary-color-dark);
-}
-
-.timetable-table .btn-delete {
-  background: var(--error-color, #dc3545);
-  color: var(--white);
-}
-
-.timetable-table .btn-delete:hover {
-  background: var(--error-color-dark, #c82333);
-}
-
 /* Responsive adjustments for timetable table */
 @media (max-width: 768px) {
   .timetable-table {
@@ -660,12 +628,6 @@
     min-width: 120px;
   }
   
-  .timetable-table .btn-edit,
-  .timetable-table .btn-delete {
-    padding: 4px 8px;
-    font-size: 11px;
-    min-width: 50px;
-  }
 }
 
 .timetable-add {

@@ -269,32 +269,33 @@ table tbody tr:hover {
   margin-right: var(--spacing-xs);
 }
 
-.btn-view {
+/* Text row actions (btn-sm + variant) — not ActionIconButton */
+.front-cms-page .btn-sm.btn-view {
   background: var(--success-color, #10b981);
   color: white;
   margin-right: var(--spacing-xs);
 }
 
-.btn-view:hover {
+.front-cms-page .btn-sm.btn-view:hover {
   background: #059669 !important;
 }
 
-.btn-edit {
+.front-cms-page .btn-sm.btn-edit {
   background: var(--primary-color);
   color: white;
   margin-right: var(--spacing-xs);
 }
 
-.btn-edit:hover {
-  background: var(--primary-color-dark);
+.front-cms-page .btn-sm.btn-edit:hover {
+  background: var(--primary-dark);
 }
 
-.btn-delete {
+.front-cms-page .btn-sm.btn-delete {
   background: var(--error-color);
   color: white;
 }
 
-.btn-delete:hover {
+.front-cms-page .btn-sm.btn-delete:hover {
   background: #dc2626;
 }
 

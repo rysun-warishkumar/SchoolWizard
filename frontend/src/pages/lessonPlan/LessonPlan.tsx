@@ -12,6 +12,7 @@ import { useToast } from '../../contexts/ToastContext';
 import Modal from '../../components/common/Modal';
 import ActionIconButton from '../../components/common/ActionIconButton';
 import './LessonPlan.css';
+import './LessonPlanActionButtons.css';
 
 type TabType = 'subject-status' | 'lesson-plans';
 
@@ -403,8 +404,10 @@ const SubjectStatusTab = () => {
                       </div>
                     </td>
                     <td>
-                      <ActionIconButton variant="edit" onClick={() => handleEditClick(status)} tooltip="Edit subject status" />
-                      <ActionIconButton variant="delete" onClick={() => handleDelete(status.id)} tooltip="Delete subject status" />
+                      <div className="lp-table-actions">
+                        <ActionIconButton variant="edit" onClick={() => handleEditClick(status)} tooltip="Edit subject status" />
+                        <ActionIconButton variant="delete" onClick={() => handleDelete(status.id)} tooltip="Delete subject status" />
+                      </div>
                     </td>
                   </tr>
                 ))
@@ -815,9 +818,11 @@ const LessonPlansTab = () => {
                       </span>
                     </td>
                     <td>
-                      <ActionIconButton variant="view" onClick={() => handleViewClick(plan)} tooltip="View lesson plan" />
-                      <ActionIconButton variant="edit" onClick={() => handleEditClick(plan)} tooltip="Edit lesson plan" />
-                      <ActionIconButton variant="delete" onClick={() => handleDelete(plan.id)} tooltip="Delete lesson plan" />
+                      <div className="lp-table-actions">
+                        <ActionIconButton variant="view" onClick={() => handleViewClick(plan)} tooltip="View lesson plan" />
+                        <ActionIconButton variant="edit" onClick={() => handleEditClick(plan)} tooltip="Edit lesson plan" />
+                        <ActionIconButton variant="delete" onClick={() => handleDelete(plan.id)} tooltip="Delete lesson plan" />
+                      </div>
                     </td>
                   </tr>
                 ))

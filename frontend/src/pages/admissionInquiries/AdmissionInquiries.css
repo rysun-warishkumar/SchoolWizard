@@ -104,20 +104,7 @@
   color: #991b1b;
 }
 
-.btn-view {
-  padding: 0.5rem 1rem;
-  background: var(--primary-blue);
-  color: white;
-  border: none;
-  border-radius: 4px;
-  font-size: 0.875rem;
-  cursor: pointer;
-  transition: background 0.3s ease;
-}
-
-.btn-view:hover {
-  background: var(--primary-blue-dark);
-}
+/* ActionIconButton (view): global ActionIconButton.css */
 
 .inquiry-detail {
   max-height: 70vh;

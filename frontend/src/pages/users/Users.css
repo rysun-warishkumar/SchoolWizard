@@ -67,8 +67,8 @@
 }
 
 .btn-primary,
-.btn-edit,
-.btn-delete,
+.btn-edit:not(.action-icon-btn),
+.btn-delete:not(.action-icon-btn),
 .btn-toggle,
 .btn-enable,
 .btn-disable {
@@ -89,12 +89,12 @@
   background: var(--primary-dark);
 }
 
-.btn-edit {
+.btn-edit:not(.action-icon-btn) {
   background: var(--info-color);
   color: var(--white);
 }
 
-.btn-delete {
+.btn-delete:not(.action-icon-btn) {
   background: var(--error-color);
   color: var(--white);
 }

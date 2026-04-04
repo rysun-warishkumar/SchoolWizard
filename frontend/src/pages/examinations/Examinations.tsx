@@ -4833,6 +4833,7 @@ const ExamDetailsModal = ({
       onClose={onClose} 
       title={`Exam: ${currentExam.name || 'Loading...'}`} 
       size="large"
+      className="exam-details-view-modal"
       headerActions={
         <>
           <button className="btn-sm btn-primary" onClick={onAssignStudents}>
@@ -5012,23 +5013,32 @@ const AssignStudentsModal = ({ exam, isOpen, onClose, onSuccess }: AssignStudent
   const queryClient = useQueryClient();
   const { showToast } = useToast();
 
-  const { data: classesResponse } = useQuery('classes', academicsService.getClasses);
-  const { data: sectionsResponse } = useQuery('sections', () => academicsService.getSections());
-  const { data: studentsData, isLoading } = useQuery(
-    ['students', classId, sectionId],
+  // Fetch only when this modal is open so dropdowns populate immediately (avoids stale/empty cache from cold mount)
+  const { data: classesResponse, isLoading: classesLoading } = useQuery(
+    ['examinations', 'assign-students-modal', 'classes'],
+    () => academicsService.getClasses(),
+    { enabled: isOpen, staleTime: 0, refetchOnMount: true }
+  );
+  const { data: sectionsResponse, isLoading: sectionsLoading } = useQuery(
+    ['examinations', 'assign-students-modal', 'sections', classId],
+    () => academicsService.getSections(Number(classId)),
+    { enabled: isOpen && !!classId, staleTime: 0, refetchOnMount: true }
+  );
+  const { data: studentsData, isLoading: studentsLoading } = useQuery(
+    ['students', 'assign-exam', classId, sectionId],
     () =>
       studentsService.getStudents({
         class_id: classId ? Number(classId) : undefined,
         section_id: sectionId ? Number(sectionId) : undefined,
       }),
-    { enabled: !!classId && !!sectionId }
+    { enabled: isOpen && !!classId && !!sectionId }
   );
 
   // Load existing assigned students
   const { data: examDetails } = useQuery(
     ['exam', exam.id],
     () => examinationsService.getExamById(exam.id),
-    { enabled: isOpen }
+    { enabled: isOpen, staleTime: 0 }
   );
 
   // Safely get classes and sections arrays from response
@@ -5045,6 +5055,13 @@ const AssignStudentsModal = ({ exam, isOpen, onClose, onSuccess }: AssignStudent
       setSelectedStudents([]);
     }
   }, [examDetails]);
+
+  useEffect(() => {
+    if (!isOpen) {
+      setClassId('');
+      setSectionId('');
+    }
+  }, [isOpen]);
 
   const assignMutation = useMutation(
     (studentIds: number[]) => examinationsService.assignExamStudents(exam.id, studentIds),
@@ -5094,39 +5111,62 @@ const AssignStudentsModal = ({ exam, isOpen, onClose, onSuccess }: AssignStudent
         <div className="form-row">
           <div className="form-group">
             <label>Class</label>
-            <select value={classId} onChange={(e) => setClassId(e.target.value)}>
+            <select
+              value={classId}
+              onChange={(e) => {
+                setClassId(e.target.value);
+                setSectionId('');
+              }}
+              disabled={classesLoading}
+            >
               <option value="">Select Class</option>
-              {classes && Array.isArray(classes) && classes.length > 0 ? (
+              {classesLoading ? (
+                <option value="" disabled>
+                  Loading classes...
+                </option>
+              ) : classes && Array.isArray(classes) && classes.length > 0 ? (
                 classes.map((cls) => (
                   <option key={cls.id} value={cls.id}>
                     {cls.name}
                   </option>
                 ))
               ) : (
-                <option value="" disabled>Loading classes...</option>
+                <option value="" disabled>
+                  No classes found
+                </option>
               )}
             </select>
           </div>
           <div className="form-group">
             <label>Section</label>
-            <select value={sectionId} onChange={(e) => setSectionId(e.target.value)}>
-              <option value="">Select Section</option>
-              {sections && Array.isArray(sections) && sections.length > 0 ? (
+            <select
+              value={sectionId}
+              onChange={(e) => setSectionId(e.target.value)}
+              disabled={sectionsLoading || !classId}
+            >
+              <option value="">{classId ? 'Select Section' : 'Select class first'}</option>
+              {sectionsLoading ? (
+                <option value="" disabled>
+                  Loading sections...
+                </option>
+              ) : classId && sections && Array.isArray(sections) && sections.length > 0 ? (
                 sections.map((sec) => (
                   <option key={sec.id} value={sec.id}>
                     {sec.name}
                   </option>
                 ))
-              ) : (
-                <option value="" disabled>Loading sections...</option>
-              )}
+              ) : classId ? (
+                <option value="" disabled>
+                  No sections for this class
+                </option>
+              ) : null}
             </select>
           </div>
         </div>
 
         {classId && sectionId && (
           <>
-            {isLoading ? (
+            {studentsLoading ? (
               <div className="loading">Loading students...</div>
             ) : studentsData?.data && Array.isArray(studentsData.data) && studentsData.data.length > 0 ? (
               <>

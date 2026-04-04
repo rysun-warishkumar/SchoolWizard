@@ -1,20 +1,97 @@
+/**
+ * Global styles for ActionIconButton (action-icon-btn + btn-view | btn-edit | btn-delete).
+ * Single source of truth — do not redefine .btn-edit / .btn-delete for these buttons in page CSS.
+ */
+
 .action-icon-btn {
   width: 38px;
   min-width: 38px;
   height: 34px;
-  padding: 0;
+  min-height: 34px;
+  padding: 0 !important;
+  margin: 0;
   display: inline-flex;
   align-items: center;
   justify-content: center;
   line-height: 1;
+  border: none;
+  border-radius: var(--radius-md, 8px);
+  cursor: pointer;
+  box-sizing: border-box;
+  flex-shrink: 0;
+  box-shadow: none;
+  transform: none;
+  transition:
+    background var(--transition-base, 0.2s ease),
+    box-shadow var(--transition-base, 0.2s ease),
+    transform var(--transition-base, 0.2s ease);
+}
+
+.action-icon-btn:focus-visible {
+  outline: 2px solid var(--primary-color);
+  outline-offset: 2px;
+}
+
+.action-icon-btn:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
 }
 
 .action-icon-btn .action-icon-glyph {
   font-size: 14px;
+  width: 1em;
+  height: 1em;
+  flex-shrink: 0;
 }
 
-/* Keep glyph visible on solid primary buttons (download/return) */
+/* View + Edit — primary */
+.action-icon-btn.btn-view,
+.action-icon-btn.btn-edit {
+  background: var(--primary-color);
+  color: var(--white);
+}
+
+.action-icon-btn.btn-view:hover:not(:disabled),
+.action-icon-btn.btn-edit:hover:not(:disabled) {
+  background: var(--primary-dark);
+  color: var(--white) !important;
+  box-shadow: 0 2px 8px rgba(37, 99, 235, 0.35);
+  transform: none;
+}
+
+.action-icon-btn.btn-view:active:not(:disabled),
+.action-icon-btn.btn-edit:active:not(:disabled) {
+  background: var(--primary-dark);
+  transform: none;
+  box-shadow: none;
+}
+
+/* Delete — danger */
+.action-icon-btn.btn-delete {
+  background: var(--error-color);
+  color: var(--white);
+}
+
+.action-icon-btn.btn-delete:hover:not(:disabled) {
+  background: #dc2626;
+  color: var(--white) !important;
+  box-shadow: 0 2px 8px rgba(239, 68, 68, 0.35);
+  transform: none;
+}
+
+.action-icon-btn.btn-delete:active:not(:disabled) {
+  transform: none;
+  box-shadow: none;
+}
+
+/* Download / return variants use .btn-primary on the same element */
 .action-icon-btn.btn-primary {
+  background: var(--primary-color);
+  color: var(--white) !important;
+}
+
+.action-icon-btn.btn-primary:hover:not(:disabled) {
+  background: var(--primary-dark);
   color: var(--white) !important;
 }
 
@@ -25,7 +102,7 @@
 .action-icon-btn.show-label {
   width: auto;
   min-width: 38px;
-  padding: 0 10px;
+  padding: 0 10px !important;
   gap: 6px;
 }
 
@@ -34,3 +111,16 @@
   font-size: var(--font-size-xs);
 }
 
+/* Slightly larger touch targets on small viewports */
+@media (max-width: 768px) {
+  .action-icon-btn {
+    width: 40px;
+    min-width: 40px;
+    height: 40px;
+    min-height: 40px;
+  }
+
+  .action-icon-btn .action-icon-glyph {
+    font-size: 16px;
+  }
+}

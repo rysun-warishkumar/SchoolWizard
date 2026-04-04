@@ -232,8 +232,10 @@
   align-items: start;
 }
 
-.examinations-page .modal-content{
-  max-width: 1500px !important;
+/* View Exam modal only — 1200px (does not change global Modal or other examination modals) */
+.examinations-page .modal-overlay > .modal-content.exam-details-view-modal {
+  width: 100% !important;
+  max-width: min(1200px, calc(100vw - 32px)) !important;
 }
 
 /* Section Styling (for both Subjects and Students) */

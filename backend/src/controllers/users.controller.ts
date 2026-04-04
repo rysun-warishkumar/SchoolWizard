@@ -303,6 +303,10 @@ export const deleteUser = async (
       throw createError('Cannot delete superadmin user', 403);
     }
 
+    if (users[0].is_active) {
+      throw createError('Cannot delete active user. Please disable the user first.', 400);
+    }
+
     await db.execute('DELETE FROM users WHERE id = ? AND school_id = ?', [id, schoolId]);
 
     res.json({

@@ -378,35 +378,7 @@
   gap: var(--spacing-sm);
 }
 
-.btn-edit,
-.btn-delete {
-  padding: var(--spacing-xs) var(--spacing-md);
-  border: none;
-  border-radius: var(--radius-sm);
-  cursor: pointer;
-  font-size: var(--font-size-sm);
-  transition: all var(--transition-base);
-}
-
-.btn-edit {
-  background: var(--primary-light);
-  color: var(--primary-color);
-}
-
-.btn-edit:hover {
-  background: var(--primary-color);
-  color: var(--white);
-}
-
-.btn-delete {
-  background: var(--error-light);
-  color: var(--error-color);
-}
-
-.btn-delete:hover {
-  background: var(--error-color);
-  color: var(--white);
-}
+/* .btn-edit / .btn-delete: use global index.css or ActionIconButton.css for ActionIconButton */
 
 .settings-content .empty-state {
   padding: var(--spacing-2xl);

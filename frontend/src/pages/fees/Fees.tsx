@@ -1629,43 +1629,45 @@ const CollectFeesTab = () => {
         </div>
       ) : students.length > 0 ? (
         <div className="students-list">
-          <table className="data-table">
-            <thead>
-              <tr>
-                <th>Admission No</th>
-                <th>Name</th>
-                <th>Class</th>
-                <th>Section</th>
-                <th>Actions</th>
-              </tr>
-            </thead>
-            <tbody>
-              {students.map((student: any) => (
-                <tr
-                  key={student.id}
-                  className={selectedStudent?.id === student.id ? 'selected' : ''}
-                >
-                  <td>{student.admission_no}</td>
-                  <td>
-                    {student.first_name} {student.last_name}
-                  </td>
-                  <td>{student.class_name}</td>
-                  <td>{student.section_name}</td>
-                  <td>
-                    <button
-                      className="btn-sm btn-primary"
-                      onClick={() => {
-                        setSelectedStudent(student);
-                        setShowStudentFeesModal(true);
-                      }}
-                    >
-                      View Fees
-                    </button>
-                  </td>
+          <div className="fees-table-scroll fees-table-scroll--collect-list">
+            <table className="data-table">
+              <thead>
+                <tr>
+                  <th>Admission No</th>
+                  <th>Name</th>
+                  <th>Class</th>
+                  <th>Section</th>
+                  <th>Actions</th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
+              </thead>
+              <tbody>
+                {students.map((student: any) => (
+                  <tr
+                    key={student.id}
+                    className={selectedStudent?.id === student.id ? 'selected' : ''}
+                  >
+                    <td>{student.admission_no}</td>
+                    <td>
+                      {student.first_name} {student.last_name}
+                    </td>
+                    <td>{student.class_name}</td>
+                    <td>{student.section_name}</td>
+                    <td>
+                      <button
+                        className="btn-sm btn-primary"
+                        onClick={() => {
+                          setSelectedStudent(student);
+                          setShowStudentFeesModal(true);
+                        }}
+                      >
+                        View Fees
+                      </button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
         </div>
       ) : (
         <div className="empty-state">
@@ -1693,21 +1695,22 @@ const CollectFeesTab = () => {
           <div className="student-fees-section">
             <h3 style={{ marginBottom: '12px' }}>Invoices</h3>
             {invoices.length > 0 ? (
-              <table className="data-table">
-                <thead>
-                  <tr>
-                    <th>Invoice No</th>
-                    <th>Fees Group</th>
-                    <th>Fees Type</th>
-                    <th>Amount</th>
-                    <th>Paid</th>
-                    <th>Balance</th>
-                    <th>Due Date</th>
-                    <th>Status</th>
-                    <th>Actions</th>
-                  </tr>
-                </thead>
-                <tbody>
+              <div className="fees-table-scroll fees-table-scroll--modal">
+                <table className="data-table">
+                  <thead>
+                    <tr>
+                      <th>Invoice No</th>
+                      <th>Fees Group</th>
+                      <th>Fees Type</th>
+                      <th>Amount</th>
+                      <th>Paid</th>
+                      <th>Balance</th>
+                      <th>Due Date</th>
+                      <th>Status</th>
+                      <th>Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody>
                   {invoices.map((invoice) => {
                     const paidFromTx = payments
                       .filter((p) => p.fees_invoice_id === invoice.id)
@@ -1778,40 +1781,43 @@ const CollectFeesTab = () => {
                     </tr>
                     );
                   })}
-                </tbody>
-              </table>
+                  </tbody>
+                </table>
+              </div>
             ) : (
               <div className="empty-state">No fees invoices found for this student.</div>
             )}
 
             <h3 style={{ margin: '18px 0 12px' }}>Transaction Details</h3>
             {payments.length > 0 ? (
-              <table className="data-table">
-                <thead>
-                  <tr>
-                    <th>Payment ID</th>
-                    <th>Invoice No</th>
-                    <th>Amount</th>
-                    <th>Discount</th>
-                    <th>Fine</th>
-                    <th>Payment Date</th>
-                    <th>Payment Mode</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {payments.map((payment) => (
-                    <tr key={payment.id}>
-                      <td>{payment.payment_id}</td>
-                      <td>{payment.invoice_no || '-'}</td>
-                      <td>₹{Number(payment.amount || 0).toFixed(2)}</td>
-                      <td>₹{Number(payment.discount_amount || 0).toFixed(2)}</td>
-                      <td>₹{Number(payment.fine_amount || 0).toFixed(2)}</td>
-                      <td>{new Date(payment.payment_date).toLocaleDateString()}</td>
-                      <td>{payment.payment_mode || '-'}</td>
+              <div className="fees-table-scroll fees-table-scroll--modal">
+                <table className="data-table">
+                  <thead>
+                    <tr>
+                      <th>Payment ID</th>
+                      <th>Invoice No</th>
+                      <th>Amount</th>
+                      <th>Discount</th>
+                      <th>Fine</th>
+                      <th>Payment Date</th>
+                      <th>Payment Mode</th>
                     </tr>
-                  ))}
-                </tbody>
-              </table>
+                  </thead>
+                  <tbody>
+                    {payments.map((payment) => (
+                      <tr key={payment.id}>
+                        <td>{payment.payment_id}</td>
+                        <td>{payment.invoice_no || '-'}</td>
+                        <td>₹{Number(payment.amount || 0).toFixed(2)}</td>
+                        <td>₹{Number(payment.discount_amount || 0).toFixed(2)}</td>
+                        <td>₹{Number(payment.fine_amount || 0).toFixed(2)}</td>
+                        <td>{new Date(payment.payment_date).toLocaleDateString()}</td>
+                        <td>{payment.payment_mode || '-'}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
             ) : (
               <div className="empty-state">No transaction records found for this student.</div>
             )}

@@ -134,6 +134,7 @@
 .fees-content {
   width: 100%;
   max-width: 100%;
+  min-width: 0;
   overflow-x: hidden;
   box-sizing: border-box;
 }
@@ -253,6 +254,46 @@
   box-shadow: var(--shadow-sm);
   overflow: hidden;
   margin-bottom: var(--spacing-xl);
+  min-width: 0;
+}
+
+/* Scroll container: keep <table> as real table; overflow lives on wrapper (mobile-friendly). */
+.fees-page .fees-table-scroll {
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
+  overflow-x: auto;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior-x: contain;
+}
+
+.fees-page .fees-table-scroll .data-table {
+  width: 100%;
+  min-width: 720px;
+  border-collapse: collapse;
+}
+
+/* Long student lists: vertical scroll without growing the page endlessly on small screens */
+.fees-page .fees-table-scroll--collect-list {
+  max-height: min(70vh, 520px);
+}
+
+/* Modal tables: on small screens cap height so long lists scroll inside the modal */
+.fees-page .fees-table-scroll--modal {
+  max-height: min(50vh, 420px);
+}
+
+@media (min-width: 769px) {
+  .fees-page .fees-table-scroll--collect-list {
+    max-height: none;
+    overflow-y: visible;
+  }
+
+  .fees-page .fees-table-scroll--modal {
+    max-height: none;
+    overflow-y: visible;
+  }
 }
 
 .students-list table tbody tr.selected {
@@ -439,24 +480,34 @@
     padding: var(--spacing-md);
   }
 
-  .fees-page .data-table {
-    min-width: 760px;
-    width: max-content;
-    display: block;
-    overflow-x: auto;
-    -webkit-overflow-scrolling: touch;
-    max-width: 100%;
+  /* Tables use .fees-table-scroll wrapper for horizontal + vertical scroll; do not set display:block on table. */
+  .fees-tab-content {
+    min-width: 0;
   }
-}
 
-@media (max-width: 768px) {
-  .fees-page .data-table {
-    display: block !important;
-    overflow-x: auto !important;
+  /* Other fee tabs: horizontal scroll for wide tables without breaking table layout */
+  .fees-page .fees-types-list,
+  .fees-page .fees-groups-list,
+  .fees-page .fees-master-list,
+  .fees-page .fees-discounts-list,
+  .fees-page .search-results,
+  .fees-page .due-fees-results,
+  .fees-page .table-section {
+    overflow-x: auto;
+    overflow-y: visible;
     -webkit-overflow-scrolling: touch;
     max-width: 100%;
-    min-width: 760px !important;
-    width: max-content !important;
+    min-width: 0;
+  }
+
+  .fees-page .fees-types-list .data-table,
+  .fees-page .fees-groups-list .data-table,
+  .fees-page .fees-master-list .data-table,
+  .fees-page .fees-discounts-list .data-table,
+  .fees-page .search-results .data-table,
+  .fees-page .due-fees-results .data-table,
+  .fees-page .table-section .data-table {
+    min-width: 640px;
   }
 }
 

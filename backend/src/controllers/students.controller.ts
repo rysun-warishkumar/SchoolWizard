@@ -1328,12 +1328,16 @@ export const deleteStudent = async (
     const db = getDatabase();
 
     const [students] = await db.execute(
-      'SELECT user_id FROM students WHERE id = ? AND school_id = ?',
+      'SELECT user_id, is_active FROM students WHERE id = ? AND school_id = ?',
       [id, schoolId]
     ) as any[];
 
     if (students.length === 0) {
       throw createError('Student not found', 404);
+    }
+
+    if (students[0].is_active) {
+      throw createError('Cannot delete active student. Please disable the student first.', 400);
     }
 
     const userId = students[0].user_id;

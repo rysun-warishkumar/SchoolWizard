@@ -289,7 +289,6 @@
   align-items: center;
   justify-content: center;
   gap: var(--spacing-sm);
-  padding: var(--spacing-md) var(--spacing-lg);
   background: var(--primary-color);
   color: var(--white);
   border: none;
