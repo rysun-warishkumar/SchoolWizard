@@ -25,6 +25,14 @@
   white-space: nowrap;
 }
 
+@media (max-width: 768px) {
+  .login-copyright-text {
+    position: absolute;
+    left: 50%;
+    transform: translateX(-50%);
+  }
+}
+
 .login-card {
   display: grid;
   grid-template-columns: 42% 1fr;
@@ -90,6 +98,12 @@
 .login-welcome-content {
   position: relative;
   z-index: 1;
+}
+
+@media (max-width: 768px) {
+  .login-welcome-content {
+    justify-items: center;
+  }
 }
 
 .login-welcome-title {
@@ -318,12 +332,19 @@
     max-width: none;
   }
 
+  @media (max-width: 768px) {
+    .login-welcome-content {
+      text-align: -webkit-center;
+    }
+  }
+
   .login-form-section {
     padding: var(--spacing-xl);
   }
 
   .login-version-text {
-    left: var(--spacing-xl);
+    left: 70%;
     bottom: var(--spacing-md);
   }
+}
 }
